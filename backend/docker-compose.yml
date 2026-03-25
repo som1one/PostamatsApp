@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: postamats-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${DB_NAME:-postamats}
+      POSTGRES_USER: ${DB_USER:-postamats}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postamats}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postamats} -d ${POSTGRES_DB:-postamats}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    image: python:3.12-slim
+    container_name: postamats-migrate
+    working_dir: /app/backend
+    env_file:
+      - .env
+    environment:
+      DB_URL: postgresql+psycopg2://${DB_USER:-postamats}:${DB_PASSWORD:-postamats}@db:5432/${DB_NAME:-postamats}
+    volumes:
+      - ../:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "pip install --no-cache-dir -r requirements.txt &&
+             alembic upgrade head"
+    restart: "no"
+
+volumes:
+  postgres_data:
