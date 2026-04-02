@@ -15,6 +15,9 @@ from backend.routers.cities import router as cities_router
 from backend.routers.lockers import router as lockers_router
 from backend.routers.uploads import router as uploads_router
 from backend.routers.products import router as products_router
+from backend.routers.reservation import router as reservation_router
+from backend.routers.payments import router as payments_router, yookassa_webhook_router
+from backend.routers.webhooks_esi import router as webhooks_esi_router
 
 
 app = FastAPI()
@@ -25,6 +28,10 @@ app.include_router(cities_router)
 app.include_router(lockers_router)
 app.include_router(uploads_router)
 app.include_router(products_router)
+app.include_router(reservation_router)
+app.include_router(payments_router)
+app.include_router(yookassa_webhook_router)
+app.include_router(webhooks_esi_router)
 
 @app.on_event("startup")
 async def startup_event():

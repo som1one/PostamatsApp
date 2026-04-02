@@ -1,9 +1,15 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, Request
-from sqlalchemy import select
+from uuid import UUID
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
-from backend.models.enums import VerificationStatus
+from backend.models.enums import RentalStatus, VerificationStatus
+from backend.models.inventory_unit import InventoryUnit
+from backend.models.locker_location import LockerLocation
+from backend.models.product import Product
+from backend.models.rental import Rental
 from backend.models.user import User
 from backend.models.verification_request import VerificationRequest
 from backend.schemas.me_schemas import CreateVerificationRequest, UpdateMePayload
@@ -17,8 +23,21 @@ from backend.utils.me_utils import (
     serialize_verification_not_started,
     serialize_verification_request,
 )
+from backend.utils.rental_serialization import serialize_rental_detail, serialize_rental_list_item
 
 router = APIRouter(prefix="/me", tags=["me"])
+
+_RENTAL_STATUS_GROUPS: dict[str, tuple[RentalStatus, ...]] = {
+    "active": (
+        RentalStatus.PICKUP_READY,
+        RentalStatus.PICKUP_OPENED,
+        RentalStatus.ACTIVE,
+        RentalStatus.RETURN_IN_PROGRESS,
+        RentalStatus.OVERDUE,
+    ),
+    "completed": (RentalStatus.COMPLETED,),
+    "cancelled": (RentalStatus.CANCELLED, RentalStatus.INCIDENT),
+}
 
 
 @router.get("")
@@ -173,3 +192,100 @@ async def get_verification_request(
             "verification": serialize_verification_request(verification_request),
         }
     }
+
+
+@router.get("/rentals")
+async def list_my_rentals(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    status: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+):
+    access_token = extract_bearer_token(request)
+    session = await verify_access_token(access_token, db)
+    user = await db.get(User, session.user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    filters = [Rental.user_id == user.id]
+    if status is not None and status != "":
+        group = _RENTAL_STATUS_GROUPS.get(status)
+        if group is None:
+            raise HTTPException(status_code=400, detail="INVALID_STATUS_FILTER")
+        filters.append(Rental.status.in_(group))
+
+    total = (
+        await db.scalar(select(func.count()).select_from(Rental).where(*filters)) or 0
+    )
+
+    stmt = (
+        select(Rental)
+        .where(*filters)
+        .order_by(Rental.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+    )
+    rentals = (await db.scalars(stmt)).all()
+
+    if not rentals:
+        return {
+            "data": {"rentals": []},
+            "meta": {"page": page, "limit": limit, "total": total},
+        }
+
+    unit_ids = [r.inventory_unit_id for r in rentals]
+    units = (
+        (await db.scalars(select(InventoryUnit).where(InventoryUnit.id.in_(unit_ids)))).all()
+        if unit_ids
+        else []
+    )
+    unit_by_id = {u.id: u for u in units}
+    product_ids = [u.product_id for u in units if u.product_id]
+    products = (
+        (await db.scalars(select(Product).where(Product.id.in_(product_ids)))).all()
+        if product_ids
+        else []
+    )
+    prod_by_id = {p.id: p for p in products}
+    locker_ids = list({r.pickup_locker_id for r in rentals})
+    lockers = (
+        (await db.scalars(select(LockerLocation).where(LockerLocation.id.in_(locker_ids)))).all()
+        if locker_ids
+        else []
+    )
+    locker_by_id = {loc.id: loc for loc in lockers}
+
+    items = []
+    for r in rentals:
+        unit = unit_by_id.get(r.inventory_unit_id)
+        prod = prod_by_id.get(unit.product_id) if unit else None
+        loc = locker_by_id.get(r.pickup_locker_id)
+        items.append(await serialize_rental_list_item(db, r, prod, loc))
+
+    return {
+        "data": {"rentals": items},
+        "meta": {"page": page, "limit": limit, "total": total},
+    }
+
+
+@router.get("/rentals/{rental_id}")
+async def get_my_rental(
+    rental_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    access_token = extract_bearer_token(request)
+    session = await verify_access_token(access_token, db)
+    user = await db.get(User, session.user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    rental = await db.get(Rental, rental_id)
+    if rental is None:
+        raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
+    if rental.user_id != user.id:
+        raise HTTPException(status_code=403, detail="RENTAL_FORBIDDEN")
+
+    detail = await serialize_rental_detail(db, rental)
+    return {"data": detail}

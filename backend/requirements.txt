@@ -9,3 +9,5 @@ python-dotenv
 pydantic-settings
 PyJWT
 boto3
+yookassa
+httpx

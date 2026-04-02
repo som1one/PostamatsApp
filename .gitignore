@@ -1,4 +1,9 @@
 .DS_Store
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+*.pyc
+__pycache__/
 .env
 .env.*
 !.env.example
