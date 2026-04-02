@@ -995,7 +995,7 @@ function AuthScreen({
                 value={phone}
                 onChangeText={(value) => onPhoneChange(sanitizePhoneInput(value))}
                 style={styles.softInputText}
-                placeholder="9991234567"
+                placeholder="+79991234567"
                 placeholderTextColor="#d1d3db"
                 keyboardType="phone-pad"
                 autoCapitalize="none"
@@ -2467,12 +2467,17 @@ const styles = StyleSheet.create({
   softPrimaryButton: {
     minHeight: 58,
     borderRadius: 20,
-    backgroundColor: "#ea928d",
+    backgroundColor: "#dd362d",
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#ca342b",
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
   },
   softPrimaryButtonDisabled: {
-    opacity: 0.55,
+    backgroundColor: "#f2a8a4",
+    shadowOpacity: 0,
   },
   softPrimaryButtonText: {
     color: "#ffffff",
