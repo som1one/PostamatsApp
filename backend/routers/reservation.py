@@ -31,7 +31,7 @@ from backend.schemas.reservation_schemas import (
     CreateReservationPayload,
     ReservationQuotePayload,
 )
-from backend.utils.auth_utils import extract_bearer_token, verify_access_token
+from backend.utils.auth_utils import get_current_client_user
 from backend.utils.lockers_utils import (
     LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY,
     price_plan_to_minor_units,
@@ -50,12 +50,7 @@ router = APIRouter(prefix="/reservations", tags=["reservation"])
 
 
 async def _get_current_user(request: Request, db: AsyncSession) -> User:
-    access_token = extract_bearer_token(request)
-    session = await verify_access_token(access_token, db)
-    user = await db.get(User, session.user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="UNAUTHORIZED")
-    return user
+    return await get_current_client_user(request, db)
 
 
 async def _get_product(product_id: UUID, db: AsyncSession) -> Product:
@@ -364,6 +359,8 @@ async def confirm_reservation(
             reservation_id=reservation.id,
         )
     except EsiReserveError as exc:
+        await db.rollback()
+        # Единица инвентаря остаётся RESERVED: клиент может повторить confirm после починки ESI.
         raise HTTPException(status_code=502, detail="ESI_RESERVE_FAILED") from exc
 
     rental = Rental(

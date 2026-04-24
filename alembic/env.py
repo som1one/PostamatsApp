@@ -18,6 +18,9 @@ if config.config_file_name is not None:
 
 from backend.core.database import Base
 from backend.core.settings import settings
+from backend.models import admin_account  # noqa: F401
+from backend.models import admin_audit_event  # noqa: F401
+from backend.models import admin_auth_session  # noqa: F401
 from backend.models import admin_user  # noqa: F401
 from backend.models import auth_session  # noqa: F401
 from backend.models import auth_verification_session  # noqa: F401

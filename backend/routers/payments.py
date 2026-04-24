@@ -5,9 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
 from backend.models.reservation import Reservation
-from backend.models.user import User
 from backend.schemas.payment_schemas import PreauthPayload, YooKassaWebhookBody
-from backend.utils.auth_utils import extract_bearer_token, verify_access_token
+from backend.utils.auth_utils import get_current_client_user
 from backend.utils.payment_flow import (
     create_preauth_for_reservation,
     process_yookassa_webhook,
@@ -19,22 +18,13 @@ router = APIRouter(prefix="/payments", tags=["payments"])
 yookassa_webhook_router = APIRouter(prefix="/payments/webhooks", tags=["payments"])
 
 
-async def _get_current_user(request: Request, db: AsyncSession) -> User:
-    access_token = extract_bearer_token(request)
-    session = await verify_access_token(access_token, db)
-    user = await db.get(User, session.user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="UNAUTHORIZED")
-    return user
-
-
 @router.post("/preauth")
 async def payments_preauth(
     request: Request,
     payload: PreauthPayload = Body(...),
     db: AsyncSession = Depends(get_db),
 ):
-    user = await _get_current_user(request, db)
+    user = await get_current_client_user(request, db)
     reservation = await db.get(Reservation, payload.reservationId)
     if reservation is None or reservation.user_id != user.id:
         raise HTTPException(status_code=404, detail="RESERVATION_NOT_FOUND")
@@ -49,7 +39,7 @@ async def get_payment(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    user = await _get_current_user(request, db)
+    user = await get_current_client_user(request, db)
     payment = await db.get(Payment, payment_id)
     if payment is None:
         raise HTTPException(status_code=404, detail="PAYMENT_NOT_FOUND")

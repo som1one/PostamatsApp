@@ -19,6 +19,7 @@ from backend.schemas.auth_schemas import ConfirmCodePayload, RequestCodePayload
 from backend.utils.auth_utils import (
     create_access_token,
     create_refresh_token,
+    ensure_user_not_blocked,
     extract_bearer_token,
     generate_code,
     hash_code,
@@ -27,6 +28,7 @@ from backend.utils.auth_utils import (
     verify_refresh_token,
     verify_access_token,
 )
+from backend.utils.phone_utils import normalize_phone_for_storage
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -57,11 +59,16 @@ async def request_code(
     if not resolved_phone:
         raise HTTPException(status_code=422, detail="Phone is required")
 
+    try:
+        normalized_phone = normalize_phone_for_storage(resolved_phone)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     now = datetime.now(timezone.utc)
     code = generate_code()
     hashed_code = hash_code(code)
     verification_session = AuthVerificationSession(
-        phone=resolved_phone,
+        phone=normalized_phone,
         code_hash=hashed_code,
         expires_at=now + timedelta(seconds=settings.JWT_ACCESS_TOKEN_EXPIRE_SECONDS),
         last_sent_at=now,
@@ -137,13 +144,20 @@ async def confirm_code(
     verification_session.status = AuthVerificationSessionStatus.VERIFIED
     verification_session.consumed_at = now
 
-    result = await db.execute(
-        select(User).where(User.phone == verification_session.phone)
-    )
+    try:
+        session_phone = normalize_phone_for_storage(verification_session.phone)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if session_phone != verification_session.phone:
+        verification_session.phone = session_phone
+        await db.flush()
+
+    result = await db.execute(select(User).where(User.phone == session_phone))
     user = result.scalar_one_or_none()
     if user is None:
         user = User(
-            phone=verification_session.phone,
+            phone=session_phone,
             verification_status=VerificationStatus.DRAFT,
             last_login_at=now,
         )
@@ -151,6 +165,8 @@ async def confirm_code(
         await db.flush()
     else:
         user.last_login_at = now
+
+    ensure_user_not_blocked(user)
 
     auth_session = AuthSession(
         id=uuid4(),
@@ -196,6 +212,8 @@ async def refresh(
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+    ensure_user_not_blocked(user)
+
     session.last_used_at = datetime.now(timezone.utc)
     await db.commit()
 
@@ -217,19 +235,11 @@ async def logout(
     request : Request,
     db: AsyncSession = Depends(get_db),
 ):
-    try:
-        access_token = extract_bearer_token(request)
-        session = await verify_access_token(access_token, db)
-    except Exception as exc:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to logout") from exc
-    try:
-        session.last_used_at = datetime.now(timezone.utc)
-        session.revoked_at = datetime.now(timezone.utc)
-        session.revoke_reason = "logout"
-    except Exception as exc:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to logout") from exc
+    access_token = extract_bearer_token(request)
+    session = await verify_access_token(access_token, db)
+    session.last_used_at = datetime.now(timezone.utc)
+    session.revoked_at = datetime.now(timezone.utc)
+    session.revoke_reason = "logout"
     try:
         await db.commit()
         await db.refresh(session)

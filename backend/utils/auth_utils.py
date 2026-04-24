@@ -11,6 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.settings import settings
 from backend.models.auth_session import AuthSession
+from backend.models.enums import VerificationStatus
+from backend.models.user import User
 
 def generate_code():
     return f"{secrets.randbelow(10000):04d}"
@@ -26,6 +28,30 @@ def verify_code(code: str, hashed_code: str):
 
 def hash_refresh_token(refresh_token: str):
     return hashlib.sha512(refresh_token.encode()).hexdigest()
+
+
+def blocked_account_message(user: User) -> str:
+    reason = (user.blocked_reason or "").strip()
+    if reason:
+        if len(reason) > 280:
+            reason = reason[:277] + "..."
+        return f"Аккаунт заблокирован. {reason}"
+    return "Аккаунт заблокирован. Обратитесь в поддержку."
+
+
+def ensure_user_not_blocked(user: User) -> None:
+    if user.is_blocked or user.verification_status == VerificationStatus.BLOCKED:
+        raise HTTPException(status_code=403, detail=blocked_account_message(user))
+
+
+async def get_current_client_user(request: Request, db: AsyncSession) -> User:
+    access_token = extract_bearer_token(request)
+    session = await verify_access_token(access_token, db)
+    user = await db.get(User, session.user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    ensure_user_not_blocked(user)
+    return user
 
 
 def extract_bearer_token(request: Request) -> str:

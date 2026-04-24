@@ -12,7 +12,7 @@ from backend.core.settings import settings
 from backend.models.admin_user import AdminUser
 from backend.models.media_file import MediaFile
 from backend.schemas.uploads_schemas import PRESIGN_KIND_VALUES, PresignUploadRequest
-from backend.utils.auth_utils import extract_bearer_token, verify_access_token
+from backend.utils.auth_utils import get_current_client_user
 from backend.utils.storage_presign import presign_put_object
 from backend.utils.uploads_utils import (
     PRESIGN_KIND_TO_MEDIA,
@@ -24,6 +24,7 @@ from backend.utils.uploads_utils import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
+CLIENT_PRESIGN_KIND_VALUES = PRESIGN_KIND_VALUES.difference({"product_cover", "product_gallery"})
 
 
 @router.post("/presign")
@@ -32,10 +33,9 @@ async def presign_upload(
     db: AsyncSession = Depends(get_db),
     payload: PresignUploadRequest = Body(...),
 ):
-    access_token = extract_bearer_token(request)
-    session = await verify_access_token(access_token, db)
+    user = await get_current_client_user(request, db)
 
-    if payload.kind not in PRESIGN_KIND_VALUES:
+    if payload.kind not in CLIENT_PRESIGN_KIND_VALUES:
         raise HTTPException(status_code=400, detail="INVALID_FILE_KIND")
 
     media_kind = PRESIGN_KIND_TO_MEDIA[payload.kind]
@@ -48,7 +48,7 @@ async def presign_upload(
     if payload.fileSize > max_sz:
         raise HTTPException(status_code=400, detail="FILE_TOO_LARGE")
 
-    result = await db.execute(select(AdminUser).where(AdminUser.user_id == session.user_id))
+    result = await db.execute(select(AdminUser).where(AdminUser.user_id == user.id))
     admin = result.scalar_one_or_none()
 
     file_id = uuid4()
@@ -65,7 +65,7 @@ async def presign_upload(
         file_size=payload.fileSize,
         original_name=payload.fileName,
         kind=media_kind,
-        uploaded_by_user_id=session.user_id if admin is None else None,
+        uploaded_by_user_id=user.id if admin is None else None,
         uploaded_by_admin_id=admin.id if admin is not None else None,
         created_at=now,
     )

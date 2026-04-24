@@ -7,6 +7,12 @@ from pydantic import BaseModel, Field
 from backend.models.enums import DocumentType
 
 
+class RentalReturnRequestPayload(BaseModel):
+    """Тело для запроса возврата. lockerId — если возврат в другой постамат; иначе используется точка выдачи."""
+
+    lockerId: UUID | None = Field(default=None, description="Постамат для возврата")
+
+
 class UpdateMePayload(BaseModel):
     firstName: str | None = Field(None, description="First name")
     lastName: str | None = Field(None, description="Last name")

@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Базовый URL API: только корень (http://host:8000), без /admin в конце -->
+    <meta name="postamats-api-origin" content="" />
+    <title>Postamats Admin</title>
+    <link rel="stylesheet" href="./styles.css?v=12" />
+  </head>
+  <body>
+    <div class="admin-shell">
+      <div class="ambient ambient-left"></div>
+      <div class="ambient ambient-right"></div>
+
+      <section id="auth-screen" class="auth-screen">
+        <main class="stage">
+          <div class="stage-stack">
+            <header class="brand-block" aria-label="Postamats Admin">
+              <h1 class="brand-title">Postamats Admin</h1>
+            </header>
+
+            <section class="login-panel" aria-labelledby="login-title">
+              <p id="login-title" class="login-subtitle">Вход</p>
+
+              <form id="login-form" class="login-form">
+                <label class="field">
+                  <span>Логин</span>
+                  <input id="login-input" name="login" type="text" autocomplete="username" placeholder="admin" required />
+                </label>
+
+                <label class="field">
+                  <span>Пароль</span>
+                  <input
+                    id="password-input"
+                    name="password"
+                    type="password"
+                    autocomplete="current-password"
+                    placeholder="admin"
+                    required
+                  />
+                </label>
+
+                <button id="submit-button" class="primary-button" type="submit">Войти</button>
+              </form>
+
+              <p class="quote">Великое начинается с малого</p>
+            </section>
+          </div>
+        </main>
+      </section>
+
+      <div id="app-shell" class="app-shell hidden">
+        <header class="app-header">
+          <div class="app-brand">
+            <span class="app-brand-mark"></span>
+            <span class="app-brand-text">Postamats Admin</span>
+          </div>
+
+          <nav class="app-nav" aria-label="Разделы админки">
+            <button class="nav-link is-active" type="button" data-section="home">Главная</button>
+            <button class="nav-link" type="button" data-section="rentals">Аренды</button>
+            <button class="nav-link" type="button" data-section="users">Пользователи</button>
+            <button class="nav-link" type="button" data-section="verification">Верификация</button>
+            <button class="nav-link" type="button" data-section="lockers">Постаматы</button>
+            <button class="nav-link" type="button" data-section="cities">Города</button>
+            <button class="nav-link" type="button" data-section="catalog">Каталог</button>
+            <button class="nav-link" type="button" data-section="audit">Аудит</button>
+          </nav>
+
+          <div class="app-tools">
+            <div class="admin-badge">
+              <p class="admin-badge-label">Вы вошли</p>
+              <strong id="admin-badge-name">Admin</strong>
+            </div>
+            <button id="logout-button" class="ghost-button" type="button">Выйти</button>
+          </div>
+        </header>
+
+        <main class="app-main">
+          <section class="section-panel" data-section-panel="home">
+            <div class="section-top">
+              <div>
+                <p class="section-kicker">Главная</p>
+                <h2>Рост и масштаб сети</h2>
+              </div>
+            </div>
+
+            <div class="dashboard-layout">
+              <article class="surface chart-surface">
+                <div class="surface-head">
+                  <div>
+                    <p class="surface-kicker">Диаграмма</p>
+                    <h3>Прирост пользователей за 14 дней</h3>
+                  </div>
+                  <p id="growth-summary" class="surface-meta">0 новых пользователей</p>
+                </div>
+                <div id="growth-chart" class="growth-chart"></div>
+              </article>
+
+              <div class="metrics-column">
+                <article class="surface metric-card">
+                  <p class="metric-label">Пользователи</p>
+                  <strong id="metric-users" class="metric-value">0</strong>
+                  <span class="metric-note">Всего зарегистрировано</span>
+                </article>
+
+                <article class="surface metric-card">
+                  <div class="metric-row">
+                    <p class="metric-label">Города</p>
+                    <button class="inline-add" type="button" data-open-modal="city" title="Добавить город">+</button>
+                  </div>
+                  <strong id="metric-cities" class="metric-value">0</strong>
+                  <span class="metric-note">Активная география сервиса</span>
+                </article>
+
+                <article class="surface metric-card">
+                  <div class="metric-row">
+                    <p class="metric-label">Постаматы</p>
+                    <button class="inline-add" type="button" data-open-modal="locker" title="Добавить постамат">+</button>
+                  </div>
+                  <strong id="metric-lockers" class="metric-value">0</strong>
+                  <span class="metric-note">Точки выдачи и возврата</span>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <section class="section-panel hidden" data-section-panel="rentals">
+            <div class="section-top">
+              <div>
+                <p class="section-kicker">Аренды</p>
+                <h2>Все аренды</h2>
+              </div>
+              <p id="rentals-total" class="section-meta">0 аренд</p>
+            </div>
+
+            <div class="users-toolbar surface">
+              <div class="users-toolbar-inner">
+                <label class="field users-filter-field">
+                  <span>Статус</span>
+                  <select id="rentals-filter-status" aria-label="Фильтр по статусу аренды">
+                    <option value="">Любой</option>
+                    <option value="pickup_ready">pickup_ready</option>
+                    <option value="pickup_opened">pickup_opened</option>
+                    <option value="active">active</option>
+                    <option value="return_in_progress">return_in_progress</option>
+                    <option value="overdue">overdue</option>
+                    <option value="completed">completed</option>
+                    <option value="cancelled">cancelled</option>
+                    <option value="incident">incident</option>
+                  </select>
+                </label>
+                <label class="field users-filter-field">
+                  <span>Город</span>
+                  <select id="rentals-filter-city" aria-label="Фильтр по городу">
+                    <option value="">Все</option>
+                  </select>
+                </label>
+                <label class="field users-filter-field">
+                  <span>Постамат</span>
+                  <select id="rentals-filter-locker" aria-label="Фильтр по постамату">
+                    <option value="">Все</option>
+                  </select>
+                </label>
+                <label class="checkbox-field rentals-overdue-field">
+                  <input id="rentals-filter-overdue" type="checkbox" />
+                  <span>Только просроченные</span>
+                </label>
+              </div>
+            </div>
+
+            <article class="surface table-surface">
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Пользователь</th>
+                      <th>Товар</th>
+                      <th>Постамат</th>
+                      <th>Статус</th>
+                      <th>План окончания</th>
+                      <th class="data-table-col-actions">Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody id="rentals-table-body"></tbody>
+                </table>
+              </div>
+              <div id="rentals-empty" class="empty-state hidden">Аренд пока нет.</div>
+            </article>
+          </section>
+
+          <section class="section-panel hidden" data-section-panel="users">
+            <div class="section-top">
+              <div>
+                <p class="section-kicker">Пользователи</p>
+                <h2>Список пользователей</h2>
+              </div>
+              <p id="users-total" class="section-meta">0 пользователей</p>
+            </div>
+
+            <div class="users-toolbar surface">
+              <div class="users-toolbar-inner">
+                <label class="field users-search-field">
+                  <span>Поиск по телефону или email</span>
+                  <input
+                    id="users-search-input"
+                    type="search"
+                    name="usersSearch"
+                    autocomplete="off"
+                    placeholder="+7 916 123-45-67 или user@example.com"
+                  />
+                </label>
+                <div class="users-toolbar-actions">
+                  <button id="users-search-button" class="primary-button" type="button">Найти</button>
+                </div>
+                <label class="field users-filter-field">
+                  <span>Статус верификации</span>
+                  <select id="users-filter-verification" aria-label="Фильтр по верификации">
+                    <option value="">Любой</option>
+                    <option value="draft">Черновик</option>
+                    <option value="pending_review">Ожидает проверки</option>
+                    <option value="approved">Подтверждён</option>
+                    <option value="rejected">Отклонён</option>
+                    <option value="blocked">Заблокирован (статус)</option>
+                  </select>
+                </label>
+                <label class="field users-filter-field">
+                  <span>Блокировка</span>
+                  <select id="users-filter-blocked" aria-label="Фильтр по блокировке">
+                    <option value="">Все</option>
+                    <option value="false">Не заблокирован</option>
+                    <option value="true">Заблокирован</option>
+                  </select>
+                </label>
+              </div>
+              <p class="users-search-hint">
+                Как искать: откройте раздел «Пользователи», введите фрагмент телефона или email. Список обновится сам через доли секунды после ввода либо сразу после нажатия «Найти».
+              </p>
+            </div>
+
+            <article class="surface table-surface">
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Пользователь</th>
+                      <th>Телефон</th>
+                      <th>Город</th>
+                      <th>Верификация</th>
+                      <th>Создан</th>
+                      <th class="data-table-col-actions">Карточка</th>
+                    </tr>
+                  </thead>
+                  <tbody id="users-table-body"></tbody>
+                </table>
+              </div>
+              <div id="users-empty" class="empty-state hidden">Пока нет пользователей.</div>
+              <div class="audit-pagination">
+                <button type="button" class="ghost-button" id="users-prev-page" disabled>Назад</button>
+                <span id="users-page-label" class="muted-inline">Стр. 1</span>
+                <button type="button" class="ghost-button" id="users-next-page" disabled>Вперёд</button>
+              </div>
+            </article>
+          </section>
+
+          <section class="section-panel hidden" data-section-panel="verification">
+            <div class="section-top">
+              <div>
+                <p class="section-kicker">Верификация</p>
+                <h2>Очередь на проверку</h2>
+              </div>
+              <div class="section-top-actions">
+                <p id="verification-count" class="section-meta">0 заявок</p>
+                <p class="section-meta muted-inline verification-auto-hint">Автообновление ~40 с</p>
+              </div>
+            </div>
+
+            <article class="surface table-surface">
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Пользователь</th>
+                      <th>Телефон</th>
+                      <th>Документ</th>
+                      <th>Подана</th>
+                      <th class="data-table-col-actions">Действие</th>
+                    </tr>
+                  </thead>
+                  <tbody id="verification-table-body"></tbody>
+                </table>
+              </div>
+              <div id="verification-empty" class="empty-state hidden">Очередь пуста.</div>
+            </article>
+          </section>
+
+          <section class="section-panel hidden" data-section-panel="lockers">
+            <div class="section-top">
+              <div>
+                <p class="section-kicker">Постаматы</p>
+                <h2>Сеть постаматов</h2>
+              </div>
+              <button class="primary-inline-button" type="button" data-open-modal="locker">+ Добавить</button>
+            </div>
+
+            <article class="surface table-surface">
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Постамат</th>
+                      <th>Город</th>
+                      <th>Адрес</th>
+                      <th>Статус</th>
+                      <th>Доступно</th>
+                      <th class="data-table-col-actions">Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody id="lockers-table-body"></tbody>
+                </table>
+              </div>
+              <div id="lockers-empty" class="empty-state hidden">Пока нет постаматов.</div>
+            </article>
+          </section>
+
+          <section class="section-panel hidden" data-section-panel="cities">
+            <div class="section-top">
+              <div>
+                <p class="section-kicker">Города</p>
+                <h2>География сервиса</h2>
+              </div>
+              <button class="primary-inline-button" type="button" data-open-modal="city">+ Добавить</button>
+            </div>
+
+            <article class="surface table-surface">
+              <div class="table-scroll">
+                <table class="data-table data-table-cities">
+                  <thead>
+                    <tr>
+                      <th>Город</th>
+                      <th>Slug</th>
+                      <th>Часовой пояс</th>
+                      <th>Статус</th>
+                      <th>Постаматов</th>
+                      <th class="data-table-col-actions">Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cities-table-body"></tbody>
+                </table>
+              </div>
+              <div id="cities-empty" class="empty-state hidden">Пока нет городов.</div>
+            </article>
+          </section>
+
+          <section class="section-panel hidden" data-section-panel="catalog">
+            <div class="section-top">
+              <div>
+                <p class="section-kicker">Каталог</p>
+                <h2>Товары</h2>
+              </div>
+              <div class="section-top-actions">
+                <p id="products-total" class="section-meta">0 товаров</p>
+                <button class="ghost-button" type="button" data-open-modal="product-category">+ Категория</button>
+                <button class="primary-inline-button" type="button" id="product-new-button">+ Товар</button>
+              </div>
+            </div>
+
+            <div class="users-toolbar surface">
+              <div class="users-toolbar-inner">
+                <label class="field users-filter-field">
+                  <span>Поиск</span>
+                  <input
+                    id="products-search-input"
+                    type="search"
+                    placeholder="Название или slug"
+                    maxlength="200"
+                  />
+                </label>
+                <label class="field users-filter-field">
+                  <span>Активность</span>
+                  <select id="products-filter-active" aria-label="Фильтр активности товара">
+                    <option value="">Все</option>
+                    <option value="true">Активные</option>
+                    <option value="false">Выключенные</option>
+                  </select>
+                </label>
+                <button type="button" class="ghost-button" id="products-search-button">Найти</button>
+              </div>
+            </div>
+
+            <article class="surface table-surface">
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Название</th>
+                      <th>Slug</th>
+                      <th>Категория</th>
+                      <th>Единиц</th>
+                      <th>Статус</th>
+                      <th class="data-table-col-actions">Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody id="products-table-body"></tbody>
+                </table>
+              </div>
+              <div id="products-empty" class="empty-state hidden">Товары не найдены.</div>
+              <div class="audit-pagination">
+                <button type="button" class="ghost-button" id="products-prev-page" disabled>Назад</button>
+                <span id="products-page-label" class="muted-inline">Стр. 1</span>
+                <button type="button" class="ghost-button" id="products-next-page" disabled>Вперёд</button>
+              </div>
+            </article>
+          </section>
+
+          <section class="section-panel hidden" data-section-panel="audit">
+            <div class="section-top">
+              <div>
+                <p class="section-kicker">Аудит</p>
+                <h2>Действия администраторов</h2>
+              </div>
+              <div class="section-top-actions">
+                <p id="audit-total" class="section-meta">0 записей</p>
+                <button type="button" class="ghost-button" id="audit-refresh-button">Обновить</button>
+              </div>
+            </div>
+
+            <article class="surface table-surface">
+              <div class="table-scroll">
+                <table class="data-table data-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Время</th>
+                      <th>Админ</th>
+                      <th>Действие</th>
+                      <th>Ресурс</th>
+                      <th>Детали</th>
+                    </tr>
+                  </thead>
+                  <tbody id="audit-table-body"></tbody>
+                </table>
+              </div>
+              <div id="audit-empty" class="empty-state hidden">Записей пока нет.</div>
+              <div class="audit-pagination">
+                <button type="button" class="ghost-button" id="audit-prev-page" disabled>Назад</button>
+                <span id="audit-page-label" class="muted-inline">Стр. 1</span>
+                <button type="button" class="ghost-button" id="audit-next-page" disabled>Вперёд</button>
+              </div>
+            </article>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div id="modal-backdrop" class="modal-backdrop hidden">
+      <section id="city-modal" class="modal-card hidden" aria-labelledby="city-modal-title">
+        <div class="modal-head">
+          <div>
+            <p class="section-kicker">Города</p>
+            <h3 id="city-modal-title">Добавить город</h3>
+          </div>
+          <button class="modal-close" type="button" data-close-modal>&times;</button>
+        </div>
+
+        <form id="city-form" class="modal-form">
+          <label class="field">
+            <span>Название</span>
+            <input name="name" type="text" placeholder="Минск" required />
+          </label>
+
+          <label class="field">
+            <span>Slug</span>
+            <input name="slug" type="text" placeholder="minsk" required />
+          </label>
+
+          <label class="field">
+            <span>Часовой пояс</span>
+            <input name="timezone" type="text" value="Europe/Minsk" required />
+          </label>
+
+          <label class="field">
+            <span>Порядок</span>
+            <input name="sortOrder" type="number" value="0" />
+          </label>
+
+          <label class="checkbox-field">
+            <input name="isActive" type="checkbox" checked />
+            <span>Активный город</span>
+          </label>
+
+          <div class="modal-actions">
+            <button class="ghost-button" type="button" data-close-modal>Отмена</button>
+            <button class="primary-button modal-submit" type="submit">Создать город</button>
+          </div>
+        </form>
+      </section>
+
+      <section
+        id="city-detail-modal"
+        class="modal-card modal-card-wide hidden"
+        aria-labelledby="city-detail-modal-title"
+      >
+        <div class="modal-head">
+          <div>
+            <p class="section-kicker">Города</p>
+            <h3 id="city-detail-modal-title">Город</h3>
+          </div>
+          <button class="modal-close" type="button" data-close-modal>&times;</button>
+        </div>
+        <div id="city-detail-body" class="user-detail-scroll"></div>
+      </section>
+
+      <section
+        id="user-detail-modal"
+        class="modal-card modal-card-wide hidden"
+        aria-labelledby="user-detail-modal-title"
+      >
+        <div class="modal-head">
+          <div>
+            <p class="section-kicker">Пользователь</p>
+            <h3 id="user-detail-modal-title">Карточка</h3>
+          </div>
+          <button class="modal-close" type="button" data-close-modal>&times;</button>
+        </div>
+        <div id="user-detail-body" class="user-detail-scroll"></div>
+      </section>
+
+      <section
+        id="locker-detail-modal"
+        class="modal-card modal-card-wide hidden"
+        aria-labelledby="locker-detail-modal-title"
+      >
+        <div class="modal-head">
+          <div>
+            <p class="section-kicker">Постамат</p>
+            <h3 id="locker-detail-modal-title">Карточка постамата</h3>
+          </div>
+          <button class="modal-close" type="button" data-close-modal>&times;</button>
+        </div>
+        <div id="locker-detail-body" class="user-detail-scroll"></div>
+      </section>
+
+      <section
+        id="rental-detail-modal"
+        class="modal-card modal-card-wide hidden"
+        aria-labelledby="rental-detail-modal-title"
+      >
+        <div class="modal-head">
+          <div>
+            <p class="section-kicker">Аренда</p>
+            <h3 id="rental-detail-modal-title">Карточка аренды</h3>
+          </div>
+          <button class="modal-close" type="button" data-close-modal>&times;</button>
+        </div>
+        <div id="rental-detail-body" class="user-detail-scroll"></div>
+      </section>
+
+      <section
+        id="product-detail-modal"
+        class="modal-card modal-card-wide hidden"
+        aria-labelledby="product-detail-modal-title"
+      >
+        <div class="modal-head">
+          <div>
+            <p class="section-kicker">Каталог</p>
+            <h3 id="product-detail-modal-title">Товар</h3>
+          </div>
+          <button class="modal-close" type="button" data-close-modal>&times;</button>
+        </div>
+        <div id="product-detail-body" class="user-detail-scroll"></div>
+      </section>
+
+      <section
+        id="product-category-modal"
+        class="modal-card hidden"
+        aria-labelledby="product-category-modal-title"
+      >
+        <div class="modal-head">
+          <div>
+            <p class="section-kicker">Каталог</p>
+            <h3 id="product-category-modal-title">Новая категория</h3>
+          </div>
+          <button class="modal-close" type="button" data-close-modal>&times;</button>
+        </div>
+
+        <form id="product-category-form" class="modal-form">
+          <label class="field">
+            <span>Название</span>
+            <input name="name" type="text" placeholder="Инструменты" required />
+          </label>
+          <label class="field">
+            <span>Slug</span>
+            <input name="slug" type="text" placeholder="tools" required />
+          </label>
+          <label class="field">
+            <span>Порядок</span>
+            <input name="sortOrder" type="number" value="0" />
+          </label>
+          <label class="checkbox-field">
+            <input name="isActive" type="checkbox" checked />
+            <span>Активна</span>
+          </label>
+          <div class="modal-actions">
+            <button class="ghost-button" type="button" data-close-modal>Отмена</button>
+            <button class="primary-button modal-submit" type="submit">Создать</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="locker-modal" class="modal-card hidden" aria-labelledby="locker-modal-title">
+        <div class="modal-head">
+          <div>
+            <p class="section-kicker">Постаматы</p>
+            <h3 id="locker-modal-title">Добавить постамат</h3>
+          </div>
+          <button class="modal-close" type="button" data-close-modal>&times;</button>
+        </div>
+
+        <form id="locker-form" class="modal-form">
+          <label class="field">
+            <span>Город</span>
+            <select id="locker-city-select" name="cityId" required></select>
+          </label>
+
+          <div class="locker-discovery-toolbar">
+            <p class="locker-discovery-hint">
+              Найдём постаматы по API и покажем только те, которых ещё нет в базе.
+            </p>
+            <button id="locker-discovery-button" class="ghost-button" type="button">Найти постаматы</button>
+          </div>
+
+          <div id="locker-discovery-state" class="locker-discovery-state hidden"></div>
+          <div id="locker-candidates-empty" class="empty-state hidden">Сначала выберите город и загрузите список точек.</div>
+          <div id="locker-candidates-list" class="locker-candidates-list"></div>
+
+          <label class="field">
+            <span>Название в системе</span>
+            <input id="locker-name-input" name="name" type="text" placeholder="Название выбранного постамата" required />
+          </label>
+
+          <label class="field">
+            <span>Адрес</span>
+            <input id="locker-address-input" name="address" type="text" placeholder="Выберите постамат из списка" readonly required />
+          </label>
+
+          <label class="field">
+            <span>Статус</span>
+            <select name="status">
+              <option value="online">online</option>
+              <option value="offline">offline</option>
+              <option value="maintenance">maintenance</option>
+              <option value="degraded">degraded</option>
+            </select>
+          </label>
+
+          <div class="modal-actions">
+            <button class="ghost-button" type="button" data-close-modal>Отмена</button>
+            <button id="locker-submit-button" class="primary-button modal-submit" type="submit">Создать постамат</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div id="toast-stack" class="toast-stack" aria-live="assertive" aria-atomic="true"></div>
+
+    <script src="./app.js?v=15" defer></script>
+  </body>
+</html>

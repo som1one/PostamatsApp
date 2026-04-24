@@ -5,6 +5,8 @@ PRESIGN_KIND_VALUES = frozenset(
         "verification_front",
         "verification_back",
         "verification_selfie",
+        "product_cover",
+        "product_gallery",
         "incident_attachment",
         "condition_photo_before",
         "condition_photo_after",

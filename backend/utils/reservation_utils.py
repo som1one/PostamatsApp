@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from backend.models.enums import VerificationStatus
 from backend.models.user import User
+from backend.utils.auth_utils import ensure_user_not_blocked
 
 
 def ensure_utc(value: datetime) -> datetime:
@@ -14,8 +15,7 @@ def ensure_utc(value: datetime) -> datetime:
 
 
 def ensure_reservable_user(user: User) -> None:
-    if user.is_blocked or user.verification_status == VerificationStatus.BLOCKED:
-        raise HTTPException(status_code=403, detail="USER_BLOCKED")
+    ensure_user_not_blocked(user)
     if user.verification_status != VerificationStatus.APPROVED:
         raise HTTPException(status_code=403, detail="USER_NOT_VERIFIED")
 

@@ -40,6 +40,9 @@ async def get_db():
 
 async def init_db():
     for module_name in (
+        "backend.models.admin_account",
+        "backend.models.admin_audit_event",
+        "backend.models.admin_auth_session",
         "backend.models.admin_user",
         "backend.models.auth_session",
         "backend.models.auth_verification_session",

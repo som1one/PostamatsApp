@@ -23,6 +23,14 @@
       },
       "predictiveBackGestureEnabled": false
     },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Показываем ваше местоположение, чтобы считать расстояние до ближайших постаматов."
+        }
+      ]
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
     }

@@ -1,3 +1,5 @@
+import Constants from "expo-constants";
+import { Platform } from "react-native";
 import type {
   AppUser,
   City,
@@ -13,7 +15,30 @@ import type {
   VerificationState,
 } from "./types";
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+function resolveApiBaseUrl(): string {
+  const fromEnv = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+  if (fromEnv) {
+    return fromEnv.replace(/\/$/, "");
+  }
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(":")[0];
+    if (host) {
+      return `http://${host}:8000`;
+    }
+  }
+  return "http://127.0.0.1:8000";
+}
 
 type ApiEnvelope<T> = {
   data: T;
@@ -24,11 +49,14 @@ type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   token?: string;
   body?: unknown;
+  headers?: Record<string, string>;
 };
 
 async function requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {
     Accept: "application/json",
+    "x-platform": Platform.OS,
+    ...options.headers,
   };
 
   if (options.body !== undefined) {
@@ -39,15 +67,18 @@ async function requestJson<T>(path: string, options: RequestOptions = {}): Promi
     headers.Authorization = `Bearer ${options.token}`;
   }
 
+  const base = resolveApiBaseUrl();
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(`${base}${path}`, {
       method: options.method ?? "GET",
       headers,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     });
-  } catch (error) {
-    throw new Error(`Сервер недоступен: ${API_BASE_URL}`);
+  } catch {
+    throw new Error(
+      `Сервер недоступен (${base}). На телефоне укажите EXPO_PUBLIC_API_BASE_URL — IP компьютера, где запущен API (порт 8000), а не 127.0.0.1.`,
+    );
   }
 
   const payload = (await response.json().catch(() => ({}))) as
@@ -59,10 +90,18 @@ async function requestJson<T>(path: string, options: RequestOptions = {}): Promi
       ("detail" in payload && typeof payload.detail === "string" && payload.detail) ||
       ("error" in payload && payload.error?.message) ||
       "API request failed";
-    throw new Error(message);
+    throw new ApiError(message, response.status);
   }
 
   return (payload as ApiEnvelope<T>).data;
+}
+
+export function isUnauthorizedError(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 401;
+}
+
+export function isForbiddenError(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 403;
 }
 
 export async function requestCode(phone: string): Promise<RequestCodeResponse> {
@@ -79,6 +118,20 @@ export async function confirmCode(
   return requestJson<ConfirmCodeResponse>("/auth/confirm-code", {
     method: "POST",
     body: { verificationSessionId, code },
+  });
+}
+
+export async function refreshAuthSession(refreshToken: string): Promise<ConfirmCodeResponse> {
+  return requestJson<ConfirmCodeResponse>("/auth/refresh", {
+    method: "POST",
+    token: refreshToken,
+  });
+}
+
+export async function logoutAuthSession(accessToken: string): Promise<void> {
+  await requestJson<{ message: string }>("/auth/logout", {
+    method: "POST",
+    token: accessToken,
   });
 }
 
@@ -102,7 +155,6 @@ export async function fetchLockers(cityId?: string): Promise<Locker[]> {
   if (cityId) {
     params.set("cityId", cityId);
   }
-  params.set("hasAvailableItems", "true");
   const query = params.toString() ? `?${params.toString()}` : "";
   const payload = await requestJson<{ lockers: Locker[] }>(`/lockers/${query}`);
   return payload.lockers;

@@ -53,7 +53,9 @@ async def process_esi_webhook_payload(
     if not rental_id:
         raise HTTPException(status_code=400, detail="INVALID_ESI_PAYLOAD")
 
-    rental = await db.get(Rental, rental_id)
+    rental = (
+        await db.execute(select(Rental).where(Rental.id == rental_id))
+    ).scalar_one_or_none()
     if rental is None:
         raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
 
@@ -66,9 +68,59 @@ async def process_esi_webhook_payload(
         if rental.status != RentalStatus.PICKUP_READY:
             raise HTTPException(status_code=409, detail="INVALID_RENTAL_STATUS")
         prev = rental.status
+        rental.status = RentalStatus.PICKUP_OPENED
+        db.add(
+            RentalEvent(
+                rental_id=rental.id,
+                event_type=key,
+                from_status=prev,
+                to_status=RentalStatus.PICKUP_OPENED,
+                source=RentalEventSource.LOCKER_WEBHOOK,
+                payload_json={"eventId": event_id, "eventType": event_type},
+            )
+        )
+        await db.commit()
+        return
+
+    if event_type == "pickup_cell_closed":
+        key = "pickup_cell_closed"
+        if await _esi_event_seen(db, rental.id, key, event_id):
+            return
+        if rental.status not in (RentalStatus.PICKUP_OPENED, RentalStatus.PICKUP_READY):
+            raise HTTPException(status_code=409, detail="INVALID_RENTAL_STATUS")
+        prev = rental.status
         rental.status = RentalStatus.ACTIVE
         rental.starts_at = now
-        unit = await db.get(InventoryUnit, rental.inventory_unit_id)
+        unit = (
+            await db.execute(select(InventoryUnit).where(InventoryUnit.id == rental.inventory_unit_id))
+        ).scalar_one_or_none()
+        if unit is not None:
+            unit.status = InventoryStatus.RENTED
+        db.add(
+            RentalEvent(
+                rental_id=rental.id,
+                event_type=key,
+                from_status=prev,
+                to_status=RentalStatus.ACTIVE,
+                source=RentalEventSource.LOCKER_WEBHOOK,
+                payload_json={"eventId": event_id, "eventType": event_type},
+            )
+        )
+        await db.commit()
+        return
+
+    if event_type == "pickup_complete":
+        key = "pickup_complete"
+        if await _esi_event_seen(db, rental.id, key, event_id):
+            return
+        if rental.status not in (RentalStatus.PICKUP_READY, RentalStatus.PICKUP_OPENED):
+            raise HTTPException(status_code=409, detail="INVALID_RENTAL_STATUS")
+        prev = rental.status
+        rental.status = RentalStatus.ACTIVE
+        rental.starts_at = now
+        unit = (
+            await db.execute(select(InventoryUnit).where(InventoryUnit.id == rental.inventory_unit_id))
+        ).scalar_one_or_none()
         if unit is not None:
             unit.status = InventoryStatus.RENTED
         db.add(
@@ -94,7 +146,9 @@ async def process_esi_webhook_payload(
         rental.status = RentalStatus.COMPLETED
         rental.actual_end_at = now
         rental.completed_at = now
-        unit = await db.get(InventoryUnit, rental.inventory_unit_id)
+        unit = (
+            await db.execute(select(InventoryUnit).where(InventoryUnit.id == rental.inventory_unit_id))
+        ).scalar_one_or_none()
         if unit is not None:
             unit.status = InventoryStatus.AVAILABLE
         db.add(

@@ -99,6 +99,7 @@ async def load_product_images_with_urls(
         out.append(
             {
                 "id": str(img.id),
+                "fileId": str(img.file_id),
                 "url": url,
                 "sortOrder": img.sort_order,
             }

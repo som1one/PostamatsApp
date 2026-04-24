@@ -26,6 +26,26 @@ class Settings:
             ENV_VALUES.get("JWT_REFRESH_TOKEN_EXPIRE_DAYS", "30")
         )
         self.JWT_ALGORITHM = ENV_VALUES.get("JWT_ALGORITHM", "HS256")
+        self.ADMIN_JWT_SECRET_KEY = ENV_VALUES.get(
+            "ADMIN_JWT_SECRET_KEY",
+            self.JWT_SECRET_KEY,
+        )
+        self.ADMIN_JWT_REFRESH_SECRET_KEY = ENV_VALUES.get(
+            "ADMIN_JWT_REFRESH_SECRET_KEY",
+            self.JWT_REFRESH_SECRET_KEY,
+        )
+        self.ADMIN_JWT_ACCESS_TOKEN_EXPIRE_SECONDS = int(
+            ENV_VALUES.get(
+                "ADMIN_JWT_ACCESS_TOKEN_EXPIRE_SECONDS",
+                str(self.JWT_ACCESS_TOKEN_EXPIRE_SECONDS),
+            )
+        )
+        self.ADMIN_JWT_REFRESH_TOKEN_EXPIRE_DAYS = int(
+            ENV_VALUES.get(
+                "ADMIN_JWT_REFRESH_TOKEN_EXPIRE_DAYS",
+                str(self.JWT_REFRESH_TOKEN_EXPIRE_DAYS),
+            )
+        )
         self.RESERVATION_QUOTE_EXPIRES_SECONDS = int(
             ENV_VALUES.get("RESERVATION_QUOTE_EXPIRES_SECONDS", "300")
         )
@@ -78,6 +98,7 @@ class Settings:
         self.ESI_API_KEY = (ENV_VALUES.get("ESI_API_KEY") or "").strip() or None
         self.ESI_RESERVE_TIMEOUT = float(ENV_VALUES.get("ESI_RESERVE_TIMEOUT", "15"))
         self.ESI_WEBHOOK_SECRET = (ENV_VALUES.get("ESI_WEBHOOK_SECRET") or "").strip() or None
+        self.ESI_DISCOVERY_TIMEOUT = float(ENV_VALUES.get("ESI_DISCOVERY_TIMEOUT", "20"))
 
     @staticmethod
     def _build_async_db_url(db_url: str | None) -> str | None:

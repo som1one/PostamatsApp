@@ -12,8 +12,8 @@ from backend.models.product import Product
 from backend.models.rental import Rental
 from backend.models.user import User
 from backend.models.verification_request import VerificationRequest
-from backend.schemas.me_schemas import CreateVerificationRequest, UpdateMePayload
-from backend.utils.auth_utils import extract_bearer_token, verify_access_token
+from backend.schemas.me_schemas import CreateVerificationRequest, RentalReturnRequestPayload, UpdateMePayload
+from backend.utils.auth_utils import get_current_client_user
 from backend.utils.me_utils import (
     UPDATE_ME_FIELD_MAP,
     VerificationFileResolveError,
@@ -23,9 +23,24 @@ from backend.utils.me_utils import (
     serialize_verification_not_started,
     serialize_verification_request,
 )
+from backend.utils.rental_return_flow import ReturnRequestError, start_rental_return
 from backend.utils.rental_serialization import serialize_rental_detail, serialize_rental_list_item
 
 router = APIRouter(prefix="/me", tags=["me"])
+
+_RETURN_REQUEST_ERRORS: dict[str, tuple[int, str]] = {
+    "INVALID_RENTAL_STATUS": (409, "INVALID_RENTAL_STATUS"),
+    "RETURN_ALREADY_IN_PROGRESS": (409, "RETURN_ALREADY_IN_PROGRESS"),
+    "LOCKER_NOT_FOUND": (404, "LOCKER_NOT_FOUND"),
+    "LOCKER_OFFLINE": (409, "LOCKER_OFFLINE"),
+    "RETURN_CELL_NOT_AVAILABLE": (409, "RETURN_CELL_NOT_AVAILABLE"),
+    "INVENTORY_NOT_FOUND": (500, "RETURN_REQUEST_FAILED"),
+    "ESI_OPEN_FAILED": (502, "ESI_OPEN_FAILED"),
+    "ESI_NOT_CONFIGURED": (503, "ESI_NOT_CONFIGURED"),
+    "RETURN_CELL_NOT_FOUND": (502, "ESI_OPEN_FAILED"),
+    "RETURN_CELL_NOT_OPERABLE": (409, "RETURN_CELL_NOT_OPERABLE"),
+    "RETURN_REQUEST_FAILED": (500, "RETURN_REQUEST_FAILED"),
+}
 
 _RENTAL_STATUS_GROUPS: dict[str, tuple[RentalStatus, ...]] = {
     "active": (
@@ -45,11 +60,7 @@ async def me(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    access_token = extract_bearer_token(request)
-    session = await verify_access_token(access_token, db)
-    user = await db.get(User, session.user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    user = await get_current_client_user(request, db)
 
     return {
         "data": {
@@ -64,11 +75,7 @@ async def update_me(
     db: AsyncSession = Depends(get_db),
     payload: UpdateMePayload = Body(...),
 ):
-    access_token = extract_bearer_token(request)
-    session = await verify_access_token(access_token, db)
-    user = await db.get(User, session.user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    user = await get_current_client_user(request, db)
 
     try:
         payload_dict = payload.model_dump(exclude_none=True)
@@ -110,14 +117,7 @@ async def create_verification_request(
     db: AsyncSession = Depends(get_db),
     payload: CreateVerificationRequest = Body(...),
 ):
-    access_token = extract_bearer_token(request)
-    session = await verify_access_token(access_token, db)
-    user = await db.get(User, session.user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-    if user.verification_status == VerificationStatus.BLOCKED:
-        raise HTTPException(status_code=403, detail="User is blocked")
+    user = await get_current_client_user(request, db)
 
     if user.verification_status == VerificationStatus.APPROVED:
         raise HTTPException(status_code=400, detail="User is already verified")
@@ -170,11 +170,7 @@ async def get_verification_request(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    access_token = extract_bearer_token(request)
-    session = await verify_access_token(access_token, db)
-    user = await db.get(User, session.user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    user = await get_current_client_user(request, db)
 
     result = await db.execute(
         select(VerificationRequest)
@@ -202,11 +198,7 @@ async def list_my_rentals(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
-    access_token = extract_bearer_token(request)
-    session = await verify_access_token(access_token, db)
-    user = await db.get(User, session.user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    user = await get_current_client_user(request, db)
 
     filters = [Rental.user_id == user.id]
     if status is not None and status != "":
@@ -275,13 +267,11 @@ async def get_my_rental(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    access_token = extract_bearer_token(request)
-    session = await verify_access_token(access_token, db)
-    user = await db.get(User, session.user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    user = await get_current_client_user(request, db)
 
-    rental = await db.get(Rental, rental_id)
+    rental = (
+        await db.execute(select(Rental).where(Rental.id == rental_id))
+    ).scalar_one_or_none()
     if rental is None:
         raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
     if rental.user_id != user.id:
@@ -289,3 +279,34 @@ async def get_my_rental(
 
     detail = await serialize_rental_detail(db, rental)
     return {"data": detail}
+
+
+@router.post("/rentals/{rental_id}/return-request")
+async def request_rental_return(
+    rental_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    payload: RentalReturnRequestPayload = Body(default_factory=RentalReturnRequestPayload),
+):
+    user = await get_current_client_user(request, db)
+
+    rental = (
+        await db.execute(select(Rental).where(Rental.id == rental_id))
+    ).scalar_one_or_none()
+    if rental is None:
+        raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
+    if rental.user_id != user.id:
+        raise HTTPException(status_code=403, detail="RENTAL_FORBIDDEN")
+
+    return_locker_id = payload.lockerId or rental.return_locker_id or rental.pickup_locker_id
+
+    try:
+        result = await start_rental_return(db, rental=rental, return_locker_id=return_locker_id)
+    except ReturnRequestError as exc:
+        mapped = _RETURN_REQUEST_ERRORS.get(
+            exc.code,
+            (500, "RETURN_REQUEST_FAILED"),
+        )
+        raise HTTPException(status_code=mapped[0], detail=mapped[1]) from exc
+
+    return {"data": {"return": result}}

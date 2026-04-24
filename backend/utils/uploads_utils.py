@@ -8,6 +8,8 @@ PRESIGN_KIND_TO_MEDIA: dict[str, MediaFileKind] = {
     "verification_front": MediaFileKind.VERIFICATION_FRONT,
     "verification_back": MediaFileKind.VERIFICATION_BACK,
     "verification_selfie": MediaFileKind.VERIFICATION_SELFIE,
+    "product_cover": MediaFileKind.PRODUCT_COVER,
+    "product_gallery": MediaFileKind.PRODUCT_GALLERY,
     "incident_attachment": MediaFileKind.INCIDENT_ATTACHMENT,
     "condition_photo_before": MediaFileKind.CONDITION_PHOTO_BEFORE,
     "condition_photo_after": MediaFileKind.CONDITION_PHOTO_AFTER,
@@ -18,6 +20,8 @@ KIND_TO_FOLDER: dict[str, str] = {
     "verification_front": "verification",
     "verification_back": "verification",
     "verification_selfie": "verification",
+    "product_cover": "product",
+    "product_gallery": "product",
     "incident_attachment": "incident",
     "condition_photo_before": "condition",
     "condition_photo_after": "condition",
@@ -27,6 +31,8 @@ MIME_BY_KIND: dict[MediaFileKind, frozenset[str]] = {
     MediaFileKind.VERIFICATION_FRONT: frozenset({"image/jpeg", "image/png", "image/webp"}),
     MediaFileKind.VERIFICATION_BACK: frozenset({"image/jpeg", "image/png", "image/webp"}),
     MediaFileKind.VERIFICATION_SELFIE: frozenset({"image/jpeg", "image/png", "image/webp"}),
+    MediaFileKind.PRODUCT_COVER: frozenset({"image/jpeg", "image/png", "image/webp"}),
+    MediaFileKind.PRODUCT_GALLERY: frozenset({"image/jpeg", "image/png", "image/webp"}),
     MediaFileKind.INCIDENT_ATTACHMENT: frozenset(
         {"image/jpeg", "image/png", "image/webp", "application/pdf"}
     ),
