@@ -39,6 +39,7 @@ async def create_preauth_for_reservation(
     *,
     user: User,
     reservation: Reservation,
+    return_url: str | None = None,
 ) -> dict:
     from fastapi import HTTPException
 
@@ -67,7 +68,16 @@ async def create_preauth_for_reservation(
     db.add(payment)
     await db.flush()
 
-    return_url = settings.YOOKASSA_RETURN_URL or "https://example.com/payment-return"
+    resolved_return_url = (
+        return_url
+        or settings.YOOKASSA_RETURN_URL
+        or (
+            f"{settings.WEB_APP_ORIGIN}/payment/return"
+            if settings.WEB_APP_ORIGIN
+            else None
+        )
+        or "https://example.com/payment-return"
+    )
     metadata = {
         "internal_payment_id": str(payment.id),
         "reservation_id": str(reservation.id),
@@ -78,7 +88,7 @@ async def create_preauth_for_reservation(
         yk = await create_yookassa_preauth_payment(
             amount_value=amount,
             currency=currency,
-            return_url=return_url,
+            return_url=resolved_return_url,
             metadata=metadata,
         )
     except Exception as exc:

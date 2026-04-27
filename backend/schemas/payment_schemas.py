@@ -8,6 +8,7 @@ class PreauthPayload(BaseModel):
     reservationId: UUID
     paymentMethodId: UUID | None = None
     paymentToken: str | None = None
+    returnUrl: str | None = None
 
 
 class YooKassaWebhookBody(BaseModel):

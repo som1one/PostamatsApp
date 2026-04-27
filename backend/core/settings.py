@@ -78,6 +78,7 @@ class Settings:
         self.YOOKASSA_SHOP_ID = (ENV_VALUES.get("YOOKASSA_SHOP_ID") or "").strip() or None
         self.YOOKASSA_SECRET_KEY = (ENV_VALUES.get("YOOKASSA_SECRET_KEY") or "").strip() or None
         self.YOOKASSA_RETURN_URL = (ENV_VALUES.get("YOOKASSA_RETURN_URL") or "").strip() or None
+        self.WEB_APP_ORIGIN = (ENV_VALUES.get("WEB_APP_ORIGIN") or "").strip().rstrip("/") or None
         _yk_stub = (ENV_VALUES.get("YOOKASSA_DEV_STUB") or "").strip().lower()
         if _yk_stub in ("1", "true", "yes"):
             self.YOOKASSA_DEV_STUB = True

@@ -29,7 +29,12 @@ async def payments_preauth(
     if reservation is None or reservation.user_id != user.id:
         raise HTTPException(status_code=404, detail="RESERVATION_NOT_FOUND")
 
-    out = await create_preauth_for_reservation(db, user=user, reservation=reservation)
+    out = await create_preauth_for_reservation(
+        db,
+        user=user,
+        reservation=reservation,
+        return_url=payload.returnUrl,
+    )
     return {"data": out}
 
 

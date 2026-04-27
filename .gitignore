@@ -2,6 +2,13 @@
 mobile/node_modules/
 mobile/.expo/
 mobile/dist/
+web/node_modules/
+web/.next/
+web/out/
+web/.screenshots*/
+web/tsconfig.tsbuildinfo
+web-dev-*.log
+web-dev-*.err.log
 *.pyc
 __pycache__/
 .env
