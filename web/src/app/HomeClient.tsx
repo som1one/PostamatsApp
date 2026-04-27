@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   Boxes,
-  CheckCircle2,
+  ImageIcon,
   HelpCircle,
   MapPinned,
   PackageSearch,
@@ -27,6 +27,7 @@ export function HomeClient() {
   const [cities, setCities] = useState<City[]>([]);
   const [products, setProducts] = useState<ProductListItem[]>([]);
   const [lockers, setLockers] = useState<Locker[]>([]);
+  const [productOfDay, setProductOfDay] = useState<ProductListItem | null>(null);
   const [selectedCityId, setSelectedCityId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -35,7 +36,6 @@ export function HomeClient() {
     () => cities.find((city) => city.id === selectedCityId) ?? cities[0],
     [cities, selectedCityId],
   );
-  const featuredProduct = products[0];
   const featuredLocker = lockers[0];
 
   useEffect(() => {
@@ -80,6 +80,11 @@ export function HomeClient() {
         }
         setProducts(productItems);
         setLockers(lockerItems);
+        setProductOfDay(
+          productItems.length
+            ? productItems[Math.floor(Math.random() * productItems.length)]
+            : null,
+        );
       })
       .catch(() => {
         if (active) {
@@ -131,35 +136,47 @@ export function HomeClient() {
         </div>
 
         <div className="hero-dashboard" aria-label="Сценарий аренды">
-          <div className="hero-device-card hero-device-card-main">
-            <span className="status status-online">доступно сегодня</span>
-            <strong>{featuredProduct?.name || "Проектор для вечера"}</strong>
-            <span>{featuredProduct ? `от ${formatMoney(featuredProduct.priceFrom, featuredProduct.currency)}` : "от 27 ₽/ч"}</span>
-          </div>
-          <div className="hero-mini-map">
-            <span />
-            <span />
-            <span className="is-active" />
-            <div>
-              <MapPinned size={18} />
-              {featuredLocker?.address || "Постамат рядом"}
+          <article className="product-of-day-card">
+            <div className="product-of-day-media">
+              {productOfDay?.coverUrl ? (
+                <img src={productOfDay.coverUrl} alt={productOfDay.name} />
+              ) : (
+                <ImageIcon size={54} />
+              )}
+              <span>Товар дня</span>
             </div>
-          </div>
-          <div className="hero-price-card">
-            <small>Итог</small>
-            <strong>{featuredProduct ? formatMoney(featuredProduct.priceFrom * 6, featuredProduct.currency) : "240 ₽"}</strong>
-            <span>6 часов аренды</span>
-          </div>
-          <div className="hero-checklist">
-            <span>
-              <CheckCircle2 size={16} />
-              постамат выбран
-            </span>
-            <span>
-              <CheckCircle2 size={16} />
-              код после оплаты
-            </span>
-          </div>
+            <div>
+              <p className="eyebrow">{productOfDay?.brand || "Подборка из каталога"}</p>
+              <h2>{productOfDay?.name || "Товар дня появится после загрузки каталога"}</h2>
+              <p>
+                {productOfDay?.shortDescription ||
+                  "Берем случайную доступную позицию из базы и показываем быстрый путь к ближайшим постаматам."}
+              </p>
+            </div>
+            <div className="product-of-day-meta">
+              <span>
+                <PackageSearch size={16} />
+                {productOfDay ? `${productOfDay.availableLockerCount} постаматов` : "ищем наличие"}
+              </span>
+              <span>
+                <MapPinned size={16} />
+                {featuredLocker?.address || selectedCity?.name || "выберите город"}
+              </span>
+            </div>
+            <div className="product-of-day-bottom">
+              <strong>
+                {productOfDay
+                  ? `от ${formatMoney(productOfDay.priceFrom, productOfDay.currency)}`
+                  : "цена после загрузки"}
+              </strong>
+              <Link
+                className="button button-primary"
+                href={productOfDay ? `/catalog/${productOfDay.slug || productOfDay.id}` : "/catalog"}
+              >
+                Найти поблизости
+              </Link>
+            </div>
+          </article>
         </div>
       </section>
 

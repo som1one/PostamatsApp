@@ -1756,6 +1756,15 @@ h3 {
   min-width: 150px;
 }
 
+.city-select-compact span {
+  display: none;
+}
+
+.city-select-compact .select {
+  min-height: 42px;
+  border-radius: 12px;
+}
+
 .icon-button {
   width: 42px;
   padding: 0;
@@ -1803,7 +1812,7 @@ h3 {
   gap: 30px;
   align-items: stretch;
   min-height: 560px;
-  padding: 28px 0 8px;
+  padding: 58px 0 8px;
 }
 
 .hero-service-copy {
@@ -1992,6 +2001,97 @@ h3 {
 
 .hero-checklist svg {
   color: var(--green);
+}
+
+.product-of-day-card {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid rgba(203, 216, 227, 0.95);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: var(--shadow-md);
+}
+
+.product-of-day-media {
+  position: relative;
+  display: grid;
+  aspect-ratio: 16 / 11;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(238, 245, 251, 0.92), rgba(255, 241, 238, 0.88)),
+    var(--surface-muted);
+  color: var(--primary);
+}
+
+.product-of-day-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-of-day-media span {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  min-height: 30px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.product-of-day-card h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 28px;
+  line-height: 1.08;
+}
+
+.product-of-day-card p:not(.eyebrow) {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.product-of-day-meta {
+  display: grid;
+  gap: 8px;
+}
+
+.product-of-day-meta span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 11px;
+  border-radius: 12px;
+  background: var(--surface-muted);
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.product-of-day-meta svg {
+  color: var(--primary);
+  flex: 0 0 auto;
+}
+
+.product-of-day-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.product-of-day-bottom strong {
+  color: var(--primary);
+  font-size: 18px;
+  font-weight: 950;
 }
 
 .stats-grid {
@@ -2894,7 +2994,7 @@ h3 {
 
   .hero-service {
     min-height: auto;
-    padding-top: 10px;
+    padding-top: 26px;
   }
 
   .hero-service h1 {
@@ -2915,6 +3015,19 @@ h3 {
     min-height: auto;
     padding: 14px;
     border-radius: 20px;
+  }
+
+  .product-of-day-card {
+    border-radius: 18px;
+    padding: 14px;
+  }
+
+  .product-of-day-bottom {
+    display: grid;
+  }
+
+  .product-of-day-bottom .button {
+    width: 100%;
   }
 
   .hero-price-card {
