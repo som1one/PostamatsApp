@@ -9,7 +9,7 @@ COPY backend/requirements.txt backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
 COPY alembic ./alembic
-COPY alembic.ini ./alembic.ini
+COPY backend/alembic.ini ./alembic.ini
 COPY backend ./backend
 COPY admin ./admin
 COPY assets ./assets
@@ -17,4 +17,3 @@ COPY assets ./assets
 EXPOSE 8000
 
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
