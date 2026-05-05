@@ -35,6 +35,7 @@ class CreateVerificationRequest(BaseModel):
     lastName: str = Field(..., description="Last name")
     birthDate: date = Field(..., description="Birth date")
     documentType: DocumentType = Field(..., description="Document type")
+    documentName: str | None = Field(None, description="Custom document name for other type")
     documentNumber: str = Field(..., description="Document number")
     documentIssueDate: date | None = Field(None, description="Document issue date")
     documentExpiryDate: date | None = Field(None, description="Document expiry date")
@@ -43,3 +44,7 @@ class CreateVerificationRequest(BaseModel):
         min_length=1,
         description="Uploaded verification files (front + selfie required)",
     )
+
+
+class DeleteVerificationRequest(BaseModel):
+    documentNumber: str = Field(..., description="Document number for exact verification lookup")

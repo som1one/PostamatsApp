@@ -174,9 +174,9 @@ function CheckoutContent() {
     return (
       <>
         <PageHeader
-          eyebrow="Checkout"
+          eyebrow="Оформление"
           title="Бронь не собрана"
-          subtitle={error || "Откройте товар и выберите постамат перед checkout."}
+          subtitle={error || "Откройте товар и выберите постамат перед оформлением."}
         />
         <EmptyState
           icon={<ShoppingBag size={34} />}
@@ -205,11 +205,11 @@ function CheckoutContent() {
             <FileCheck2 size={22} />
             <div>
               <strong>Документы ещё не одобрены</strong>
-              <span>После KYC checkout продолжит использовать выбранный товар и тариф.</span>
+              <span>После проверки профиля вы сможете продолжить оформление с выбранным товаром и тарифом.</span>
             </div>
           </div>
           <Link className="button button-primary" href="/verification">
-            Перейти к KYC
+            Перейти к проверке
           </Link>
         </Surface>
       </>
@@ -219,7 +219,7 @@ function CheckoutContent() {
   return (
     <>
       <PageHeader
-        eyebrow="Checkout"
+        eyebrow="Оформление"
         title="Бронь"
         subtitle={product?.name || "Товар выбран"}
         actions={<StatusPill status={reservation?.status || "awaiting_payment"} />}
@@ -281,8 +281,8 @@ function CheckoutContent() {
             </div>
           </div>
           <div className="alert">
-            Backend MVP резервирует ближайшую доступную единицу. Выбранное время уже
-            передается в checkout и готово для будущего endpoint слотов.
+            После подтверждения брони мы закрепим за вами доступный комплект в
+            выбранной точке и подготовим его к выдаче.
           </div>
         </Surface>
 

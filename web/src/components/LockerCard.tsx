@@ -55,11 +55,15 @@ export function LockerCard({
         <span>{locker.availableUnitCount ?? 0} ед.</span>
       </div>
       {showAction ? (
-        <Link className="button button-secondary locker-card-action" href={`/catalog?lockerId=${locker.id}`}>
-          Смотреть товары
-        </Link>
+        <div className="locker-card-actions">
+          <Link
+            className="button button-secondary locker-card-action"
+            href={`/catalog?lockerId=${locker.id}`}
+          >
+            Смотреть товары
+          </Link>
+        </div>
       ) : null}
     </article>
   );
 }
-

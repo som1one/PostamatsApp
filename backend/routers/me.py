@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
@@ -5,15 +6,28 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
-from backend.models.enums import RentalStatus, VerificationStatus
+from backend.models.enums import (
+    DocumentType,
+    InventoryStatus,
+    RentalStatus,
+    ReservationStatus,
+    VerificationStatus,
+)
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_location import LockerLocation
 from backend.models.product import Product
 from backend.models.rental import Rental
+from backend.models.reservation import Reservation
 from backend.models.user import User
 from backend.models.verification_request import VerificationRequest
-from backend.schemas.me_schemas import CreateVerificationRequest, RentalReturnRequestPayload, UpdateMePayload
+from backend.schemas.me_schemas import (
+    CreateVerificationRequest,
+    DeleteVerificationRequest,
+    RentalReturnRequestPayload,
+    UpdateMePayload,
+)
 from backend.utils.auth_utils import get_current_client_user
+from backend.utils.document_numbers import normalize_document_number
 from backend.utils.me_utils import (
     UPDATE_ME_FIELD_MAP,
     VerificationFileResolveError,
@@ -23,8 +37,10 @@ from backend.utils.me_utils import (
     serialize_verification_not_started,
     serialize_verification_request,
 )
+from backend.utils.products_utils import load_media_files_by_ids, public_media_url
 from backend.utils.rental_return_flow import ReturnRequestError, start_rental_return
 from backend.utils.rental_serialization import serialize_rental_detail, serialize_rental_list_item
+from backend.utils.reservation_utils import ensure_utc
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -53,6 +69,12 @@ _RENTAL_STATUS_GROUPS: dict[str, tuple[RentalStatus, ...]] = {
     "completed": (RentalStatus.COMPLETED,),
     "cancelled": (RentalStatus.CANCELLED, RentalStatus.INCIDENT),
 }
+
+_UPCOMING_RESERVATION_STATUSES: tuple[ReservationStatus, ...] = (
+    ReservationStatus.CREATED,
+    ReservationStatus.AWAITING_PAYMENT,
+    ReservationStatus.PAYMENT_AUTHORIZED,
+)
 
 
 @router.get("")
@@ -125,6 +147,25 @@ async def create_verification_request(
     if user.verification_status == VerificationStatus.PENDING_REVIEW:
         raise HTTPException(status_code=400, detail="Verification request already in review")
 
+    document_name = (payload.documentName or "").strip() or None
+    if payload.documentType == DocumentType.OTHER and not document_name:
+        raise HTTPException(status_code=400, detail="DOCUMENT_NAME_REQUIRED")
+
+    try:
+        document_number = normalize_document_number(payload.documentNumber)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    existing_request = (
+        await db.execute(
+            select(VerificationRequest).where(
+                VerificationRequest.document_number == document_number
+            )
+        )
+    ).scalar_one_or_none()
+    if existing_request is not None:
+        raise HTTPException(status_code=409, detail="DOCUMENT_NUMBER_ALREADY_EXISTS")
+
     try:
         front_id, back_id, selfie_id = await resolve_verification_file_ids(
             db, user.id, payload.files
@@ -141,7 +182,8 @@ async def create_verification_request(
         user_id=user.id,
         status=VerificationStatus.PENDING_REVIEW,
         document_type=payload.documentType,
-        document_number=payload.documentNumber,
+        document_name=document_name,
+        document_number=document_number,
         document_issue_date=payload.documentIssueDate,
         document_expiry_date=payload.documentExpiryDate,
         front_file_id=front_id,
@@ -165,6 +207,49 @@ async def create_verification_request(
     }
 
 
+@router.delete("/verification")
+async def delete_verification_request(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    payload: DeleteVerificationRequest = Body(...),
+):
+    user = await get_current_client_user(request, db)
+
+    try:
+        document_number = normalize_document_number(payload.documentNumber)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    result = await db.execute(
+        select(VerificationRequest)
+        .where(
+            VerificationRequest.user_id == user.id,
+            VerificationRequest.document_number == document_number,
+        )
+        .order_by(VerificationRequest.created_at.desc())
+        .limit(1)
+    )
+    verification_request = result.scalar_one_or_none()
+
+    if verification_request is None:
+        raise HTTPException(status_code=404, detail="VERIFICATION_REQUEST_NOT_FOUND")
+
+    if verification_request.status == VerificationStatus.APPROVED:
+        raise HTTPException(status_code=400, detail="VERIFICATION_ALREADY_APPROVED")
+
+    await db.delete(verification_request)
+    user.verification_status = VerificationStatus.DRAFT
+
+    try:
+        await db.commit()
+        await db.refresh(user)
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="FAILED_TO_DELETE_VERIFICATION") from exc
+
+    return {"data": {"verification": serialize_verification_not_started()}}
+
+
 @router.get("/verification")
 async def get_verification_request(
     request: Request,
@@ -186,6 +271,121 @@ async def get_verification_request(
     return {
         "data": {
             "verification": serialize_verification_request(verification_request),
+        }
+    }
+
+
+@router.get("/reservations")
+async def list_my_reservations(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_current_client_user(request, db)
+
+    stmt = (
+        select(Reservation)
+        .where(
+            Reservation.user_id == user.id,
+            Reservation.status.in_(_UPCOMING_RESERVATION_STATUSES),
+        )
+        .order_by(Reservation.created_at.desc())
+    )
+    reservations = (await db.scalars(stmt)).all()
+
+    if not reservations:
+        return {"data": {"reservations": []}}
+
+    product_ids = list({reservation.product_id for reservation in reservations})
+    products = (
+        (await db.scalars(select(Product).where(Product.id.in_(product_ids)))).all()
+        if product_ids
+        else []
+    )
+    product_by_id = {product.id: product for product in products}
+
+    locker_ids = list({reservation.locker_id for reservation in reservations})
+    lockers = (
+        (await db.scalars(select(LockerLocation).where(LockerLocation.id.in_(locker_ids)))).all()
+        if locker_ids
+        else []
+    )
+    locker_by_id = {locker.id: locker for locker in lockers}
+
+    cover_ids = [product.cover_file_id for product in products if product.cover_file_id]
+    media_by_id = await load_media_files_by_ids(db, cover_ids) if cover_ids else {}
+
+    items: list[dict] = []
+    for reservation in reservations:
+        product = product_by_id.get(reservation.product_id)
+        locker = locker_by_id.get(reservation.locker_id)
+        cover_url = None
+        if product is not None and product.cover_file_id:
+            media = media_by_id.get(product.cover_file_id)
+            if media is not None:
+                cover_url = public_media_url(media.file_key)
+
+        items.append(
+            {
+                "id": str(reservation.id),
+                "status": reservation.status.value,
+                "expiresAt": ensure_utc(reservation.expires_at).isoformat(),
+                "product": {
+                    "id": str(product.id) if product is not None else str(reservation.product_id),
+                    "name": product.name if product is not None else None,
+                    "coverUrl": cover_url,
+                },
+                "locker": {
+                    "id": str(locker.id) if locker is not None else str(reservation.locker_id),
+                    "name": locker.name if locker is not None else None,
+                    "address": locker.address if locker is not None else None,
+                },
+            }
+        )
+
+    return {"data": {"reservations": items}}
+
+
+@router.post("/reservations/{reservation_id}/cancel")
+async def cancel_my_reservation(
+    reservation_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_current_client_user(request, db)
+
+    reservation = (
+        await db.execute(select(Reservation).where(Reservation.id == reservation_id))
+    ).scalar_one_or_none()
+    if reservation is None:
+        raise HTTPException(status_code=404, detail="RESERVATION_NOT_FOUND")
+    if reservation.user_id != user.id:
+        raise HTTPException(status_code=403, detail="RESERVATION_FORBIDDEN")
+    if reservation.status not in (ReservationStatus.CREATED, ReservationStatus.AWAITING_PAYMENT):
+        raise HTTPException(status_code=409, detail="RESERVATION_NOT_CANCELLABLE")
+
+    inventory_unit = await db.get(InventoryUnit, reservation.inventory_unit_id)
+    if inventory_unit is not None and inventory_unit.status == InventoryStatus.RESERVED:
+        inventory_unit.status = InventoryStatus.AVAILABLE
+
+    reservation.status = ReservationStatus.CANCELLED
+    reservation.cancelled_at = datetime.now(timezone.utc)
+    reservation.cancel_reason = "cancelled_by_user"
+
+    try:
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="RESERVATION_CANCEL_FAILED") from exc
+
+    return {
+        "data": {
+            "reservation": {
+                "id": str(reservation.id),
+                "status": reservation.status.value,
+                "cancelledAt": reservation.cancelled_at.isoformat()
+                if reservation.cancelled_at is not None
+                else None,
+            }
         }
     }
 

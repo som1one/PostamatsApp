@@ -11,3 +11,5 @@ PyJWT
 boto3
 yookassa
 httpx
+redis
+tzdata

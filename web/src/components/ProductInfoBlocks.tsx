@@ -47,7 +47,7 @@ export function ProductInstructions({ product }: { product: ProductDetail }) {
         </span>
       </div>
       <div className="alert alert-warn">
-        <AlertTriangle size={20} />
+        <AlertTriangle size={24} />
         <div>
           <strong>Проверьте комплект сразу</strong>
           <span>
@@ -60,4 +60,3 @@ export function ProductInstructions({ product }: { product: ProductDetail }) {
     </section>
   );
 }
-

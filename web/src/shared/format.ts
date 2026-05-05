@@ -35,27 +35,71 @@ export function statusLabel(status?: string | null) {
     offline: "офлайн",
     maintenance: "обслуживание",
     degraded: "нестабильно",
+    profile_empty: "не заполнено",
+    profile_partial: "нужно дополнить",
+    profile_ready: "заполнено",
     draft: "черновик",
     not_started: "не начата",
     pending_review: "на проверке",
     approved: "одобрено",
     rejected: "отклонено",
     blocked: "заблокировано",
+    created: "создана",
     awaiting_payment: "ожидает оплаты",
     payment_authorized: "оплата готова",
     confirmed: "подтверждена",
+    expired: "истекла",
     pickup_ready: "готово к выдаче",
+    pickup_opened: "ячейка открыта",
     active: "активна",
     return_in_progress: "возврат",
     completed: "завершена",
+    overdue: "просрочена",
     cancelled: "отменена",
     incident: "инцидент",
   };
   return labels[key] ?? key.replaceAll("_", " ");
 }
 
+export function pluralizeRu(
+  count: number,
+  forms: [one: string, few: string, many: string],
+) {
+  const abs = Math.abs(count) % 100;
+  const last = abs % 10;
+
+  if (abs > 10 && abs < 20) {
+    return forms[2];
+  }
+  if (last > 1 && last < 5) {
+    return forms[1];
+  }
+  if (last === 1) {
+    return forms[0];
+  }
+  return forms[2];
+}
+
+export function formatCountRu(
+  count: number,
+  forms: [one: string, few: string, many: string],
+) {
+  return `${count} ${pluralizeRu(count, forms)}`;
+}
+
 export function normalizePhoneInput(value: string) {
-  return value.replace(/[^\d+]/g, "").slice(0, 16);
+  const hasPlus = value.trim().startsWith("+");
+  const digits = value.replace(/\D/g, "").slice(0, 15);
+
+  if (!digits && !hasPlus) {
+    return "";
+  }
+
+  if (!digits && hasPlus) {
+    return "+";
+  }
+
+  return `+${digits}`;
 }
 
 export function normalizePhoneForApi(value: string) {

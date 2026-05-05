@@ -1,4 +1,6 @@
+import asyncio
 import sys
+import threading
 from pathlib import Path
 import uvicorn
 
@@ -11,12 +13,15 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from backend.core.database import close_db, init_db
+from backend.core.redis import close_redis, init_redis
+from backend.core.settings import settings
 from backend.routers.admin.audit import router as admin_audit_router
 from backend.routers.admin.auth import router as admin_auth_router
 from backend.routers.admin.cities import router as admin_cities_router
 from backend.routers.admin.dashboard import router as admin_dashboard_router
 from backend.routers.admin.lockers import router as admin_lockers_router
 from backend.routers.admin.product_categories import router as admin_product_categories_router
+from backend.routers.admin.product_filters import router as admin_product_filters_router
 from backend.routers.admin.products import router as admin_products_router
 from backend.routers.admin.rentals import router as admin_rentals_router
 from backend.routers.admin.uploads import router as admin_uploads_router
@@ -31,13 +36,20 @@ from backend.routers.products import router as products_router
 from backend.routers.reservation import router as reservation_router
 from backend.routers.payments import router as payments_router, yookassa_webhook_router
 from backend.routers.webhooks_esi import router as webhooks_esi_router
+from backend.utils.featured_product import (
+    start_featured_product_scheduler,
+    stop_featured_product_scheduler,
+)
 
 
 app = FastAPI()
+featured_product_worker: threading.Thread | None = None
+featured_product_stop_event: threading.Event | None = None
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ALLOWED_ORIGINS,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -61,19 +73,32 @@ app.include_router(admin_lockers_router)
 app.include_router(admin_rentals_router)
 app.include_router(admin_audit_router)
 app.include_router(admin_product_categories_router)
+app.include_router(admin_product_filters_router)
 app.include_router(admin_products_router)
 app.include_router(admin_uploads_router)
 
 admin_frontend_dir = ROOT_DIR / "admin"
+assets_dir = ROOT_DIR / "assets"
+if assets_dir.exists():
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 if admin_frontend_dir.exists():
     app.mount("/admin", StaticFiles(directory=admin_frontend_dir, html=True), name="admin")
 
 @app.on_event("startup")
 async def startup_event():
+    global featured_product_worker, featured_product_stop_event
     await init_db()
+    await init_redis()
+    loop = asyncio.get_running_loop()
+    featured_product_worker, featured_product_stop_event = start_featured_product_scheduler(loop)
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    global featured_product_worker, featured_product_stop_event
+    await stop_featured_product_scheduler(featured_product_worker, featured_product_stop_event)
+    featured_product_worker = None
+    featured_product_stop_event = None
+    await close_redis()
     await close_db()
 
 @app.get("/health")

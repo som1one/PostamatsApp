@@ -47,6 +47,34 @@ async def aggregate_available_in_city(
     return units_map, lockers_map
 
 
+async def aggregate_available_globally(
+    db: AsyncSession,
+) -> tuple[dict[UUID, int], dict[UUID, int]]:
+    stmt = (
+        select(
+            InventoryUnit.product_id,
+            func.count(InventoryUnit.id).label("units"),
+            func.count(func.distinct(LockerCell.locker_id)).label("lockers"),
+        )
+        .select_from(InventoryUnit)
+        .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
+        .join(LockerLocation, LockerCell.locker_id == LockerLocation.id)
+        .where(
+            LockerLocation.status == LockerStatus.ONLINE,
+            InventoryUnit.status == InventoryStatus.AVAILABLE,
+            LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
+        )
+        .group_by(InventoryUnit.product_id)
+    )
+    result = await db.execute(stmt)
+    units_map: dict[UUID, int] = {}
+    lockers_map: dict[UUID, int] = {}
+    for row in result:
+        units_map[row.product_id] = int(row.units)
+        lockers_map[row.product_id] = int(row.lockers)
+    return units_map, lockers_map
+
+
 async def load_media_files_by_ids(
     db: AsyncSession,
     file_ids: list[UUID],
@@ -174,6 +202,7 @@ def serialize_product_list_item(
     available: bool,
     available_locker_count: int,
     unit_count: int,
+    category_name: str | None = None,
 ) -> dict:
     price_from = (
         price_plan_to_minor_units(plan.base_amount, plan.currency) if plan else None
@@ -182,6 +211,7 @@ def serialize_product_list_item(
     return {
         "id": str(product.id),
         "categoryId": str(product.category_id),
+        "categoryName": category_name,
         "name": product.name,
         "slug": product.slug,
         "coverUrl": cover_url,

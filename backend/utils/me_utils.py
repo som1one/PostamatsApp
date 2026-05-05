@@ -100,6 +100,7 @@ def serialize_verification_request(verification_request: VerificationRequest) ->
         "id": str(verification_request.id),
         "status": verification_request.status.value,
         "documentType": verification_request.document_type.value,
+        "documentName": verification_request.document_name,
         "documentNumber": verification_request.document_number,
         "documentIssueDate": verification_request.document_issue_date.isoformat()
         if verification_request.document_issue_date

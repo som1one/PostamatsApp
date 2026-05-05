@@ -1,0 +1,24 @@
+http://{$SERVER_IP} {
+	encode zstd gzip
+
+	handle /api/admin/* {
+		reverse_proxy backend:8000
+	}
+
+	handle_path /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle /admin* {
+		reverse_proxy backend:8000
+	}
+
+	handle /assets/* {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		reverse_proxy web:3001
+	}
+}
+

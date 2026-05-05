@@ -16,6 +16,7 @@ from backend.utils.auth_utils import get_current_client_user
 from backend.utils.storage_presign import presign_put_object
 from backend.utils.uploads_utils import (
     PRESIGN_KIND_TO_MEDIA,
+    bucket_for_media_kind,
     max_size_for_kind,
     build_file_key,
     MIME_BY_KIND,
@@ -54,7 +55,11 @@ async def presign_upload(
     file_id = uuid4()
     file_key = build_file_key(payload.kind, file_id, payload.fileName)
     now = datetime.now(timezone.utc)
-    bucket = settings.S3_BUCKET or "dev-stub"
+    bucket = (
+        "dev-stub"
+        if settings.UPLOAD_DEV_STUB
+        else bucket_for_media_kind(media_kind) or "dev-stub"
+    )
 
     media = MediaFile(
         id=file_id,
@@ -74,8 +79,6 @@ async def presign_upload(
     try:
         await db.flush()
         expires_in = settings.UPLOAD_PRESIGN_EXPIRES
-        if not settings.UPLOAD_DEV_STUB and not settings.S3_BUCKET:
-            raise HTTPException(status_code=500, detail="STORAGE_PRESIGN_FAILED")
         upload_url = presign_put_object(
             bucket=bucket,
             file_key=file_key,
@@ -87,10 +90,10 @@ async def presign_upload(
     except HTTPException:
         await db.rollback()
         raise
-    except ClientError:
+    except ClientError as exc:
         await db.rollback()
         logger.exception("S3 presign failed")
-        raise HTTPException(status_code=500, detail="STORAGE_PRESIGN_FAILED") from None
+        raise HTTPException(status_code=500, detail=str(exc) or "STORAGE_PRESIGN_FAILED") from None
     except Exception:
         await db.rollback()
         logger.exception("presign upload failed")

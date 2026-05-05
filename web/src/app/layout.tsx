@@ -3,8 +3,12 @@ import "./globals.css";
 import { AppProviders } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Postamats",
-  description: "Аренда техники и вещей через постаматы рядом с домом",
+  title: "naprokatberu",
+  description: "Аренда техники и вещей рядом с домом",
+  icons: {
+    icon: "/naprokatberu-logo.png",
+    apple: "/naprokatberu-logo.png",
+  },
 };
 
 export const viewport: Viewport = {

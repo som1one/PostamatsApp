@@ -1,0 +1,14 @@
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:3001
+}
+
+www.{$APP_DOMAIN} {
+	redir https://{$APP_DOMAIN}{uri} permanent
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy backend:8000
+}
+

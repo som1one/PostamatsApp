@@ -13,6 +13,8 @@ export function OrderSummary({
   canCheckout,
   checkoutHref,
   isAuthed,
+  variant = "default",
+  showProduct = true,
 }: {
   product: ProductDetail;
   lockerName?: string;
@@ -23,33 +25,48 @@ export function OrderSummary({
   canCheckout: boolean;
   checkoutHref: string;
   isAuthed: boolean;
+  variant?: "default" | "compact";
+  showProduct?: boolean;
 }) {
+  const isCompact = variant === "compact";
+
   return (
-    <aside className="surface order-summary sticky-panel">
-      <div>
-        <p className="eyebrow">Итог</p>
-        <h2 className="summary-total">
-          {formatMoney(pricing?.totalAmount ?? plan?.baseAmount, pricing?.currency ?? plan?.currency)}
-        </h2>
+    <aside className={`surface order-summary ${isCompact ? "order-summary-compact" : "sticky-panel"}`}>
+      <div className={`summary-header ${isCompact ? "summary-header-compact" : ""}`}>
+        <div className="summary-header-main">
+          <p className="eyebrow">Итог</p>
+          <h2 className="summary-total">
+            {formatMoney(pricing?.totalAmount ?? plan?.baseAmount, pricing?.currency ?? plan?.currency)}
+          </h2>
+        </div>
+        {isCompact ? (
+          <p className="muted small summary-preauth">
+            Предавторизация: {formatMoney(pricing?.preauthAmount, pricing?.currency)}
+          </p>
+        ) : null}
       </div>
 
       <div className="summary-list">
-        <div className="summary-line">
-          <span className="muted">Товар</span>
-          <strong>{product.name}</strong>
-        </div>
-        <div className="summary-line">
+        {showProduct ? (
+          <div className="summary-line summary-line-product">
+            <span className="muted">Товар</span>
+            <strong>{product.name}</strong>
+          </div>
+        ) : null}
+        <div className="summary-line summary-line-plan">
           <span className="muted">Тариф</span>
           <strong>{plan?.name || "Не выбран"}</strong>
         </div>
-        <div className="summary-line">
+        <div className="summary-line summary-line-start">
           <span className="muted">Старт</span>
           <strong>{startDateTime || "Не выбран"}</strong>
         </div>
-        <div className="summary-line">
-          <span className="muted">Предавторизация</span>
-          <strong>{formatMoney(pricing?.preauthAmount, pricing?.currency)}</strong>
-        </div>
+        {!isCompact ? (
+          <div className="summary-line summary-line-preauth">
+            <span className="muted">Предавторизация</span>
+            <strong>{formatMoney(pricing?.preauthAmount, pricing?.currency)}</strong>
+          </div>
+        ) : null}
       </div>
 
       {lockerName ? (
@@ -64,38 +81,44 @@ export function OrderSummary({
         <div className="alert alert-warn">Выберите постамат с доступным товаром.</div>
       )}
 
-      {isAuthed ? (
-        <Link
-          className="button button-primary"
-          href={canCheckout ? checkoutHref : "#"}
-          aria-disabled={!canCheckout}
-          onClick={(event) => {
-            if (!canCheckout) {
-              event.preventDefault();
-            }
-          }}
-        >
+      {canCheckout && isAuthed ? (
+        <Link className="button button-primary summary-action" href={checkoutHref}>
           <PackageCheck size={18} />
           Оформить аренду
         </Link>
-      ) : (
-        <div className="auth-prompt">
-          <LockKeyhole size={20} />
-          <div>
-            <strong>Войдите, чтобы продолжить</strong>
-            <span>Мы сохраним выбранный товар, постамат и тариф.</span>
-          </div>
-          <div className="auth-prompt-actions">
-            <Link className="button button-primary" href="/login">
+      ) : canCheckout ? (
+        isCompact ? (
+          <div className="summary-auth-actions">
+            <Link className="button button-primary summary-action" href="/login">
               Войти
             </Link>
-            <Link className="button button-secondary" href="/register">
-              Зарегистрироваться
+            <Link className="button button-secondary summary-secondary-action" href="/register">
+              Регистрация
             </Link>
           </div>
-        </div>
+        ) : (
+          <div className="auth-prompt">
+            <LockKeyhole size={20} />
+            <div>
+              <strong>Войдите, чтобы продолжить</strong>
+              <span>Мы сохраним выбранный товар, постамат и тариф.</span>
+            </div>
+            <div className="auth-prompt-actions">
+              <Link className="button button-primary summary-action" href="/login">
+                Войти
+              </Link>
+              <Link className="button button-secondary summary-secondary-action" href="/register">
+                Зарегистрироваться
+              </Link>
+            </div>
+          </div>
+        )
+      ) : (
+        <a className="button button-primary summary-action" href="#rental-flow">
+          <PackageCheck size={18} />
+          Выбрать параметры
+        </a>
       )}
     </aside>
   );
 }
-

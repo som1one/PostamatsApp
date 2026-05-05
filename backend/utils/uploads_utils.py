@@ -2,6 +2,7 @@ import re
 from datetime import datetime, timezone
 from uuid import UUID
 
+from backend.core.settings import settings
 from backend.models.enums import MediaFileKind
 
 PRESIGN_KIND_TO_MEDIA: dict[str, MediaFileKind] = {
@@ -43,12 +44,23 @@ MIME_BY_KIND: dict[MediaFileKind, frozenset[str]] = {
 # Лимиты в байтах (MVP)
 MAX_FILE_SIZE_IMAGE = 10 * 1024 * 1024
 MAX_FILE_SIZE_INCIDENT = 20 * 1024 * 1024
+PUBLIC_MEDIA_KINDS = frozenset({MediaFileKind.PRODUCT_COVER, MediaFileKind.PRODUCT_GALLERY})
 
 
 def max_size_for_kind(media_kind: MediaFileKind) -> int:
     if media_kind == MediaFileKind.INCIDENT_ATTACHMENT:
         return MAX_FILE_SIZE_INCIDENT
     return MAX_FILE_SIZE_IMAGE
+
+
+def is_public_media_kind(media_kind: MediaFileKind) -> bool:
+    return media_kind in PUBLIC_MEDIA_KINDS
+
+
+def bucket_for_media_kind(media_kind: MediaFileKind) -> str:
+    if is_public_media_kind(media_kind):
+        return settings.S3_PUBLIC_BUCKET
+    return settings.S3_PRIVATE_BUCKET
 
 
 def sanitize_filename(name: str) -> str:

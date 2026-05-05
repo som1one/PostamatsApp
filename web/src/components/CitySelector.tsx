@@ -12,32 +12,55 @@ export function readSavedCityId() {
   return window.localStorage.getItem(SELECTED_CITY_STORAGE_KEY) || "";
 }
 
+export function resolveSelectedCityId(cities: City[], preferredCityId: string) {
+  if (preferredCityId && cities.some((city) => city.id === preferredCityId)) {
+    return preferredCityId;
+  }
+  return cities[0]?.id || "";
+}
+
 export function saveSelectedCityId(cityId: string) {
   if (typeof window === "undefined") {
     return;
   }
-  window.localStorage.setItem(SELECTED_CITY_STORAGE_KEY, cityId);
+  if (cityId) {
+    window.localStorage.setItem(SELECTED_CITY_STORAGE_KEY, cityId);
+  } else {
+    window.localStorage.removeItem(SELECTED_CITY_STORAGE_KEY);
+  }
   window.dispatchEvent(new CustomEvent("postamats:city-change", { detail: cityId }));
 }
 
-export function useCitySync(cityId: string, onCityChange: (cityId: string) => void) {
+export function useCitySync(
+  cities: City[],
+  cityId: string,
+  onCityChange: (cityId: string) => void,
+) {
   useEffect(() => {
     const saved = readSavedCityId();
-    if (saved && !cityId) {
-      onCityChange(saved);
+    const next = resolveSelectedCityId(cities, saved || cityId);
+    if (next !== cityId) {
+      onCityChange(next);
+    }
+  }, [cities, cityId, onCityChange]);
+
+  useEffect(() => {
+    function applyCityChange(nextCityId: string | null) {
+      const next = resolveSelectedCityId(cities, nextCityId || "");
+      if (next !== cityId) {
+        onCityChange(next);
+      }
     }
 
     function handleStorage(event: StorageEvent) {
-      if (event.key === SELECTED_CITY_STORAGE_KEY && event.newValue) {
-        onCityChange(event.newValue);
+      if (event.key === SELECTED_CITY_STORAGE_KEY) {
+        applyCityChange(event.newValue);
       }
     }
 
     function handleCustom(event: Event) {
       const custom = event as CustomEvent<string>;
-      if (custom.detail) {
-        onCityChange(custom.detail);
-      }
+      applyCityChange(custom.detail ?? "");
     }
 
     window.addEventListener("storage", handleStorage);
@@ -46,7 +69,7 @@ export function useCitySync(cityId: string, onCityChange: (cityId: string) => vo
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener("postamats:city-change", handleCustom);
     };
-  }, [cityId, onCityChange]);
+  }, [cities, cityId, onCityChange]);
 }
 
 export function CitySelector({
@@ -64,7 +87,7 @@ export function CitySelector({
 }) {
   return (
     <label className={compact ? "city-select city-select-compact" : "field"}>
-      <span>{compact ? "Город" : "Город"}</span>
+      <span>Город</span>
       <select
         className="select"
         value={value}
@@ -85,4 +108,3 @@ export function CitySelector({
     </label>
   );
 }
-

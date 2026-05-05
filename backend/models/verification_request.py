@@ -25,7 +25,8 @@ class VerificationRequest(Base, TimestampMixin):
         index=True,
         nullable=False,
     )
-    document_number: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    document_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    document_number: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
     document_issue_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     document_expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     front_file_id: Mapped[UUID | None] = mapped_column(

@@ -16,6 +16,7 @@ from backend.models.user import User
 from backend.models.verification_request import VerificationRequest
 from backend.routers.admin.auth import get_current_admin
 from backend.utils.admin_audit import record_admin_audit
+from backend.utils.document_numbers import normalize_document_number
 from backend.schemas.admin_panel_schemas import AdminBlockUserPayload, AdminRejectVerificationPayload
 from backend.utils.phone_utils import normalize_phone_for_storage
 from backend.utils.products_utils import public_media_url
@@ -61,6 +62,21 @@ def _user_search_clause(q: str):
     if normalized_phone and normalized_phone != stripped:
         npattern = f"%{_escape_like_pattern(normalized_phone)}%"
         clauses.append(User.phone.ilike(npattern, escape="\\"))
+    try:
+        normalized_document = normalize_document_number(stripped)
+    except ValueError:
+        normalized_document = None
+    if normalized_document:
+        clauses.append(
+            User.id.in_(
+                select(VerificationRequest.user_id).where(
+                    VerificationRequest.document_number.ilike(
+                        f"%{_escape_like_pattern(normalized_document)}%",
+                        escape="\\",
+                    )
+                )
+            )
+        )
     return or_(*clauses)
 
 

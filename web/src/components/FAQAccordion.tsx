@@ -12,23 +12,28 @@ export function FAQAccordion({
 
   return (
     <div className="faq-list">
-      {items.map((item) => {
+      {items.map((item, index) => {
         const open = openQuestion === item.question;
+        const answerId = `faq-answer-${index}`;
         return (
           <article className={`faq-item ${open ? "is-open" : ""}`} key={item.question}>
             <button
               type="button"
               onClick={() => setOpenQuestion(open ? "" : item.question)}
               aria-expanded={open}
+              aria-controls={answerId}
             >
               <span>{item.question}</span>
               <ChevronDown size={18} />
             </button>
-            {open ? <p>{item.answer}</p> : null}
+            <div className="faq-answer-wrap" id={answerId} aria-hidden={!open}>
+              <div className="faq-answer-inner">
+                <p>{item.answer}</p>
+              </div>
+            </div>
           </article>
         );
       })}
     </div>
   );
 }
-

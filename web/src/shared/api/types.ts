@@ -47,6 +47,7 @@ export type LockerAvailabilityItem = {
 export type ProductListItem = {
   id: string;
   categoryId: string;
+  categoryName?: string | null;
   name: string;
   slug: string;
   coverUrl?: string | null;
@@ -57,6 +58,11 @@ export type ProductListItem = {
   available: boolean;
   availableLockerCount: number;
   availableUnitCount?: number;
+};
+
+export type FeaturedProduct = {
+  product: ProductListItem;
+  activeDate: string;
 };
 
 export type PricePlan = {
@@ -127,7 +133,6 @@ export type AppUser = {
 export type RequestCodeResponse = {
   verificationSessionId: string;
   ttlSeconds: number;
-  code?: string;
 };
 
 export type ConfirmCodeResponse = {
@@ -144,6 +149,7 @@ export type VerificationState = {
   id?: string;
   status: string;
   documentType?: string;
+  documentName?: string;
   documentNumber?: string;
   documentIssueDate?: string;
   documentExpiryDate?: string;
@@ -186,6 +192,22 @@ export type ReservationSummary = {
     quotedAmount: number;
     preauthAmount: number;
     currency: string;
+  };
+};
+
+export type UpcomingReservation = {
+  id: string;
+  status: string;
+  expiresAt: string;
+  product: {
+    id: string;
+    name?: string | null;
+    coverUrl?: string | null;
+  };
+  locker: {
+    id: string;
+    name?: string | null;
+    address?: string | null;
   };
 };
 

@@ -37,6 +37,13 @@ from backend.utils.lockers_utils import (
     price_plan_to_minor_units,
 )
 from backend.utils.products_utils import find_price_plan, load_media_files_by_ids, public_media_url
+from backend.utils.product_filters import (
+    find_effective_filter_price_plan,
+    is_product_visible,
+    load_product_filter,
+    minor_to_major_decimal,
+    resolve_effective_cover_url,
+)
 from backend.utils.esi_client import EsiReserveError, reserve_pickup_cell
 from backend.utils.reservation_utils import (
     calculate_expires_at,
@@ -57,7 +64,8 @@ async def _get_product(product_id: UUID, db: AsyncSession) -> Product:
     product = await db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="PRODUCT_NOT_FOUND")
-    if not product.is_active:
+    product_filter = await load_product_filter(db, product_id)
+    if not is_product_visible(product, product_filter):
         raise HTTPException(status_code=410, detail="PRODUCT_INACTIVE")
     return product
 
@@ -76,11 +84,17 @@ async def _get_price_plan(
     duration_type: str,
     duration_value: int,
     db: AsyncSession,
-) -> PricePlan:
+) -> tuple[PricePlan, int, str]:
+    product_filter = await load_product_filter(db, product_id)
+    filter_plan = find_effective_filter_price_plan(product_filter, duration_type, duration_value)
     plan = await find_price_plan(db, product_id, duration_type, duration_value)
-    if plan is None:
+    if plan is None and filter_plan is None:
         raise HTTPException(status_code=404, detail="PRICE_PLAN_NOT_FOUND")
-    return plan
+    if plan is None:
+        raise HTTPException(status_code=409, detail="PRICE_PLAN_OVERRIDE_NOT_SUPPORTED")
+    if filter_plan is not None:
+        return plan, int(filter_plan["baseAmount"]), str(filter_plan["currency"])
+    return plan, price_plan_to_minor_units(plan.base_amount, plan.currency), plan.currency
 
 
 async def _get_available_inventory_unit(
@@ -144,7 +158,9 @@ async def create_quote(
 
     await _get_product(payload.productId, db)
     await _get_locker(payload.lockerId, db)
-    plan = await _get_price_plan(payload.productId, payload.durationType, payload.durationValue, db)
+    _, quoted_amount, currency = await _get_price_plan(
+        payload.productId, payload.durationType, payload.durationValue, db
+    )
 
     try:
         unit = await _get_available_inventory_unit(payload.lockerId, payload.productId, db)
@@ -156,7 +172,6 @@ async def create_quote(
     if unit is None:
         raise HTTPException(status_code=409, detail="PRODUCT_NOT_AVAILABLE")
 
-    quoted_amount = price_plan_to_minor_units(plan.base_amount, plan.currency)
     return {
         "data": {
             "quote": {
@@ -164,7 +179,7 @@ async def create_quote(
                 "lockerId": str(payload.lockerId),
                 "durationType": payload.durationType,
                 "durationValue": payload.durationValue,
-                "currency": plan.currency,
+                "currency": currency,
                 "quotedAmount": quoted_amount,
                 "preauthAmount": quoted_amount,
                 "expiresIn": settings.RESERVATION_QUOTE_EXPIRES_SECONDS,
@@ -188,7 +203,9 @@ async def create_reservation(
         await _ensure_no_active_reservation(user.id, db)
         await _get_product(payload.productId, db)
         await _get_locker(payload.lockerId, db)
-        plan = await _get_price_plan(payload.productId, payload.durationType, payload.durationValue, db)
+        plan, quoted_amount_minor, currency = await _get_price_plan(
+            payload.productId, payload.durationType, payload.durationValue, db
+        )
         unit = await _get_available_inventory_unit(payload.lockerId, payload.productId, db)
     except HTTPException:
         raise
@@ -198,7 +215,6 @@ async def create_reservation(
     if unit is None:
         raise HTTPException(status_code=409, detail="PRODUCT_NOT_AVAILABLE")
 
-    quoted_amount_minor = price_plan_to_minor_units(plan.base_amount, plan.currency)
     reservation = Reservation(
         user_id=user.id,
         product_id=payload.productId,
@@ -208,8 +224,8 @@ async def create_reservation(
         status=ReservationStatus.AWAITING_PAYMENT,
         duration_type=payload.durationType,
         duration_value=payload.durationValue,
-        quoted_amount=plan.base_amount,
-        preauth_amount=plan.base_amount,
+        quoted_amount=minor_to_major_decimal(quoted_amount_minor),
+        preauth_amount=minor_to_major_decimal(quoted_amount_minor),
         expires_at=calculate_expires_at(now, payload.pickupWindowMinutes),
     )
     unit.status = InventoryStatus.RESERVED
@@ -262,6 +278,11 @@ async def get_reservation(
         media = media_map.get(product.cover_file_id)
         if media is not None:
             cover_url = public_media_url(media.file_key)
+    product_filter = await load_product_filter(db, reservation.product_id)
+    cover_url = resolve_effective_cover_url(cover_url, product_filter)
+    product_name = product.name if product else None
+    if product_filter and product_filter.name and product_filter.name.strip():
+        product_name = product_filter.name.strip()
 
     return {
         "data": {
@@ -271,7 +292,7 @@ async def get_reservation(
                 "expiresAt": ensure_utc(reservation.expires_at).isoformat(),
                 "product": {
                     "id": str(product.id) if product else str(reservation.product_id),
-                    "name": product.name if product else None,
+                    "name": product_name,
                     "coverUrl": cover_url,
                 },
                 "locker": {

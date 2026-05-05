@@ -2,17 +2,26 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MapPinned, PackageSearch } from "lucide-react";
-import { CitySelector, readSavedCityId, saveSelectedCityId } from "@/components/CitySelector";
+import {
+  CitySelector,
+  readSavedCityId,
+  resolveSelectedCityId,
+  saveSelectedCityId,
+  useCitySync,
+} from "@/components/CitySelector";
 import { EmptyState } from "@/components/EmptyState";
 import { LockerCard } from "@/components/LockerCard";
 import { PageChrome } from "@/components/PageChrome";
 import { YandexMap } from "@/components/YandexMap";
-import { fetchCities, fetchLockers } from "@/shared/api/endpoints";
+import { fetchAllLockers, fetchCities, fetchLockers } from "@/shared/api/endpoints";
+import { formatCountRu, pluralizeRu } from "@/shared/format";
 import type { City, Locker } from "@/shared/api/types";
+import { buildYandexMapsUrl } from "@/shared/maps";
 
 export function LockersClient() {
   const [cities, setCities] = useState<City[]>([]);
   const [cityId, setCityId] = useState("");
+  const [allLockers, setAllLockers] = useState<Locker[]>([]);
   const [lockers, setLockers] = useState<Locker[]>([]);
   const [selectedLockerId, setSelectedLockerId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -27,6 +36,8 @@ export function LockersClient() {
     [lockers, selectedLockerId],
   );
 
+  useCitySync(cities, cityId, setCityId);
+
   useEffect(() => {
     let active = true;
     fetchCities()
@@ -35,14 +46,35 @@ export function LockersClient() {
           return;
         }
         setCities(items);
-        const saved = readSavedCityId();
-        const next = saved && items.some((city) => city.id === saved) ? saved : items[0]?.id || "";
+        const next = resolveSelectedCityId(items, readSavedCityId());
         setCityId(next);
         if (next) {
           saveSelectedCityId(next);
         }
       })
-      .catch(() => setError("Не удалось загрузить города. Попробуйте обновить страницу."));
+      .catch(() => {
+        setError("Не удалось загрузить города. Попробуйте обновить страницу.");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetchAllLockers()
+      .then((items) => {
+        if (!active) {
+          return;
+        }
+        setAllLockers(items);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+        setAllLockers([]);
+      });
     return () => {
       active = false;
     };
@@ -77,6 +109,16 @@ export function LockersClient() {
     };
   }, [cityId]);
 
+  const statsLockers = allLockers.length ? allLockers : lockers;
+  const totalLockerCount = statsLockers.length;
+  const totalUnitCount = statsLockers.reduce(
+    (total, locker) => total + (locker.availableUnitCount ?? 0),
+    0,
+  );
+  const totalOnlineCount = statsLockers.filter(
+    (locker) => locker.status === "online",
+  ).length;
+
   return (
     <PageChrome>
       <section className="catalog-topline lockers-hero">
@@ -84,8 +126,8 @@ export function LockersClient() {
           <p className="eyebrow">Карта постаматов</p>
           <h1 className="page-title">Постаматы рядом с вами</h1>
           <p className="page-subtitle">
-            Выберите город, точку выдачи и посмотрите, сколько товаров доступно в
-            каждом постамате. Если ключ карты не задан, интерфейс покажет удобный список.
+            Выберите город, посмотрите точки на карте и сразу переходите к товарам или
+            маршруту.
           </p>
         </div>
         <CitySelector cities={cities} value={cityId} onChange={setCityId} allLabel="Все города" />
@@ -94,18 +136,18 @@ export function LockersClient() {
       <section className="stats-grid" aria-label="Сводка по постаматам">
         <article className="stat-card">
           <strong>{cities.length || "—"}</strong>
-          <span>городов</span>
+          <span>{pluralizeRu(cities.length, ["город", "города", "городов"])}</span>
         </article>
         <article className="stat-card">
-          <strong>{lockers.length}</strong>
-          <span>точек</span>
+          <strong>{totalLockerCount}</strong>
+          <span>{pluralizeRu(totalLockerCount, ["постамат", "постамата", "постаматов"])}</span>
         </article>
         <article className="stat-card">
-          <strong>{lockers.reduce((total, locker) => total + (locker.availableUnitCount ?? 0), 0)}</strong>
+          <strong>{totalUnitCount}</strong>
           <span>единиц</span>
         </article>
         <article className="stat-card">
-          <strong>{lockers.filter((locker) => locker.status === "online").length}</strong>
+          <strong>{totalOnlineCount}</strong>
           <span>онлайн</span>
         </article>
       </section>
@@ -126,7 +168,9 @@ export function LockersClient() {
             <div className="card-row">
               <div>
                 <p className="eyebrow">{selectedCity?.name || "Все города"}</p>
-                <h2 className="section-title">{lockers.length} постаматов</h2>
+                <h2 className="section-title">
+                  {formatCountRu(lockers.length, ["постамат", "постамата", "постаматов"])}
+                </h2>
               </div>
               <span className="icon-badge">
                 <MapPinned size={20} />
@@ -139,8 +183,22 @@ export function LockersClient() {
                 <div>
                   <strong>{selectedLocker.name}</strong>
                   <span>
-                    {selectedLocker.availableProductCount} SKU · {selectedLocker.availableUnitCount ?? 0} ед.
+                    {selectedLocker.availableProductCount} SKU ·{" "}
+                    {selectedLocker.availableUnitCount ?? 0} ед.
                   </span>
+                  <a
+                    className="button button-ghost button-inline selected-locker-link"
+                    href={buildYandexMapsUrl({
+                      name: selectedLocker.name,
+                      address: selectedLocker.address,
+                      lat: selectedLocker.lat,
+                      lon: selectedLocker.lon,
+                    })}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Открыть в Яндекс Картах
+                  </a>
                 </div>
               </div>
             ) : null}

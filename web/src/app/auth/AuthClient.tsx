@@ -2,8 +2,9 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, KeyRound, Phone, ShieldCheck } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { PageChrome } from "@/components/PageChrome";
+import { ApiError } from "@/shared/api/client";
 import { confirmCode, requestCode } from "@/shared/api/endpoints";
 import { useAuth } from "@/shared/auth/auth-context";
 import {
@@ -14,6 +15,28 @@ import {
 
 type Step = "phone" | "code";
 
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  AUTH_PHONE_REQUIRED: "Введите номер телефона.",
+  AUTH_PHONE_INVALID: "Введите корректный номер РФ или РБ.",
+  AUTH_SMS_SEND_FAILED: "Не удалось отправить SMS. Попробуйте еще раз чуть позже.",
+  AUTH_SMS_PROVIDER_ERROR: "Сервис SMS сейчас недоступен. Попробуйте еще раз чуть позже.",
+  AUTH_SESSION_NOT_FOUND: "Сессия входа не найдена. Запросите код заново.",
+  AUTH_SESSION_INACTIVE: "Этот код уже недействителен. Запросите новый.",
+  AUTH_SESSION_EXPIRED: "Срок действия кода истек. Запросите новый.",
+  AUTH_TOO_MANY_ATTEMPTS: "Слишком много попыток. Запросите новый код.",
+  AUTH_CODE_INVALID: "Неверный код. Попробуйте еще раз.",
+  AUTH_ACCOUNT_BLOCKED: "Аккаунт заблокирован. Обратитесь в поддержку.",
+  AUTH_UNAUTHORIZED: "Сессия входа недействительна. Попробуйте войти заново.",
+};
+
+
+function resolveAuthErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    return AUTH_ERROR_MESSAGES[error.code || ""] || fallback;
+  }
+  return fallback;
+}
+
 export function AuthClient() {
   const router = useRouter();
   const { setSessionFromLogin, isAuthed } = useAuth();
@@ -21,10 +44,10 @@ export function AuthClient() {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [sessionId, setSessionId] = useState("");
-  const [devCode, setDevCode] = useState("");
   const [ttl, setTtl] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isCodeFocused, setIsCodeFocused] = useState(false);
   const codeInputRef = useRef<HTMLInputElement | null>(null);
   const normalizedPhone = useMemo(() => normalizePhoneForApi(phone), [phone]);
 
@@ -62,12 +85,16 @@ export function AuthClient() {
     try {
       const result = await requestCode(normalizedPhone);
       setSessionId(result.verificationSessionId);
-      setDevCode(result.code || "");
       setTtl(result.ttlSeconds || 0);
       setCode("");
       setStep("code");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось отправить код.");
+    } catch (submitError) {
+      setError(
+        resolveAuthErrorMessage(
+          submitError,
+          "Не удалось отправить код. Попробуйте еще раз.",
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -86,130 +113,130 @@ export function AuthClient() {
       const result = await confirmCode(sessionId, code.trim());
       setSessionFromLogin(result);
       router.replace("/");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Код не подошёл.");
+    } catch (submitError) {
+      setError(
+        resolveAuthErrorMessage(
+          submitError,
+          "Не удалось выполнить вход. Попробуйте еще раз.",
+        ),
+      );
     } finally {
       setLoading(false);
     }
   }
 
+  function resetToPhoneStep() {
+    setStep("phone");
+    setSessionId("");
+    setTtl(0);
+    setError("");
+    setCode("");
+    setIsCodeFocused(false);
+  }
+
   return (
     <PageChrome compact>
       <div className="auth-layout">
-        <section className="surface auth-copy">
-          <p className="eyebrow">Postamats ID</p>
-          <h1 className="page-title">Вход по телефону</h1>
-          <p className="page-subtitle">
-            Один аккаунт открывает каталог, проверку документов, брони, оплату и
-            историю аренд.
-          </p>
-          <div className="step-list">
-            <div className="step-item">
-              <span className="step-dot">
-                <Phone size={18} />
-              </span>
-              <div>
-                <strong>Номер РФ или РБ</strong>
-                <p className="small">Поддерживаются номера России и Беларуси.</p>
-              </div>
-            </div>
-            <div className="step-item">
-              <span className="step-dot">
-                <KeyRound size={18} />
-              </span>
-              <div>
-                <strong>Короткий код</strong>
-                <p className="small">В dev-режиме код показывается после отправки.</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <section className="surface auth-panel">
-          {step === "phone" ? (
-            <>
-              <p className="eyebrow">Вход</p>
-              <h1>Введите телефон</h1>
-              <form className="form-stack" onSubmit={handlePhoneSubmit}>
-                <label className="field">
-                  <span>Телефон</span>
-                  <input
-                    className="input"
-                    value={phone}
-                    placeholder="+79991234567"
-                    onChange={(event) => setPhone(normalizePhoneInput(event.target.value))}
-                    autoComplete="tel"
-                  />
-                </label>
-                {error ? <div className="alert alert-danger">{error}</div> : null}
+          <div className="auth-panel-card">
+            {step === "phone" ? (
+              <>
+                <p className="eyebrow">Вход</p>
+                <h1>Введите телефон</h1>
+                <form className="form-stack" onSubmit={handlePhoneSubmit}>
+                  <label className="field">
+                    <span>Телефон</span>
+                    <input
+                      className="input"
+                      value={phone}
+                      placeholder="+79991234567"
+                      onChange={(event) => setPhone(normalizePhoneInput(event.target.value))}
+                      autoComplete="tel"
+                    />
+                  </label>
+                  {error ? <div className="alert alert-danger">{error}</div> : null}
+                  <button
+                    className="button button-primary"
+                    type="submit"
+                    disabled={loading || !isPhoneReady(phone)}
+                  >
+                    {loading ? "Отправляем" : "Далее"}
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
                 <button
-                  className="button button-primary"
-                  type="submit"
-                  disabled={loading || !isPhoneReady(phone)}
+                  className="button button-ghost button-inline"
+                  type="button"
+                  onClick={resetToPhoneStep}
                 >
-                  {loading ? "Отправляем" : "Далее"}
+                  <ArrowLeft size={18} />
+                  Назад
                 </button>
-              </form>
-            </>
-          ) : (
-            <>
-              <button
-                className="button button-ghost button-inline"
-                type="button"
-                onClick={() => {
-                  setStep("phone");
-                  setError("");
-                  setCode("");
-                }}
-              >
-                <ArrowLeft size={18} />
-                Назад
-              </button>
-              <p className="eyebrow">SMS-код</p>
-              <h1>{normalizedPhone}</h1>
-              <form className="form-stack" onSubmit={handleCodeSubmit}>
-                <label className="field">
-                  <span>Код</span>
-                  <input
-                    ref={codeInputRef}
-                    className="input"
-                    value={code}
-                    inputMode="numeric"
-                    maxLength={4}
-                    placeholder="1234"
-                    onChange={(event) =>
-                      setCode(event.target.value.replace(/\D/g, "").slice(0, 4))
-                    }
-                  />
-                </label>
-                <div className="otp-row" aria-hidden="true">
-                  {Array.from({ length: 4 }, (_, index) => (
-                    <div className="otp-box" key={index}>
-                      {code[index] || ""}
-                    </div>
-                  ))}
-                </div>
-                {devCode ? (
-                  <div className="alert">
-                    <ShieldCheck size={20} />
-                    <div>
-                      <strong>Тестовый код: {devCode}</strong>
-                      <span>Для локального входа.</span>
+                <p className="eyebrow">SMS-код</p>
+                <h1>{normalizedPhone}</h1>
+                <form className="form-stack" onSubmit={handleCodeSubmit}>
+                  <div className="field">
+                    <span>Код</span>
+                    <div
+                      className={`otp-input-shell ${isCodeFocused ? "is-focused" : ""}`}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Введите код из SMS"
+                      onClick={() => codeInputRef.current?.focus()}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          codeInputRef.current?.focus();
+                        }
+                      }}
+                    >
+                      <input
+                        ref={codeInputRef}
+                        className="otp-hidden-input"
+                        value={code}
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={4}
+                        onFocus={() => setIsCodeFocused(true)}
+                        onBlur={() => setIsCodeFocused(false)}
+                        onChange={(event) =>
+                          setCode(event.target.value.replace(/\D/g, "").slice(0, 4))
+                        }
+                      />
+                      <div className="otp-row" aria-hidden="true">
+                        {Array.from({ length: 4 }, (_, index) => {
+                          const isActive =
+                            isCodeFocused &&
+                            (index === Math.min(code.length, 3) ||
+                              (code.length === 4 && index === 3));
+
+                          return (
+                            <div
+                              className={`otp-box ${code[index] ? "is-filled" : ""} ${isActive ? "is-active" : ""}`}
+                              key={index}
+                            >
+                              {code[index] || ""}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
-                ) : null}
-                {ttl ? <p className="muted">Код действует ещё {ttl} сек.</p> : null}
-                {error ? <div className="alert alert-danger">{error}</div> : null}
-                <button
-                  className="button button-primary"
-                  type="submit"
-                  disabled={loading || code.length < 4}
-                >
-                  {loading ? "Проверяем" : "Войти"}
-                </button>
-              </form>
-            </>
-          )}
+                  {ttl ? <p className="muted">Код действует еще {ttl} сек.</p> : null}
+                  {error ? <div className="alert alert-danger">{error}</div> : null}
+                  <button
+                    className="button button-primary"
+                    type="submit"
+                    disabled={loading || code.length < 4}
+                  >
+                    {loading ? "Проверяем" : "Войти"}
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
         </section>
       </div>
     </PageChrome>

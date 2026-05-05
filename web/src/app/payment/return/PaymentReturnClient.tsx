@@ -120,7 +120,7 @@ function PaymentReturnContent() {
         <PageHeader
           eyebrow="Оплата"
           title="Нет активного платежа"
-          subtitle="Локальный checkout не нашёл сохранённую бронь для проверки."
+          subtitle="Не нашли сохраненную бронь для проверки платежа."
         />
         <EmptyState
           icon={<ShoppingBag size={34} />}

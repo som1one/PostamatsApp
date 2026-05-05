@@ -2,8 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Boxes, CalendarClock, MapPinned, PackageCheck, ShieldCheck } from "lucide-react";
-import { CitySelector, readSavedCityId, saveSelectedCityId } from "@/components/CitySelector";
+import { ArrowLeft, Boxes, CalendarClock, MapPinned } from "lucide-react";
+import {
+  CitySelector,
+  readSavedCityId,
+  resolveSelectedCityId,
+  saveSelectedCityId,
+  useCitySync,
+} from "@/components/CitySelector";
 import { DateTimeSelector } from "@/components/DateTimeSelector";
 import { EmptyState } from "@/components/EmptyState";
 import { OrderSummary } from "@/components/OrderSummary";
@@ -13,17 +19,30 @@ import { ProductGallery } from "@/components/ProductGallery";
 import { RentalDurationSelector } from "@/components/RentalDurationSelector";
 import {
   fetchCities,
+  fetchAllLockers,
   fetchProductPricing,
   resolveProductBySlugOrId,
 } from "@/shared/api/endpoints";
-import type { City, PricePlan, PricingQuote, ProductDetail } from "@/shared/api/types";
+import type { City, Locker, PricePlan, PricingQuote, ProductDetail } from "@/shared/api/types";
 import { useAuth } from "@/shared/auth/auth-context";
-import { formatMoney } from "@/shared/format";
+import { resolvePublicAssetUrl } from "@/shared/media";
 
 type ProductLocker = ProductDetail["availableLockers"][number];
+type LockerOption = {
+  lockerId: string;
+  name: string;
+  address: string;
+  status: string;
+  availableUnits: number;
+  isAvailable: boolean;
+};
 
 function todayInputValue() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function durationText(plan?: PricePlan | null) {
@@ -39,6 +58,7 @@ function durationText(plan?: PricePlan | null) {
 export function ProductDetailClient({ productRef }: { productRef: string }) {
   const { isAuthed } = useAuth();
   const [cities, setCities] = useState<City[]>([]);
+  const [cityLockers, setCityLockers] = useState<Locker[]>([]);
   const [cityId, setCityId] = useState("");
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [lockerId, setLockerId] = useState("");
@@ -62,13 +82,62 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
     () => product?.availableLockers.find((locker) => locker.lockerId === lockerId),
     [lockerId, product],
   );
+  const lockerOptions = useMemo<LockerOption[]>(() => {
+    if (!product) {
+      return [];
+    }
+
+    const availableById = new Map(
+      product.availableLockers.map((locker) => [
+        locker.lockerId,
+        {
+          name: locker.name,
+          address: locker.address,
+          status: locker.status,
+          availableUnits: locker.availableUnits,
+        },
+      ]),
+    );
+
+    const all = cityLockers.map((locker) => {
+      const available = availableById.get(locker.id);
+      return {
+        lockerId: locker.id,
+        name: available?.name ?? locker.name,
+        address: available?.address ?? locker.address,
+        status: available?.status ?? locker.status,
+        availableUnits: available?.availableUnits ?? 0,
+        isAvailable: (available?.availableUnits ?? 0) > 0,
+      };
+    });
+
+    const missingAvailable = product.availableLockers
+      .filter((locker) => !cityLockers.some((item) => item.id === locker.lockerId))
+      .map((locker) => ({
+        lockerId: locker.lockerId,
+        name: locker.name,
+        address: locker.address,
+        status: locker.status,
+        availableUnits: locker.availableUnits,
+        isAvailable: locker.availableUnits > 0,
+      }));
+
+    return [...all, ...missingAvailable].sort((a, b) => {
+      if (a.isAvailable !== b.isAvailable) {
+        return a.isAvailable ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name, "ru");
+    });
+  }, [cityLockers, product]);
   const images = useMemo(() => {
     if (!product) {
       return [];
     }
     return Array.from(
       new Set(
-        [product.coverUrl, ...product.images.map((image) => image.url)].filter(Boolean) as string[],
+        [product.coverUrl, ...product.images.map((image) => image.url)]
+          .map((url) => resolvePublicAssetUrl(url) || url)
+          .filter(Boolean) as string[],
       ),
     );
   }, [product]);
@@ -79,6 +148,8 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
       : "/catalog";
   const canCheckout = Boolean(product && selectedPlan && lockerId && date && time);
 
+  useCitySync(cities, cityId, setCityId);
+
   useEffect(() => {
     let active = true;
     fetchCities()
@@ -87,8 +158,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
           return;
         }
         setCities(items);
-        const saved = readSavedCityId();
-        const next = saved && items.some((city) => city.id === saved) ? saved : items[0]?.id || "";
+        const next = resolveSelectedCityId(items, readSavedCityId());
         setCityId(next);
         if (next) {
           saveSelectedCityId(next);
@@ -99,6 +169,30 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!cityId) {
+      setCityLockers([]);
+      return;
+    }
+
+    let active = true;
+    fetchAllLockers(cityId)
+      .then((items) => {
+        if (active) {
+          setCityLockers(items);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setCityLockers([]);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [cityId]);
 
   useEffect(() => {
     let active = true;
@@ -172,12 +266,12 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
 
   return (
     <PageChrome>
-      <Link className="button button-ghost button-inline" href="/catalog">
+      <Link className="button button-ghost button-inline product-back-link" href="/catalog">
         <ArrowLeft size={18} />
         Назад в каталог
       </Link>
 
-      {loading ? <div className="loader">Загружаем карточку товара</div> : null}
+      {loading ? <div className="loader">Загружаем товар</div> : null}
       {error ? <div className="alert alert-danger">{error}</div> : null}
 
       {!loading && !product ? (
@@ -205,29 +299,28 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                   product.shortDescription ||
                   "Описание появится после заполнения карточки товара в админке."}
               </p>
-              <div className="product-hero-facts">
-                <span>
-                  <PackageCheck size={18} />
-                  от {formatMoney(product.pricePlans[0]?.baseAmount, product.pricePlans[0]?.currency)}
-                </span>
-                <span>
-                  <MapPinned size={18} />
-                  {product.availableLockers.length} постаматов
-                </span>
-                <span>
-                  <ShieldCheck size={18} />
-                  проверка комплекта
-                </span>
+              <div className="product-mobile-equipment">
+                <ProductEquipment product={product} />
               </div>
-              <a className="button button-primary" href="#rental-flow">
-                Выбрать постамат
-              </a>
+              <OrderSummary
+                product={product}
+                lockerName={selectedLocker?.name}
+                lockerAddress={selectedLocker?.address}
+                plan={selectedPlan}
+                pricing={pricing}
+                startDateTime={startDateTime}
+                canCheckout={canCheckout}
+                checkoutHref={checkoutHref}
+                isAuthed={isAuthed}
+                variant="compact"
+                showProduct={false}
+              />
             </div>
           </section>
 
           <div className="detail-layout" id="rental-flow">
-            <section className="detail-panel">
-              <section className="surface detail-panel">
+            <section className="rental-panel-stack">
+              <section className="surface detail-panel rental-step-panel rental-step-panel-tariff">
                 <div className="card-row">
                   <div>
                     <p className="eyebrow">Тарифы</p>
@@ -242,42 +335,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                 />
               </section>
 
-              <ProductEquipment product={product} />
-              <ProductInstructions product={product} />
-
-              <section className="surface detail-panel">
-                <div className="card-row">
-                  <div>
-                    <p className="eyebrow">Постамат</p>
-                    <h2 className="section-title">Где получить товар</h2>
-                  </div>
-                  <CitySelector cities={cities} value={cityId} onChange={setCityId} />
-                </div>
-                {product.availableLockers.length ? (
-                  <div className="product-locker-grid">
-                    {product.availableLockers.map((locker) => (
-                      <button
-                        className={`product-locker-card ${lockerId === locker.lockerId ? "is-selected" : ""}`}
-                        key={locker.lockerId}
-                        type="button"
-                        onClick={() => setLockerId(locker.lockerId)}
-                      >
-                        <strong>{locker.name}</strong>
-                        <span>{locker.address}</span>
-                        <small>{locker.availableUnits} шт. доступно</small>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState
-                    icon={<MapPinned size={34} />}
-                    title="Нет постаматов с этим товаром"
-                    text="Выберите другой город или вернитесь позже."
-                  />
-                )}
-              </section>
-
-              <section className="surface detail-panel">
+              <section className="surface detail-panel rental-step-panel rental-step-panel-time">
                 <div className="card-row">
                   <div>
                     <p className="eyebrow">Время</p>
@@ -292,26 +350,61 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                   onTimeChange={setTime}
                 />
                 <p className="muted small">
-                  TODO: backend сейчас создает ближайший резерв; выбранное время передается
-                  в checkout и готово для будущего endpoint слотов.
+                  Время начала аренды влияет на оформление и появится в вашей броне после подтверждения.
                 </p>
+              </section>
+
+              <section className="surface detail-panel rental-step-panel rental-step-panel-locker">
+                <div className="card-row">
+                  <div>
+                    <p className="eyebrow">Постамат</p>
+                    <h2 className="section-title">Где получить товар</h2>
+                  </div>
+                  <CitySelector cities={cities} value={cityId} onChange={setCityId} />
+                </div>
+                {lockerOptions.length ? (
+                  <div className="product-locker-grid">
+                    {lockerOptions.map((locker) => {
+                      const isSelected = lockerId === locker.lockerId;
+                      return (
+                        <button
+                          className={`product-locker-card ${isSelected ? "is-selected" : ""}`}
+                          key={locker.lockerId}
+                          type="button"
+                          disabled={!locker.isAvailable}
+                          onClick={() => setLockerId(locker.lockerId)}
+                        >
+                          <div className="product-locker-card-row">
+                            <strong>{locker.name}</strong>
+                            <div className="product-locker-card-badges">
+                              <small>{locker.isAvailable ? `${locker.availableUnits} шт.` : "нет в наличии"}</small>
+                              {isSelected ? <em>Выбран</em> : null}
+                            </div>
+                          </div>
+                          <span>{locker.address}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={<MapPinned size={34} />}
+                    title="Нет постаматов с этим товаром"
+                    text="Выберите другой город или вернитесь позже."
+                  />
+                )}
               </section>
 
               {pricingLoading ? <div className="loader loader-small">Пересчитываем стоимость</div> : null}
               {pricingError ? <div className="alert alert-warn">{pricingError}</div> : null}
             </section>
 
-            <OrderSummary
-              product={product}
-              lockerName={selectedLocker?.name}
-              lockerAddress={selectedLocker?.address}
-              plan={selectedPlan}
-              pricing={pricing}
-              startDateTime={startDateTime}
-              canCheckout={canCheckout}
-              checkoutHref={checkoutHref}
-              isAuthed={isAuthed}
-            />
+            <aside className="detail-side-stack">
+              <div className="product-desktop-equipment">
+                <ProductEquipment product={product} />
+              </div>
+              <ProductInstructions product={product} />
+            </aside>
           </div>
         </div>
       ) : null}

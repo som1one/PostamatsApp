@@ -12,6 +12,19 @@ ENV_VALUES = {
 }
 
 
+def _as_bool(raw: str | None, default: bool) -> bool:
+    normalized = (raw or "").strip().lower()
+    if normalized in ("1", "true", "yes"):
+        return True
+    if normalized in ("0", "false", "no"):
+        return False
+    return default
+
+
+def _split_csv(raw: str | None) -> list[str]:
+    return [item.strip().rstrip("/") for item in (raw or "").split(",") if item.strip()]
+
+
 class Settings:
     def __init__(self):
         self.DEBUG = ENV_VALUES.get("DEBUG", "false") == "true"
@@ -22,6 +35,7 @@ class Settings:
         self.JWT_ACCESS_TOKEN_EXPIRE_SECONDS = int(
             ENV_VALUES.get("JWT_ACCESS_TOKEN_EXPIRE_SECONDS", "900")
         )
+        self.AUTH_CODE_TTL_SECONDS = int(ENV_VALUES.get("AUTH_CODE_TTL_SECONDS", "180"))
         self.JWT_REFRESH_TOKEN_EXPIRE_DAYS = int(
             ENV_VALUES.get("JWT_REFRESH_TOKEN_EXPIRE_DAYS", "30")
         )
@@ -49,22 +63,28 @@ class Settings:
         self.RESERVATION_QUOTE_EXPIRES_SECONDS = int(
             ENV_VALUES.get("RESERVATION_QUOTE_EXPIRES_SECONDS", "300")
         )
+        self.REDIS_URL = (ENV_VALUES.get("REDIS_URL") or "redis://127.0.0.1:6379/0").strip()
+        self.SMS_RU_API_ID = (ENV_VALUES.get("SMS_RU_API_ID") or "").strip() or None
+        self.SMS_RU_FROM = (ENV_VALUES.get("SMS_RU_FROM") or "").strip() or None
+        self.SMS_RU_TIMEOUT_SECONDS = float(ENV_VALUES.get("SMS_RU_TIMEOUT_SECONDS", "10"))
 
-        # S3 / MinIO presign для POST /uploads/presign
-        self.AWS_ACCESS_KEY_ID = ENV_VALUES.get("AWS_ACCESS_KEY_ID")
-        self.AWS_SECRET_ACCESS_KEY = ENV_VALUES.get("AWS_SECRET_ACCESS_KEY")
-        self.S3_BUCKET = ENV_VALUES.get("S3_BUCKET", "")
+        # S3 / MinIO presign for POST /uploads/presign
+        self.AWS_ACCESS_KEY_ID = (ENV_VALUES.get("AWS_ACCESS_KEY_ID") or "").strip() or None
+        self.AWS_SECRET_ACCESS_KEY = (
+            (ENV_VALUES.get("AWS_SECRET_ACCESS_KEY") or "").strip() or None
+        )
+        self.S3_BUCKET = (ENV_VALUES.get("S3_BUCKET") or "").strip()
+        self.S3_PUBLIC_BUCKET = (
+            (ENV_VALUES.get("S3_PUBLIC_BUCKET") or "").strip() or self.S3_BUCKET
+        )
+        self.S3_PRIVATE_BUCKET = (
+            (ENV_VALUES.get("S3_PRIVATE_BUCKET") or "").strip() or self.S3_BUCKET
+        )
         self.S3_REGION = ENV_VALUES.get("S3_REGION", "eu-central-1")
-        self.S3_ENDPOINT_URL = ENV_VALUES.get("S3_ENDPOINT_URL") or None
+        self.S3_ENDPOINT_URL = (ENV_VALUES.get("S3_ENDPOINT_URL") or "").strip() or None
+        self.S3_FORCE_PATH_STYLE = _as_bool(ENV_VALUES.get("S3_FORCE_PATH_STYLE"), False)
         self.UPLOAD_PRESIGN_EXPIRES = int(ENV_VALUES.get("UPLOAD_PRESIGN_EXPIRES", "900"))
-        _stub_raw = (ENV_VALUES.get("UPLOAD_DEV_STUB") or "").strip().lower()
-        if _stub_raw in ("1", "true", "yes"):
-            self.UPLOAD_DEV_STUB = True
-        elif _stub_raw in ("0", "false", "no"):
-            self.UPLOAD_DEV_STUB = False
-        else:
-            # По умолчанию заглушка; в проде задайте UPLOAD_DEV_STUB=0 и S3/MinIO или IAM.
-            self.UPLOAD_DEV_STUB = True
+        self.UPLOAD_DEV_STUB = _as_bool(ENV_VALUES.get("UPLOAD_DEV_STUB"), True)
         self.UPLOAD_DEV_STUB_PUT_URL = ENV_VALUES.get(
             "UPLOAD_DEV_STUB_PUT_URL",
             "https://httpbin.org/put",
@@ -79,27 +99,75 @@ class Settings:
         self.YOOKASSA_SECRET_KEY = (ENV_VALUES.get("YOOKASSA_SECRET_KEY") or "").strip() or None
         self.YOOKASSA_RETURN_URL = (ENV_VALUES.get("YOOKASSA_RETURN_URL") or "").strip() or None
         self.WEB_APP_ORIGIN = (ENV_VALUES.get("WEB_APP_ORIGIN") or "").strip().rstrip("/") or None
-        _yk_stub = (ENV_VALUES.get("YOOKASSA_DEV_STUB") or "").strip().lower()
-        if _yk_stub in ("1", "true", "yes"):
-            self.YOOKASSA_DEV_STUB = True
-        elif _yk_stub in ("0", "false", "no"):
-            self.YOOKASSA_DEV_STUB = False
-        else:
-            self.YOOKASSA_DEV_STUB = not (self.YOOKASSA_SHOP_ID and self.YOOKASSA_SECRET_KEY)
+        self.CORS_ALLOWED_ORIGINS = self._build_cors_allowed_origins()
+        self.YOOKASSA_DEV_STUB = _as_bool(
+            ENV_VALUES.get("YOOKASSA_DEV_STUB"),
+            not (self.YOOKASSA_SHOP_ID and self.YOOKASSA_SECRET_KEY),
+        )
 
-        # ESI (постаматы)
-        _esi_stub = (ENV_VALUES.get("ESI_DEV_STUB") or "").strip().lower()
-        if _esi_stub in ("1", "true", "yes"):
-            self.ESI_DEV_STUB = True
-        elif _esi_stub in ("0", "false", "no"):
-            self.ESI_DEV_STUB = False
-        else:
-            self.ESI_DEV_STUB = True
+        # ESI (postamats)
+        self.ESI_DEV_STUB = _as_bool(ENV_VALUES.get("ESI_DEV_STUB"), True)
         self.ESI_BASE_URL = (ENV_VALUES.get("ESI_BASE_URL") or "").rstrip("/") or None
         self.ESI_API_KEY = (ENV_VALUES.get("ESI_API_KEY") or "").strip() or None
         self.ESI_RESERVE_TIMEOUT = float(ENV_VALUES.get("ESI_RESERVE_TIMEOUT", "15"))
         self.ESI_WEBHOOK_SECRET = (ENV_VALUES.get("ESI_WEBHOOK_SECRET") or "").strip() or None
         self.ESI_DISCOVERY_TIMEOUT = float(ENV_VALUES.get("ESI_DISCOVERY_TIMEOUT", "20"))
+
+    def storage_config_error_code(self) -> str | None:
+        if self.UPLOAD_DEV_STUB:
+            return None
+        if self.STORAGE_PROVIDER != "s3":
+            return "STORAGE_PROVIDER_UNSUPPORTED"
+        if not self.S3_PUBLIC_BUCKET:
+            return "STORAGE_PUBLIC_BUCKET_REQUIRED"
+        if not self.S3_PRIVATE_BUCKET:
+            return "STORAGE_PRIVATE_BUCKET_REQUIRED"
+        if not self.MEDIA_PUBLIC_BASE_URL:
+            return "MEDIA_PUBLIC_BASE_URL_REQUIRED"
+        has_access_key = bool(self.AWS_ACCESS_KEY_ID)
+        has_secret_key = bool(self.AWS_SECRET_ACCESS_KEY)
+        if has_access_key != has_secret_key:
+            return "STORAGE_CREDENTIALS_INCOMPLETE"
+        return None
+
+    def _build_cors_allowed_origins(self) -> list[str]:
+        configured = _split_csv(ENV_VALUES.get("CORS_ALLOWED_ORIGINS"))
+        if configured:
+            return configured
+
+        origins: list[str] = []
+        if self.WEB_APP_ORIGIN:
+            origins.append(self.WEB_APP_ORIGIN)
+
+            parsed = urlsplit(self.WEB_APP_ORIGIN)
+            host = parsed.hostname or ""
+            if host and host.count(".") >= 1 and not host.startswith("www."):
+                origins.append(
+                    urlunsplit(
+                        (
+                            parsed.scheme,
+                            f"www.{host}" + (f":{parsed.port}" if parsed.port else ""),
+                            "",
+                            "",
+                            "",
+                        )
+                    ).rstrip("/")
+                )
+
+        if self.DEBUG:
+            origins.extend(
+                [
+                    "http://127.0.0.1:3001",
+                    "http://localhost:3001",
+                    "http://192.168.1.6:3001",
+                ]
+            )
+
+        unique: list[str] = []
+        for origin in origins:
+            if origin and origin not in unique:
+                unique.append(origin)
+        return unique
 
     @staticmethod
     def _build_async_db_url(db_url: str | None) -> str | None:

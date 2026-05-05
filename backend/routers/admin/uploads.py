@@ -15,6 +15,7 @@ from backend.utils.storage_presign import presign_put_object
 from backend.utils.uploads_utils import (
     MIME_BY_KIND,
     PRESIGN_KIND_TO_MEDIA,
+    bucket_for_media_kind,
     build_file_key,
     max_size_for_kind,
 )
@@ -31,7 +32,7 @@ async def presign_admin_upload(
     db: AsyncSession = Depends(get_db),
     payload: PresignUploadRequest = Body(...),
 ):
-    await get_current_admin(request, db)
+    admin = await get_current_admin(request, db)
 
     if payload.kind not in PRESIGN_KIND_VALUES or payload.kind not in ADMIN_PRESIGN_KIND_VALUES:
         raise HTTPException(status_code=400, detail="INVALID_FILE_KIND")
@@ -49,7 +50,11 @@ async def presign_admin_upload(
     file_id = uuid4()
     file_key = build_file_key(payload.kind, file_id, payload.fileName)
     now = datetime.now(timezone.utc)
-    bucket = settings.S3_BUCKET or "dev-stub"
+    bucket = (
+        "dev-stub"
+        if settings.UPLOAD_DEV_STUB
+        else bucket_for_media_kind(media_kind) or "dev-stub"
+    )
 
     media = MediaFile(
         id=file_id,
@@ -61,7 +66,7 @@ async def presign_admin_upload(
         original_name=payload.fileName,
         kind=media_kind,
         uploaded_by_user_id=None,
-        uploaded_by_admin_id=None,
+        uploaded_by_admin_id=admin.id,
         created_at=now,
     )
     db.add(media)
@@ -69,8 +74,6 @@ async def presign_admin_upload(
     try:
         await db.flush()
         expires_in = settings.UPLOAD_PRESIGN_EXPIRES
-        if not settings.UPLOAD_DEV_STUB and not settings.S3_BUCKET:
-            raise HTTPException(status_code=500, detail="STORAGE_PRESIGN_FAILED")
         upload_url = presign_put_object(
             bucket=bucket,
             file_key=file_key,
@@ -82,10 +85,10 @@ async def presign_admin_upload(
     except HTTPException:
         await db.rollback()
         raise
-    except ClientError:
+    except ClientError as exc:
         await db.rollback()
         logger.exception("admin S3 presign failed")
-        raise HTTPException(status_code=500, detail="STORAGE_PRESIGN_FAILED") from None
+        raise HTTPException(status_code=500, detail=str(exc) or "STORAGE_PRESIGN_FAILED") from None
     except Exception:
         await db.rollback()
         logger.exception("admin presign upload failed")

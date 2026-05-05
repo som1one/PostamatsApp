@@ -1,0 +1,15 @@
+.git
+.idea
+.claude
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.mypy_cache/
+**/.DS_Store
+backend/*.log
+web/*.log
+*.log
+mobile/node_modules/
+web/node_modules/
+web/.next/
+

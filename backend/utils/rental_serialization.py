@@ -8,9 +8,21 @@ from backend.models.product import Product
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
 from backend.models.enums import PaymentStatus, PaymentType
+from backend.models.product_filter import ProductFilter
 from backend.models.reservation import Reservation
 from backend.utils.lockers_utils import price_plan_to_minor_units
 from backend.utils.products_utils import load_media_files_by_ids, public_media_url
+from backend.utils.product_filters import resolve_effective_cover_url
+
+
+async def _load_product_filter(db: AsyncSession, product: Product | None) -> ProductFilter | None:
+    if product is None:
+        return None
+    return (
+        await db.scalars(
+            select(ProductFilter).where(ProductFilter.product_id == product.id).limit(1)
+        )
+    ).first()
 
 
 async def serialize_rental_list_item(
@@ -25,9 +37,13 @@ async def serialize_rental_list_item(
         media = media_map.get(product.cover_file_id)
         if media is not None:
             cover_url = public_media_url(media.file_key)
+    product_filter = await _load_product_filter(db, product)
+    cover_url = resolve_effective_cover_url(cover_url, product_filter)
 
     pid = str(product.id) if product else ""
     pname = product.name if product else ""
+    if product_filter and product_filter.name and product_filter.name.strip():
+        pname = product_filter.name.strip()
 
     return {
         "id": str(rental.id),
@@ -57,6 +73,8 @@ async def serialize_rental_detail(db: AsyncSession, rental: Rental) -> dict:
         media = media_map.get(product.cover_file_id)
         if media is not None:
             cover_url = public_media_url(media.file_key)
+    product_filter = await _load_product_filter(db, product)
+    cover_url = resolve_effective_cover_url(cover_url, product_filter)
 
     payment_summary = {
         "preauthAmount": 0,
@@ -100,7 +118,11 @@ async def serialize_rental_detail(db: AsyncSession, rental: Rental) -> dict:
 
     prod_payload = {
         "id": str(product.id) if product else "",
-        "name": product.name if product else "",
+        "name": (
+            product_filter.name.strip()
+            if product_filter and product_filter.name and product_filter.name.strip()
+            else product.name if product else ""
+        ),
         "coverUrl": cover_url,
     }
 

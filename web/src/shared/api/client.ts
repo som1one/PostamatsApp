@@ -25,10 +25,8 @@ export function apiBaseUrl() {
 
   if (typeof window !== "undefined") {
     const { protocol, hostname } = window.location;
-    if (hostname === "localhost" || hostname === "127.0.0.1") {
-      return "http://127.0.0.1:8000";
-    }
-    return `${protocol}//${hostname}`;
+    const apiProtocol = protocol === "https:" ? "https:" : "http:";
+    return `${apiProtocol}//${hostname}:8000`;
   }
 
   return "http://127.0.0.1:8000";
@@ -58,10 +56,10 @@ async function parseError(response: Response) {
   return { message: "Не удалось выполнить запрос", code: undefined };
 }
 
-export async function requestJson<T>(
+export async function requestEnvelope<T>(
   path: string,
   options: RequestOptions = {},
-): Promise<T> {
+): Promise<ApiEnvelope<T>> {
   const headers: Record<string, string> = {
     Accept: "application/json",
     "x-platform": "web",
@@ -89,7 +87,14 @@ export async function requestJson<T>(
     throw new ApiError(error.message, response.status, error.code);
   }
 
-  const payload = (await response.json().catch(() => ({}))) as ApiEnvelope<T>;
+  return (await response.json().catch(() => ({}))) as ApiEnvelope<T>;
+}
+
+export async function requestJson<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
+  const payload = await requestEnvelope<T>(path, options);
   return payload.data;
 }
 

@@ -11,27 +11,47 @@ export default function AboutPage() {
           <p className="eyebrow">О сервисе</p>
           <h1 className="page-title">Мы делаем вещи доступными без лишних покупок</h1>
           <p className="page-subtitle">
-            Postamats помогает брать технику и бытовые вещи на время: для вечера,
-            ремонта, уборки, поездки или разовой задачи. Получение и возврат
-            строятся вокруг постаматов, чтобы аренда была предсказуемой и быстрой.
+            naprokatberu помогает брать технику и бытовые вещи на время: для вечера, ремонта,
+            уборки, поездки или разовой задачи. Получение и возврат строятся вокруг постаматов,
+            чтобы аренда была предсказуемой и быстрой.
           </p>
           <Link className="button button-primary" href="/catalog">
             Перейти в каталог
           </Link>
         </div>
         <div className="about-visual" aria-hidden="true">
-          <div className="about-cell about-cell-a">
-            <Boxes size={24} />
-            Каталог
-          </div>
-          <div className="about-cell about-cell-b">
-            <MapPinned size={24} />
-            Постамат
-          </div>
-          <div className="about-cell about-cell-c">
-            <PackageCheck size={24} />
-            Возврат
-          </div>
+          <ol className="about-plan">
+            <li className="about-plan-step">
+              <span className="about-plan-index">01</span>
+              <span className="about-plan-icon">
+                <Boxes size={22} />
+              </span>
+              <span>
+                <strong>Каталог</strong>
+                <small>выберите вещь и срок</small>
+              </span>
+            </li>
+            <li className="about-plan-step">
+              <span className="about-plan-index">02</span>
+              <span className="about-plan-icon">
+                <MapPinned size={22} />
+              </span>
+              <span>
+                <strong>Постамат</strong>
+                <small>заберите заказ по коду</small>
+              </span>
+            </li>
+            <li className="about-plan-step">
+              <span className="about-plan-index">03</span>
+              <span className="about-plan-icon">
+                <PackageCheck size={22} />
+              </span>
+              <span>
+                <strong>Возврат</strong>
+                <small>верните комплект обратно</small>
+              </span>
+            </li>
+          </ol>
         </div>
       </section>
 
@@ -70,16 +90,16 @@ export default function AboutPage() {
           <p className="eyebrow">Что мы делаем</p>
           <h2 className="section-title">Собираем аренду в один цифровой сценарий</h2>
           <p className="muted">
-            Каталог показывает наличие по городу, карточка товара помогает выбрать
-            постамат и срок, checkout создает резерв и запускает оплату.
+            Каталог показывает наличие по городу, карточка товара помогает выбрать постамат и
+            срок, а оформление помогает закрепить товар и перейти к оплате.
           </p>
         </div>
         <div className="surface detail-panel">
           <p className="eyebrow">Почему удобно</p>
           <h2 className="section-title">Не нужно договариваться вручную</h2>
           <p className="muted">
-            Пользователь видит стоимость до оформления, получает код после оплаты и
-            возвращает комплект через понятный процесс.
+            Пользователь видит стоимость до оформления, получает код после оплаты и возвращает
+            комплект через понятный процесс.
           </p>
         </div>
       </section>
@@ -108,11 +128,11 @@ export default function AboutPage() {
       <section className="surface support-wide">
         <LockKeyhole size={28} />
         <div>
-          <p className="eyebrow">Готово к backend</p>
-          <h2 className="section-title">API-контракты подключены отдельным слоем</h2>
+          <p className="eyebrow">Надежный процесс</p>
+          <h2 className="section-title">Аренда идет по понятным и прозрачным шагам</h2>
           <p className="muted">
-            Фронтенд использует существующие endpoint-ы городов, товаров,
-            постаматов, резерва, оплаты, профиля и аренд.
+            Вы видите товар, срок, точку получения и стоимость до оплаты, а все ключевые действия
+            остаются собранными в одном маршруте аренды.
           </p>
         </div>
         <Link className="button button-dark" href="/catalog">
@@ -122,4 +142,3 @@ export default function AboutPage() {
     </PageChrome>
   );
 }
-

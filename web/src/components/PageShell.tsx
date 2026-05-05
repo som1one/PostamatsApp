@@ -1,9 +1,16 @@
+"use client";
+
+import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { AppHeader } from "./AppHeader";
 import { Footer } from "./Footer";
 
-export function PageShell({ children }: { children: React.ReactNode }) {
+export function PageShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isAuthRoute = pathname.startsWith("/auth");
+
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isAuthRoute ? "app-shell-auth-route" : ""}`}>
       <AppHeader />
       {children}
       <Footer />

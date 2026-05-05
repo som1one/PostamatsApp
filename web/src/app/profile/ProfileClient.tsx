@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, FileCheck2, LogOut, UserRound } from "lucide-react";
+import { CheckCircle2, FileCheck2, LogOut, PackageCheck, UserRound } from "lucide-react";
 import { PageChrome } from "@/components/PageChrome";
 import { PageHeader } from "@/components/PageHeader";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -17,6 +17,27 @@ import {
 } from "@/shared/api/endpoints";
 import type { AppUser, VerificationState } from "@/shared/api/types";
 import { useAuth } from "@/shared/auth/auth-context";
+
+type ProfileFormState = {
+  firstName: string;
+  lastName: string;
+  middleName: string;
+  email: string;
+};
+
+type ProfileNotice = {
+  title: string;
+  detail: string;
+};
+
+const PROFILE_REQUIRED_FIELDS: Array<{
+  key: keyof Pick<ProfileFormState, "firstName" | "lastName" | "email">;
+  label: string;
+}> = [
+  { key: "firstName", label: "имя" },
+  { key: "lastName", label: "фамилию" },
+  { key: "email", label: "e-mail" },
+];
 
 export function ProfileClient() {
   return (
@@ -33,7 +54,7 @@ function ProfileContent() {
   const { clearSession } = useAuth();
   const [user, setUser] = useState<AppUser | null>(null);
   const [verification, setVerification] = useState<VerificationState | null>(null);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<ProfileFormState>({
     firstName: "",
     lastName: "",
     middleName: "",
@@ -41,8 +62,9 @@ function ProfileContent() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<ProfileNotice | null>(null);
   const [error, setError] = useState("");
+  const profileCompletion = getProfileCompletion(form);
 
   useEffect(() => {
     let active = true;
@@ -53,12 +75,7 @@ function ProfileContent() {
         }
         setUser(me);
         setVerification(kyc);
-        setForm({
-          firstName: me.firstName || "",
-          lastName: me.lastName || "",
-          middleName: me.middleName || "",
-          email: me.email || "",
-        });
+        setForm(toProfileForm(me));
       })
       .catch((err: unknown) => {
         if (active) {
@@ -78,16 +95,34 @@ function ProfileContent() {
   async function handleSave(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
-    setMessage("");
+    setMessage(null);
     setError("");
     try {
       const next = await updateMe(form);
+      const nextForm = toProfileForm(next);
       setUser(next);
-      setMessage("Профиль обновлён.");
+      setForm(nextForm);
+      setMessage(buildProfileNotice(getProfileCompletion(nextForm)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось сохранить профиль");
     } finally {
       setSaving(false);
+    }
+  }
+
+  function handleFieldChange<K extends keyof ProfileFormState>(
+    key: K,
+    value: ProfileFormState[K],
+  ) {
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+    if (message) {
+      setMessage(null);
+    }
+    if (error) {
+      setError("");
     }
   }
 
@@ -110,7 +145,7 @@ function ProfileContent() {
       <PageHeader
         eyebrow="Профиль"
         title={user?.phone || "Аккаунт"}
-        subtitle="Контактные данные, статус проверки и быстрый переход к KYC."
+        subtitle="Контактные данные, статус проверки и быстрый переход к верификации."
         actions={
           <button className="button button-secondary" type="button" onClick={handleLogout}>
             <LogOut size={18} />
@@ -120,7 +155,6 @@ function ProfileContent() {
       />
 
       {error ? <div className="alert alert-danger">{error}</div> : null}
-      {message ? <div className="alert">{message}</div> : null}
 
       <div className="layout-split">
         <Surface className="detail-panel">
@@ -128,19 +162,29 @@ function ProfileContent() {
             <span className="icon-badge">
               <UserRound size={20} />
             </span>
-            <StatusPill status={user?.verificationStatus} />
+            <StatusPill status={profileCompletion.status} />
           </div>
           <div>
             <p className="eyebrow">Данные</p>
             <h2 className="section-title">Личная информация</h2>
+            <p className="muted small profile-summary">{profileCompletion.summary}</p>
           </div>
+          {message ? (
+            <div className="alert alert-success profile-feedback" role="status">
+              <CheckCircle2 size={20} />
+              <div>
+                <strong>{message.title}</strong>
+                <span>{message.detail}</span>
+              </div>
+            </div>
+          ) : null}
           <form className="form-grid" onSubmit={handleSave}>
             <label className="field">
               <span>Имя</span>
               <input
                 className="input"
                 value={form.firstName}
-                onChange={(event) => setForm({ ...form, firstName: event.target.value })}
+                onChange={(event) => handleFieldChange("firstName", event.target.value)}
               />
             </label>
             <label className="field">
@@ -148,7 +192,7 @@ function ProfileContent() {
               <input
                 className="input"
                 value={form.lastName}
-                onChange={(event) => setForm({ ...form, lastName: event.target.value })}
+                onChange={(event) => handleFieldChange("lastName", event.target.value)}
               />
             </label>
             <label className="field">
@@ -156,7 +200,7 @@ function ProfileContent() {
               <input
                 className="input"
                 value={form.middleName}
-                onChange={(event) => setForm({ ...form, middleName: event.target.value })}
+                onChange={(event) => handleFieldChange("middleName", event.target.value)}
               />
             </label>
             <label className="field">
@@ -165,7 +209,7 @@ function ProfileContent() {
                 className="input"
                 value={form.email}
                 type="email"
-                onChange={(event) => setForm({ ...form, email: event.target.value })}
+                onChange={(event) => handleFieldChange("email", event.target.value)}
               />
             </label>
             <button className="button button-primary" type="submit" disabled={saving}>
@@ -182,7 +226,7 @@ function ProfileContent() {
             <StatusPill status={verification?.status || user?.verificationStatus} />
           </div>
           <div>
-            <p className="eyebrow">KYC</p>
+            <p className="eyebrow">Проверка</p>
             <h2 className="section-title">Верификация</h2>
           </div>
           <p className="muted">
@@ -212,10 +256,82 @@ function ProfileContent() {
             </div>
           </div>
           <Link className="button button-primary" href="/verification">
-            Открыть KYC
+            Открыть проверку
+          </Link>
+          <Link className="button button-secondary" href="/profile/orders">
+            <PackageCheck size={18} />
+            Мои заказы
           </Link>
         </Surface>
       </div>
     </>
   );
+}
+
+function toProfileForm(user: AppUser | null): ProfileFormState {
+  return {
+    firstName: user?.firstName || "",
+    lastName: user?.lastName || "",
+    middleName: user?.middleName || "",
+    email: user?.email || "",
+  };
+}
+
+function getProfileCompletion(form: ProfileFormState) {
+  const missing = PROFILE_REQUIRED_FIELDS.filter(({ key }) => !form[key].trim()).map(
+    ({ label }) => label,
+  );
+  const filledCount = PROFILE_REQUIRED_FIELDS.length - missing.length;
+  const summaryBase = `${filledCount} из ${PROFILE_REQUIRED_FIELDS.length} основных полей заполнено.`;
+
+  if (filledCount === 0) {
+    return {
+      status: "profile_empty",
+      missing,
+      summary: "Добавьте имя, фамилию и e-mail, чтобы анкета выглядела полной.",
+    };
+  }
+
+  if (missing.length === 0) {
+    return {
+      status: "profile_ready",
+      missing,
+      summary: `${summaryBase} Можно переходить к проверке документов.`,
+    };
+  }
+
+  return {
+    status: "profile_partial",
+    missing,
+    summary: `${summaryBase} Осталось добавить ${formatFieldList(missing)}.`,
+  };
+}
+
+function buildProfileNotice(completion: ReturnType<typeof getProfileCompletion>): ProfileNotice {
+  if (completion.status === "profile_ready") {
+    return {
+      title: "Личная информация сохранена",
+      detail: "Основные поля заполнены. Дальше можно переходить к проверке документов.",
+    };
+  }
+
+  return {
+    title: "Изменения сохранены",
+    detail:
+      completion.status === "profile_empty"
+        ? "Добавьте имя, фамилию и e-mail, чтобы анкета была заполнена полностью."
+        : `Ещё добавьте ${formatFieldList(completion.missing)}, и анкета будет выглядеть полной.`,
+  };
+}
+
+function formatFieldList(items: string[]) {
+  if (items.length <= 1) {
+    return items[0] || "";
+  }
+
+  if (items.length === 2) {
+    return `${items[0]} и ${items[1]}`;
+  }
+
+  return `${items.slice(0, -1).join(", ")} и ${items[items.length - 1]}`;
 }

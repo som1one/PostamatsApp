@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { ArrowRight, ImageIcon, MapPinned, PackageCheck } from "lucide-react";
 import type { ProductListItem } from "@/shared/api/types";
-import { formatMoney } from "@/shared/format";
+import { formatCountRu, formatMoney } from "@/shared/format";
+import { resolvePublicAssetUrl } from "@/shared/media";
 
 export function ProductCard({ product }: { product: ProductListItem }) {
   const href = `/catalog/${product.slug || product.id}`;
+  const coverUrl = resolvePublicAssetUrl(product.coverUrl);
 
   return (
     <article className="card product-card">
       <Link className="product-cover" href={href} aria-label={`Открыть ${product.name}`}>
-        {product.coverUrl ? (
-          <img src={product.coverUrl} alt={product.name} />
+        {coverUrl ? (
+          <img src={coverUrl} alt={product.name} />
         ) : (
           <div className="product-placeholder">
             <ImageIcon size={44} />
@@ -21,7 +23,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
         </span>
       </Link>
       <div className="product-body">
-        <div>
+        <div className="product-copy">
           <p className="eyebrow">{product.brand || "Аренда на время"}</p>
           <h3>{product.name}</h3>
           {product.shortDescription ? (
@@ -31,7 +33,11 @@ export function ProductCard({ product }: { product: ProductListItem }) {
         <div className="product-facts">
           <span>
             <MapPinned size={15} />
-            {product.availableLockerCount} постаматов
+            {formatCountRu(product.availableLockerCount, [
+              "постамат",
+              "постамата",
+              "постаматов",
+            ])}
           </span>
           <span>
             <PackageCheck size={15} />

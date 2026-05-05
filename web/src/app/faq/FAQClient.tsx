@@ -6,30 +6,18 @@ import { FAQAccordion } from "@/components/FAQAccordion";
 import { PageChrome } from "@/components/PageChrome";
 import { faqItems } from "@/shared/content";
 
-const categories = [
-  "Все",
-  "Общие вопросы",
-  "Заказ",
-  "Верификация",
-  "Получение заказа",
-  "Возврат",
-  "Товары",
-];
-
 export function FAQClient() {
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("Все");
   const items = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return faqItems.filter((item) => {
-      const categoryMatch = category === "Все" || item.category === category;
       const queryMatch =
         !normalized ||
         item.question.toLowerCase().includes(normalized) ||
         item.answer.toLowerCase().includes(normalized);
-      return categoryMatch && queryMatch;
+      return queryMatch;
     });
-  }, [category, query]);
+  }, [query]);
 
   return (
     <PageChrome>
@@ -42,7 +30,7 @@ export function FAQClient() {
         </p>
       </section>
 
-      <section className="surface faq-controls">
+      <section className="surface surface-tight faq-controls">
         <label className="field">
           <span>Поиск</span>
           <span className="search-field">
@@ -55,18 +43,6 @@ export function FAQClient() {
             />
           </span>
         </label>
-        <div className="category-tabs">
-          {categories.map((item) => (
-            <button
-              className={`category-tab ${category === item ? "is-active" : ""}`}
-              key={item}
-              type="button"
-              onClick={() => setCategory(item)}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
       </section>
 
       <FAQAccordion items={items} />
@@ -88,4 +64,3 @@ export function FAQClient() {
     </PageChrome>
   );
 }
-

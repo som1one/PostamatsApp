@@ -1,8 +1,9 @@
-import { requestJson, requestWithAuth } from "./client";
+import { requestEnvelope, requestJson, requestWithAuth } from "./client";
 import type {
   AppUser,
   City,
   ConfirmCodeResponse,
+  FeaturedProduct,
   Locker,
   LockerAvailabilityItem,
   PaymentSummary,
@@ -16,6 +17,7 @@ import type {
   RequestCodeResponse,
   ReservationQuote,
   ReservationSummary,
+  UpcomingReservation,
   VerificationState,
 } from "./types";
 
@@ -64,6 +66,7 @@ export async function createVerification(payload: {
   lastName: string;
   birthDate: string;
   documentType: string;
+  documentName?: string;
   documentNumber: string;
   documentIssueDate?: string;
   documentExpiryDate?: string;
@@ -74,6 +77,17 @@ export async function createVerification(payload: {
     {
       method: "POST",
       body: payload,
+    },
+  );
+  return data.verification;
+}
+
+export async function deleteVerification(documentNumber: string) {
+  const data = await requestWithAuth<{ verification: VerificationState }>(
+    "/me/verification",
+    {
+      method: "DELETE",
+      body: { documentNumber },
     },
   );
   return data.verification;
@@ -104,6 +118,48 @@ export async function fetchLockers(cityId?: string) {
   const query = params.toString() ? `?${params.toString()}` : "";
   const payload = await requestJson<{ lockers: Locker[] }>(`/lockers/${query}`);
   return payload.lockers;
+}
+
+async function fetchLockersPage(params?: {
+  cityId?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const query = new URLSearchParams();
+  if (params?.cityId) {
+    query.set("cityId", params.cityId);
+  }
+  if (params?.page) {
+    query.set("page", String(params.page));
+  }
+  if (params?.limit) {
+    query.set("limit", String(params.limit));
+  }
+  const qs = query.toString() ? `?${query.toString()}` : "";
+  const payload = await requestEnvelope<{ lockers: Locker[] }>(`/lockers/${qs}`);
+  return {
+    lockers: payload.data.lockers,
+    total: payload.meta?.total ?? payload.data.lockers.length,
+  };
+}
+
+export async function fetchAllLockers(cityId?: string) {
+  const pageSize = 100;
+  const items: Locker[] = [];
+  let page = 1;
+  let total = 0;
+
+  do {
+    const response = await fetchLockersPage({ cityId, page, limit: pageSize });
+    items.push(...response.lockers);
+    total = response.total;
+    if (!response.lockers.length) {
+      break;
+    }
+    page += 1;
+  } while (items.length < total);
+
+  return items;
 }
 
 export async function fetchLockerAvailability(lockerId: string) {
@@ -143,6 +199,11 @@ export async function fetchProducts(params?: {
   const qs = query.toString() ? `?${query.toString()}` : "";
   const payload = await requestJson<{ products: ProductListItem[] }>(`/products${qs}`);
   return payload.products;
+}
+
+export async function fetchFeaturedProduct(cityId?: string) {
+  const query = cityId ? `?cityId=${encodeURIComponent(cityId)}` : "";
+  return requestJson<FeaturedProduct>(`/products/featured${query}`);
 }
 
 export async function fetchProduct(productId: string, cityId?: string) {
@@ -279,6 +340,23 @@ export async function fetchRental(rentalId: string) {
     `/me/rentals/${rentalId}`,
   );
   return data.rental;
+}
+
+export async function fetchMyReservations() {
+  const data = await requestWithAuth<{ reservations: UpcomingReservation[] }>("/me/reservations");
+  return data.reservations;
+}
+
+export async function cancelReservation(reservationId: string) {
+  return requestWithAuth<{
+    reservation: {
+      id: string;
+      status: string;
+      cancelledAt?: string | null;
+    };
+  }>(`/me/reservations/${reservationId}/cancel`, {
+    method: "POST",
+  });
 }
 
 export async function requestRentalReturn(rentalId: string, lockerId?: string) {

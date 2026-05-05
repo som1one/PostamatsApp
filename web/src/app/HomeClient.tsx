@@ -9,26 +9,57 @@ import {
   HelpCircle,
   MapPinned,
   PackageSearch,
-  Search,
   ShieldCheck,
 } from "lucide-react";
 import { CategoryTabs } from "@/components/CategoryTabs";
-import { CitySelector, readSavedCityId, saveSelectedCityId } from "@/components/CitySelector";
+import {
+  CitySelector,
+  readSavedCityId,
+  resolveSelectedCityId,
+  saveSelectedCityId,
+  useCitySync,
+} from "@/components/CitySelector";
 import { EmptyState } from "@/components/EmptyState";
 import { LockerCard } from "@/components/LockerCard";
 import { PageChrome } from "@/components/PageChrome";
 import { ProductCard } from "@/components/ProductCard";
-import { fetchCities, fetchLockers, fetchProducts } from "@/shared/api/endpoints";
-import type { City, Locker, ProductListItem } from "@/shared/api/types";
-import { benefits, faqItems, productCategories, workflowSteps } from "@/shared/content";
-import { formatMoney } from "@/shared/format";
+import { YandexMap } from "@/components/YandexMap";
+import {
+  fetchAllLockers,
+  fetchCities,
+  fetchFeaturedProduct,
+  fetchLockers,
+  fetchProducts,
+} from "@/shared/api/endpoints";
+import type { City, FeaturedProduct, Locker, ProductListItem } from "@/shared/api/types";
+import { benefits, faqItems, workflowSteps } from "@/shared/content";
+import { formatCountRu, formatMoney, pluralizeRu } from "@/shared/format";
+import { resolvePublicAssetUrl } from "@/shared/media";
+
+function categoryLabel(product: ProductListItem, index: number) {
+  const byName = product.categoryName?.trim();
+  if (byName) {
+    return byName;
+  }
+
+  const compact = product.categoryId.replace(/[-_]/g, " ").trim();
+  if (!compact || /^[a-f0-9 -]{16,}$/i.test(compact)) {
+    return `Категория ${index + 1}`;
+  }
+
+  return compact.charAt(0).toUpperCase() + compact.slice(1);
+}
 
 export function HomeClient() {
   const [cities, setCities] = useState<City[]>([]);
   const [products, setProducts] = useState<ProductListItem[]>([]);
   const [lockers, setLockers] = useState<Locker[]>([]);
+  const [allLockers, setAllLockers] = useState<Locker[]>([]);
   const [productOfDay, setProductOfDay] = useState<ProductListItem | null>(null);
+  const [productOfDayDate, setProductOfDayDate] = useState("");
   const [selectedCityId, setSelectedCityId] = useState("");
+  const [selectedLockerId, setSelectedLockerId] = useState("");
+  const [previewCategoryId, setPreviewCategoryId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -36,7 +67,37 @@ export function HomeClient() {
     () => cities.find((city) => city.id === selectedCityId) ?? cities[0],
     [cities, selectedCityId],
   );
-  const featuredLocker = lockers[0];
+  const selectedLocker = useMemo(
+    () => lockers.find((locker) => locker.id === selectedLockerId) ?? lockers[0],
+    [lockers, selectedLockerId],
+  );
+  const lockerPreviewItems = useMemo(() => {
+    if (!lockers.length) {
+      return [];
+    }
+    const leadLocker = selectedLocker ?? lockers[0];
+    return [leadLocker, ...lockers.filter((locker) => locker.id !== leadLocker.id)].slice(0, 3);
+  }, [lockers, selectedLocker]);
+  const featuredProductCoverUrl = resolvePublicAssetUrl(productOfDay?.coverUrl);
+  const previewCategories = useMemo(
+    () => [
+      { id: "", label: "Все" },
+      ...Array.from(
+        new Map(
+          products
+            .filter((product) => product.categoryId)
+            .map((product, index) => [product.categoryId, categoryLabel(product, index)]),
+        ),
+      ).map(([id, label], index) => ({ id, label: label || `Категория ${index + 1}` })),
+    ],
+    [products],
+  );
+  const previewProducts = useMemo(() => {
+    const items = previewCategoryId ? products.filter((product) => product.categoryId === previewCategoryId) : products;
+    return items.slice(0, 6);
+  }, [previewCategoryId, products]);
+
+  useCitySync(cities, selectedCityId, setSelectedCityId);
 
   useEffect(() => {
     let active = true;
@@ -46,14 +107,33 @@ export function HomeClient() {
           return;
         }
         setCities(items);
-        const saved = readSavedCityId();
-        const next = saved && items.some((city) => city.id === saved) ? saved : items[0]?.id || "";
+        const next = resolveSelectedCityId(items, readSavedCityId());
         setSelectedCityId(next);
         if (next) {
           saveSelectedCityId(next);
         }
       })
       .catch(() => setError("Не удалось загрузить города. Попробуйте обновить страницу."));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetchAllLockers()
+      .then((items) => {
+        if (!active) {
+          return;
+        }
+        setAllLockers(items);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+        setAllLockers([]);
+      });
     return () => {
       active = false;
     };
@@ -73,18 +153,20 @@ export function HomeClient() {
     Promise.all([
       fetchProducts({ cityId: selectedCityId, availableOnly: true, limit: 9 }),
       fetchLockers(selectedCityId),
+      fetchFeaturedProduct(selectedCityId).catch(() => null),
     ])
-      .then(([productItems, lockerItems]) => {
+      .then(([productItems, lockerItems, featuredProduct]) => {
         if (!active) {
           return;
         }
         setProducts(productItems);
         setLockers(lockerItems);
-        setProductOfDay(
-          productItems.length
-            ? productItems[Math.floor(Math.random() * productItems.length)]
-            : null,
+        setSelectedLockerId((current) =>
+          current && lockerItems.some((locker) => locker.id === current) ? current : lockerItems[0]?.id || "",
         );
+        const featured = featuredProduct as FeaturedProduct | null;
+        setProductOfDay(featured?.product ?? null);
+        setProductOfDayDate(featured?.activeDate ?? "");
       })
       .catch(() => {
         if (active) {
@@ -102,10 +184,33 @@ export function HomeClient() {
     };
   }, [selectedCityId]);
 
+  const totalLockerCount = allLockers.length || lockers.length;
+  const heroHighlights = [
+    {
+      icon: MapPinned,
+      label: cities.length ? formatCountRu(cities.length, ["город", "города", "городов"]) : "города загружаются",
+    },
+    {
+      icon: PackageSearch,
+      label: totalLockerCount
+        ? formatCountRu(totalLockerCount, ["постамат", "постамата", "постаматов"])
+        : "ищем постаматы",
+    },
+    {
+      icon: ShieldCheck,
+      label: "Код после оплаты",
+    },
+  ];
+
   const stats = [
-    { label: "городов", value: cities.length || "—" },
-    { label: "постаматов", value: lockers.length },
-    // TODO: заменить на публичный endpoint статистики, когда он появится в backend.
+    {
+      label: pluralizeRu(cities.length, ["город", "города", "городов"]),
+      value: cities.length || "—",
+    },
+    {
+      label: pluralizeRu(totalLockerCount, ["постамат", "постамата", "постаматов"]),
+      value: totalLockerCount,
+    },
     { label: "пользователей", value: "5k+" },
     { label: "часов аренды", value: "45k+" },
   ];
@@ -116,51 +221,66 @@ export function HomeClient() {
         <div className="hero-service-copy">
           <p className="eyebrow">Аренда через постаматы</p>
           <h1>Бери нужное на время. Не покупай лишнее.</h1>
-          <p>
-            Техника, инструменты и вещи для дома доступны в постаматах рядом с
-            вами: выберите товар, точку, срок аренды и получите код после оплаты.
-          </p>
-          <div className="hero-service-actions">
+          <div className="hero-service-summary">
+            <p className="hero-service-description">
+              Техника, инструменты и вещи для дома доступны в постаматах рядом с
+              вами: выберите товар, точку, срок аренды и получите код после оплаты.
+            </p>
+            <div className="hero-service-highlights" aria-label="Ключевые преимущества сервиса">
+              {heroHighlights.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <span key={item.label}>
+                    <Icon size={14} />
+                    {item.label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+          <div className="hero-service-cta">
             <Link className="button button-primary" href="/catalog">
               Начать аренду
               <ArrowRight size={18} />
             </Link>
-            <Link className="button button-secondary" href="/lockers">
-              Смотреть постаматы
-            </Link>
-          </div>
-          <div className="hero-search-panel">
-            <Search size={18} />
-            <span>{selectedCity?.name || "Выберите город"} · каталог, наличие и цена</span>
           </div>
         </div>
 
         <div className="hero-dashboard" aria-label="Сценарий аренды">
+          <p className="hero-dashboard-label">Товар дня рядом с вами</p>
           <article className="product-of-day-card">
             <div className="product-of-day-media">
-              {productOfDay?.coverUrl ? (
-                <img src={productOfDay.coverUrl} alt={productOfDay.name} />
+              {featuredProductCoverUrl ? (
+                <img src={featuredProductCoverUrl} alt={productOfDay?.name || "Товар дня"} />
               ) : (
                 <ImageIcon size={54} />
               )}
-              <span>Товар дня</span>
+                <span title={productOfDayDate ? `Обновлено: ${productOfDayDate}` : undefined}>
+                Товар дня
+              </span>
             </div>
-            <div>
+            <div className="product-of-day-copy">
               <p className="eyebrow">{productOfDay?.brand || "Подборка из каталога"}</p>
               <h2>{productOfDay?.name || "Товар дня появится после загрузки каталога"}</h2>
               <p>
                 {productOfDay?.shortDescription ||
-                  "Берем случайную доступную позицию из базы и показываем быстрый путь к ближайшим постаматам."}
+                  "Собрали заметную позицию из каталога, чтобы вы могли сразу выбрать ближайшую точку получения."}
               </p>
             </div>
             <div className="product-of-day-meta">
               <span>
                 <PackageSearch size={16} />
-                {productOfDay ? `${productOfDay.availableLockerCount} постаматов` : "ищем наличие"}
+                {productOfDay
+                  ? formatCountRu(productOfDay.availableLockerCount, [
+                      "постамат",
+                      "постамата",
+                      "постаматов",
+                    ])
+                  : "ищем наличие"}
               </span>
               <span>
                 <MapPinned size={16} />
-                {featuredLocker?.address || selectedCity?.name || "выберите город"}
+                {selectedLocker?.address || selectedCity?.name || "выберите город"}
               </span>
             </div>
             <div className="product-of-day-bottom">
@@ -170,7 +290,7 @@ export function HomeClient() {
                   : "цена после загрузки"}
               </strong>
               <Link
-                className="button button-primary"
+                className="button button-primary product-of-day-action"
                 href={productOfDay ? `/catalog/${productOfDay.slug || productOfDay.id}` : "/catalog"}
               >
                 Найти поблизости
@@ -231,16 +351,20 @@ export function HomeClient() {
       </section>
 
       <section className="section-band" id="catalog-preview">
-        <div className="toolbar">
+        <div className="catalog-preview-heading">
           <div>
             <p className="eyebrow">Каталог</p>
             <h2 className="section-heading">Популярное в аренду</h2>
-            <p className="muted">Город: {selectedCity?.name || "не выбран"}</p>
           </div>
-          <CitySelector cities={cities} value={selectedCityId} onChange={setSelectedCityId} />
         </div>
 
-        <CategoryTabs categories={productCategories} activeId="" onChange={() => undefined} />
+        <div className="catalog-filter-panel catalog-filter-panel-home">
+          <div className="catalog-filter-city">
+            <MapPinned size={16} />
+            <CitySelector cities={cities} value={selectedCityId} onChange={setSelectedCityId} compact />
+          </div>
+          <CategoryTabs categories={previewCategories} activeId={previewCategoryId} onChange={setPreviewCategoryId} />
+        </div>
 
         {error ? <div className="alert alert-danger">{error}</div> : null}
 
@@ -250,10 +374,10 @@ export function HomeClient() {
               <div className="skeleton-card" key={index} />
             ))}
           </div>
-        ) : products.length ? (
+        ) : previewProducts.length ? (
           <>
             <div className="product-grid">
-              {products.slice(0, 6).map((product) => (
+              {previewProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
@@ -266,8 +390,19 @@ export function HomeClient() {
         ) : (
           <EmptyState
             icon={<Boxes size={34} />}
-            title="Каталог пока пуст"
-            text="Когда товары появятся в выбранном городе, они отобразятся здесь."
+            title={previewCategoryId ? "В этой категории пока нет товаров" : "Каталог пока пуст"}
+            text={
+              previewCategoryId
+                ? "Сбросьте категорию или откройте весь каталог, чтобы посмотреть другие позиции."
+                : "Когда товары появятся в выбранном городе, они отобразятся здесь."
+            }
+            action={
+              previewCategoryId ? (
+                <button className="button button-secondary" type="button" onClick={() => setPreviewCategoryId("")}>
+                  Показать всё
+                </button>
+              ) : undefined
+            }
           />
         )}
       </section>
@@ -279,19 +414,20 @@ export function HomeClient() {
         </div>
         {lockers.length ? (
           <div className="locker-preview-grid">
-            <div className="map-preview">
-              <div className="map-grid-lines" />
-              <span className="map-pin map-pin-a" />
-              <span className="map-pin map-pin-b" />
-              <span className="map-pin map-pin-c" />
-              <div className="map-preview-card">
-                <MapPinned size={18} />
-                <strong>{lockers.length} точек в городе</strong>
-              </div>
-            </div>
+            <YandexMap
+              lockers={lockers}
+              selectedLockerId={selectedLockerId}
+              onSelectLocker={setSelectedLockerId}
+            />
             <div className="locker-list">
-              {lockers.slice(0, 3).map((locker) => (
-                <LockerCard key={locker.id} locker={locker} showAction />
+              {lockerPreviewItems.map((locker) => (
+                <LockerCard
+                  key={locker.id}
+                  locker={locker}
+                  selected={selectedLockerId === locker.id}
+                  onSelect={setSelectedLockerId}
+                  showAction
+                />
               ))}
             </div>
           </div>
@@ -326,8 +462,8 @@ export function HomeClient() {
           <ShieldCheck size={30} />
           <h2 className="section-title">Оформление под контролем</h2>
           <p>
-            Авторизация, верификация, резерв, оплата и код получения уже разделены
-            в интерфейсе, чтобы backend можно было подключать без переделки сценария.
+            Все шаги аренды собраны в одном понятном сценарии: от выбора товара до
+            получения кода и возврата через постамат.
           </p>
         </div>
       </section>

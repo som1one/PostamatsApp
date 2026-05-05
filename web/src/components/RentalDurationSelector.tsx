@@ -19,7 +19,7 @@ export function RentalDurationSelector({
   onSelect: (planId: string) => void;
 }) {
   if (!plans.length) {
-    return <div className="alert alert-warn">Тарифы для товара еще не настроены.</div>;
+    return <div className="alert alert-warn">Тарифы для товара пока не настроены.</div>;
   }
 
   return (
@@ -31,9 +31,11 @@ export function RentalDurationSelector({
           type="button"
           onClick={() => onSelect(plan.id)}
         >
-          <span>{durationLabel(plan)}</span>
-          <strong>{formatMoney(plan.baseAmount, plan.currency)}</strong>
-          <small>
+          <div className="tariff-card-row">
+            <span className="tariff-card-label">{durationLabel(plan)}</span>
+            <strong className="tariff-card-price">{formatMoney(plan.baseAmount, plan.currency)}</strong>
+          </div>
+          <small className="tariff-card-meta">
             {formatMoney(Math.round(plan.baseAmount / Math.max(plan.durationValue, 1)), plan.currency)}
             {plan.durationType === "hour" ? "/ч" : "/период"}
           </small>
@@ -42,4 +44,3 @@ export function RentalDurationSelector({
     </div>
   );
 }
-

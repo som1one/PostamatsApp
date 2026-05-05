@@ -49,6 +49,7 @@ async def init_db():
         "backend.models.city",
         "backend.models.condition_report",
         "backend.models.condition_report_photo",
+        "backend.models.featured_product_state",
         "backend.models.inventory_movement",
         "backend.models.inventory_unit",
         "backend.models.locker_cell",
@@ -58,6 +59,7 @@ async def init_db():
         "backend.models.payment_event",
         "backend.models.price_plan",
         "backend.models.product",
+        "backend.models.product_filter",
         "backend.models.product_category",
         "backend.models.product_image",
         "backend.models.rental",
@@ -67,6 +69,8 @@ async def init_db():
         "backend.models.verification_request",
     ):
         import_module(module_name)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 async def close_db():
     await engine.dispose()

@@ -29,9 +29,53 @@ from backend.utils.auth_utils import (
     verify_access_token,
 )
 from backend.utils.phone_utils import normalize_phone_for_storage
+from backend.utils.sms_ru import SmsRuError, send_auth_code
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+AUTH_PHONE_REQUIRED = "AUTH_PHONE_REQUIRED"
+AUTH_PHONE_INVALID = "AUTH_PHONE_INVALID"
+AUTH_SMS_SEND_FAILED = "AUTH_SMS_SEND_FAILED"
+AUTH_SMS_PROVIDER_ERROR = "AUTH_SMS_PROVIDER_ERROR"
+AUTH_SESSION_NOT_FOUND = "AUTH_SESSION_NOT_FOUND"
+AUTH_SESSION_INACTIVE = "AUTH_SESSION_INACTIVE"
+AUTH_SESSION_EXPIRED = "AUTH_SESSION_EXPIRED"
+AUTH_TOO_MANY_ATTEMPTS = "AUTH_TOO_MANY_ATTEMPTS"
+AUTH_CODE_INVALID = "AUTH_CODE_INVALID"
+AUTH_UNAUTHORIZED = "AUTH_UNAUTHORIZED"
+AUTH_ACCOUNT_BLOCKED = "AUTH_ACCOUNT_BLOCKED"
+AUTH_SESSION_CREATE_FAILED = "AUTH_SESSION_CREATE_FAILED"
+AUTH_CONFIRM_FAILED = "AUTH_CONFIRM_FAILED"
+AUTH_REFRESH_FAILED = "AUTH_REFRESH_FAILED"
+AUTH_LOGOUT_FAILED = "AUTH_LOGOUT_FAILED"
+
+
+def auth_error(status_code: int, code: str) -> HTTPException:
+    return HTTPException(status_code=status_code, detail=code)
+
+
+def normalize_auth_phone(phone: str) -> str:
+    try:
+        return normalize_phone_for_storage(phone)
+    except ValueError as exc:
+        raise auth_error(422, AUTH_PHONE_INVALID) from exc
+
+
+def ensure_auth_user_not_blocked(user: User) -> None:
+    try:
+        ensure_user_not_blocked(user)
+    except HTTPException as exc:
+        if exc.status_code == 403:
+            raise auth_error(403, AUTH_ACCOUNT_BLOCKED) from exc
+        raise
+
+
+def require_bearer_token(request: Request) -> str:
+    try:
+        return extract_bearer_token(request)
+    except HTTPException as exc:
+        raise auth_error(401, AUTH_UNAUTHORIZED) from exc
 
 
 def ensure_utc(value: datetime) -> datetime:
@@ -57,12 +101,9 @@ async def request_code(
 ):
     resolved_phone = payload.phone if payload is not None else phone
     if not resolved_phone:
-        raise HTTPException(status_code=422, detail="Phone is required")
+        raise auth_error(422, AUTH_PHONE_REQUIRED)
 
-    try:
-        normalized_phone = normalize_phone_for_storage(resolved_phone)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    normalized_phone = normalize_auth_phone(resolved_phone)
 
     now = datetime.now(timezone.utc)
     code = generate_code()
@@ -70,7 +111,7 @@ async def request_code(
     verification_session = AuthVerificationSession(
         phone=normalized_phone,
         code_hash=hashed_code,
-        expires_at=now + timedelta(seconds=settings.JWT_ACCESS_TOKEN_EXPIRE_SECONDS),
+        expires_at=now + timedelta(seconds=settings.AUTH_CODE_TTL_SECONDS),
         last_sent_at=now,
         attempt_count=0,
         max_attempts=5,
@@ -80,17 +121,26 @@ async def request_code(
 
     try:
         db.add(verification_session)
+        await db.flush()
+        await send_auth_code(normalized_phone, code)
         await db.commit()
         await db.refresh(verification_session)
+    except SmsRuError as exc:
+        verification_session.status = AuthVerificationSessionStatus.FAILED
+        verification_session.failed_at = now
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+        raise auth_error(exc.status_code, exc.code) from exc
     except Exception as exc:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to create verification session") from exc
+        raise auth_error(500, AUTH_SESSION_CREATE_FAILED) from exc
 
     return {
         "data": {
             "verificationSessionId": verification_session.id,
-            "ttlSeconds": 180,
-            "code": code,
+            "ttlSeconds": settings.AUTH_CODE_TTL_SECONDS,
         }
     }
 
@@ -106,31 +156,31 @@ async def confirm_code(
         payload.verificationSessionId,
     )
     if not verification_session:
-        raise HTTPException(status_code=404, detail="Verification session not found")
+        raise auth_error(404, AUTH_SESSION_NOT_FOUND)
 
     now = datetime.now(timezone.utc)
     verification_session.confirm_ip = request.client.host if request.client else None
     verification_session.confirm_user_agent = request.headers.get("user-agent")
 
     if verification_session.status != AuthVerificationSessionStatus.PENDING:
-        raise HTTPException(status_code=400, detail="Verification session is not active")
+        raise auth_error(400, AUTH_SESSION_INACTIVE)
 
     if verification_session.consumed_at is not None:
-        raise HTTPException(status_code=400, detail="Verification session already used")
+        raise auth_error(400, AUTH_SESSION_INACTIVE)
 
     if ensure_utc(verification_session.expires_at) < now:
         verification_session.status = AuthVerificationSessionStatus.EXPIRED
         verification_session.failed_at = now
         await db.commit()
         await db.refresh(verification_session)
-        raise HTTPException(status_code=400, detail="Verification session expired")
+        raise auth_error(400, AUTH_SESSION_EXPIRED)
 
     if verification_session.attempt_count >= verification_session.max_attempts:
         verification_session.status = AuthVerificationSessionStatus.FAILED
         verification_session.failed_at = now
         await db.commit()
         await db.refresh(verification_session)
-        raise HTTPException(status_code=400, detail="Too many attempts")
+        raise auth_error(400, AUTH_TOO_MANY_ATTEMPTS)
 
     if not verify_code(payload.code, verification_session.code_hash):
         verification_session.attempt_count += 1
@@ -139,15 +189,14 @@ async def confirm_code(
             verification_session.failed_at = now
         await db.commit()
         await db.refresh(verification_session)
-        raise HTTPException(status_code=400, detail="Invalid code")
+        if verification_session.attempt_count >= verification_session.max_attempts:
+            raise auth_error(400, AUTH_TOO_MANY_ATTEMPTS)
+        raise auth_error(400, AUTH_CODE_INVALID)
 
     verification_session.status = AuthVerificationSessionStatus.VERIFIED
     verification_session.consumed_at = now
 
-    try:
-        session_phone = normalize_phone_for_storage(verification_session.phone)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    session_phone = normalize_auth_phone(verification_session.phone)
 
     if session_phone != verification_session.phone:
         verification_session.phone = session_phone
@@ -166,7 +215,7 @@ async def confirm_code(
     else:
         user.last_login_at = now
 
-    ensure_user_not_blocked(user)
+    ensure_auth_user_not_blocked(user)
 
     auth_session = AuthSession(
         id=uuid4(),
@@ -184,8 +233,12 @@ async def confirm_code(
     auth_session.refresh_token_hash = hash_refresh_token(refresh_token)
     db.add(auth_session)
 
-    await db.commit()
-    await db.refresh(user)
+    try:
+        await db.commit()
+        await db.refresh(user)
+    except Exception as exc:
+        await db.rollback()
+        raise auth_error(500, AUTH_CONFIRM_FAILED) from exc
 
     access_token = create_access_token(user.id, auth_session.id)
     return {
@@ -205,17 +258,24 @@ async def refresh(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    refresh_token = extract_bearer_token(request)
-    session = await verify_refresh_token(refresh_token, db)
+    refresh_token = require_bearer_token(request)
+    try:
+        session = await verify_refresh_token(refresh_token, db)
+    except HTTPException as exc:
+        raise auth_error(401, AUTH_UNAUTHORIZED) from exc
 
     user = await db.get(User, session.user_id)
     if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+        raise auth_error(401, AUTH_UNAUTHORIZED)
 
-    ensure_user_not_blocked(user)
+    ensure_auth_user_not_blocked(user)
 
     session.last_used_at = datetime.now(timezone.utc)
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise auth_error(500, AUTH_REFRESH_FAILED) from exc
 
     access_token = create_access_token(session.user_id, session.id)
     return {
@@ -235,8 +295,11 @@ async def logout(
     request : Request,
     db: AsyncSession = Depends(get_db),
 ):
-    access_token = extract_bearer_token(request)
-    session = await verify_access_token(access_token, db)
+    access_token = require_bearer_token(request)
+    try:
+        session = await verify_access_token(access_token, db)
+    except HTTPException as exc:
+        raise auth_error(401, AUTH_UNAUTHORIZED) from exc
     session.last_used_at = datetime.now(timezone.utc)
     session.revoked_at = datetime.now(timezone.utc)
     session.revoke_reason = "logout"
@@ -245,5 +308,5 @@ async def logout(
         await db.refresh(session)
     except Exception as exc:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to logout") from exc
+        raise auth_error(500, AUTH_LOGOUT_FAILED) from exc
     return { "data": { "message": "Logged out" } }

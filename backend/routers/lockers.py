@@ -10,18 +10,124 @@ from backend.models.enums import InventoryStatus, LockerStatus
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
+from backend.models.price_plan import PricePlan
+from backend.models.product import Product
+from backend.models.product_filter import ProductFilter
 from backend.utils.lockers_utils import (
     LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY,
     aggregate_available_inventory_by_product,
-    build_availability_items,
-    build_locker_product_summaries,
     fetch_min_price_plans_by_product,
     load_locker_availability_counts,
     load_products_by_ids,
+    price_plan_to_minor_units,
     serialize_locker_location,
+)
+from backend.utils.product_filters import (
+    is_product_visible,
+    load_product_filters_by_product_ids,
+    normalize_filter_price_plans,
 )
 
 router = APIRouter(prefix="/lockers", tags=["lockers"])
+
+
+def _build_effective_locker_product_summaries(
+    product_counts: dict[UUID, int],
+    products: dict[UUID, Product],
+    plans: dict[UUID, PricePlan],
+    filters_by_product_id: dict[UUID, ProductFilter],
+) -> list[dict]:
+    out: list[dict] = []
+    for product_id, count in product_counts.items():
+        if count <= 0:
+            continue
+        product = products.get(product_id)
+        if product is None:
+            continue
+        product_filter = filters_by_product_id.get(product_id)
+        if not is_product_visible(product, product_filter):
+            continue
+
+        name = (
+            product_filter.name.strip()
+            if product_filter and product_filter.name and product_filter.name.strip()
+            else product.name
+        )
+        filter_plans = normalize_filter_price_plans(product_filter)
+        min_plan = min(filter_plans, key=lambda item: int(item["baseAmount"])) if filter_plans else None
+        price_from = (
+            int(min_plan["baseAmount"])
+            if min_plan is not None
+            else (
+                price_plan_to_minor_units(plans[product_id].base_amount, plans[product_id].currency)
+                if product_id in plans
+                else None
+            )
+        )
+        out.append(
+            {
+                "productId": str(product_id),
+                "name": name,
+                "available": True,
+                "priceFrom": price_from,
+            }
+        )
+    return out
+
+
+def _build_effective_availability_items(
+    product_counts: dict[UUID, int],
+    products: dict[UUID, Product],
+    plans: dict[UUID, PricePlan],
+    filters_by_product_id: dict[UUID, ProductFilter],
+) -> list[dict]:
+    items: list[dict] = []
+    for product_id, available_units in product_counts.items():
+        if available_units <= 0:
+            continue
+        product = products.get(product_id)
+        if product is None:
+            continue
+        product_filter = filters_by_product_id.get(product_id)
+        if not is_product_visible(product, product_filter):
+            continue
+
+        name = (
+            product_filter.name.strip()
+            if product_filter and product_filter.name and product_filter.name.strip()
+            else product.name
+        )
+        filter_plans = normalize_filter_price_plans(product_filter)
+        if filter_plans:
+            min_plan = min(filter_plans, key=lambda item: int(item["baseAmount"]))
+            items.append(
+                {
+                    "productId": str(product_id),
+                    "productName": name,
+                    "availableUnits": available_units,
+                    "minDurationType": min_plan["durationType"],
+                    "minDurationValue": int(min_plan["durationValue"]),
+                    "priceFrom": int(min_plan["baseAmount"]),
+                    "currency": min_plan["currency"],
+                }
+            )
+            continue
+
+        plan = plans.get(product_id)
+        items.append(
+            {
+                "productId": str(product_id),
+                "productName": name,
+                "availableUnits": available_units,
+                "minDurationType": plan.duration_type if plan else None,
+                "minDurationValue": plan.duration_value if plan else None,
+                "priceFrom": (
+                    price_plan_to_minor_units(plan.base_amount, plan.currency) if plan else None
+                ),
+                "currency": plan.currency if plan else "RUB",
+            }
+        )
+    return items
 
 
 @router.get("/")
@@ -125,7 +231,13 @@ async def get_locker(
         product_ids = list(product_counts.keys())
         products = await load_products_by_ids(db, product_ids)
         plans = await fetch_min_price_plans_by_product(db, product_ids)
-        products_payload = build_locker_product_summaries(product_counts, products, plans)
+        filters_by_product_id = await load_product_filters_by_product_ids(db, product_ids)
+        products_payload = _build_effective_locker_product_summaries(
+            product_counts,
+            products,
+            plans,
+            filters_by_product_id,
+        )
 
         return {
             "data": {
@@ -166,7 +278,13 @@ async def get_locker_availability(
         product_ids = list(product_counts.keys())
         products = await load_products_by_ids(db, product_ids)
         plans = await fetch_min_price_plans_by_product(db, product_ids)
-        items = build_availability_items(product_counts, products, plans)
+        filters_by_product_id = await load_product_filters_by_product_ids(db, product_ids)
+        items = _build_effective_availability_items(
+            product_counts,
+            products,
+            plans,
+            filters_by_product_id,
+        )
 
         return {
             "data": {
