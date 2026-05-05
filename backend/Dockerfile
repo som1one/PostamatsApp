@@ -10,8 +10,8 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 
 COPY alembic ./alembic
 COPY backend/alembic.ini ./alembic.ini
-RUN sed -i 's#%(here)s/../alembic#%(here)s/alembic#' /app/alembic.ini \
- && sed -i 's#%(here)s/..#%(here)s#' /app/alembic.ini
+RUN sed -i 's#^script_location = .*#script_location = %(here)s/alembic#' /app/alembic.ini \
+ && sed -i 's#^prepend_sys_path = .*#prepend_sys_path = %(here)s#' /app/alembic.ini
 COPY backend ./backend
 COPY admin ./admin
 COPY assets ./assets
