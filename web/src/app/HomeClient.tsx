@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   Boxes,
-  ImageIcon,
   HelpCircle,
   MapPinned,
   PackageSearch,
@@ -27,14 +26,12 @@ import { YandexMap } from "@/components/YandexMap";
 import {
   fetchAllLockers,
   fetchCities,
-  fetchFeaturedProduct,
   fetchLockers,
   fetchProducts,
 } from "@/shared/api/endpoints";
-import type { City, FeaturedProduct, Locker, ProductListItem } from "@/shared/api/types";
-import { faqItems, workflowSteps } from "@/shared/content";
-import { formatCountRu, formatMoney, pluralizeRu } from "@/shared/format";
-import { resolvePublicAssetUrl } from "@/shared/media";
+import type { City, Locker, ProductListItem } from "@/shared/api/types";
+import { workflowSteps } from "@/shared/content";
+import { formatCountRu, pluralizeRu } from "@/shared/format";
 
 function categoryLabel(product: ProductListItem, index: number) {
   const byName = product.categoryName?.trim();
@@ -55,18 +52,12 @@ export function HomeClient() {
   const [products, setProducts] = useState<ProductListItem[]>([]);
   const [lockers, setLockers] = useState<Locker[]>([]);
   const [allLockers, setAllLockers] = useState<Locker[]>([]);
-  const [productOfDay, setProductOfDay] = useState<ProductListItem | null>(null);
-  const [productOfDayDate, setProductOfDayDate] = useState("");
   const [selectedCityId, setSelectedCityId] = useState("");
   const [selectedLockerId, setSelectedLockerId] = useState("");
   const [previewCategoryId, setPreviewCategoryId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const selectedCity = useMemo(
-    () => cities.find((city) => city.id === selectedCityId) ?? cities[0],
-    [cities, selectedCityId],
-  );
   const selectedLocker = useMemo(
     () => lockers.find((locker) => locker.id === selectedLockerId) ?? lockers[0],
     [lockers, selectedLockerId],
@@ -78,7 +69,6 @@ export function HomeClient() {
     const leadLocker = selectedLocker ?? lockers[0];
     return [leadLocker, ...lockers.filter((locker) => locker.id !== leadLocker.id)].slice(0, 3);
   }, [lockers, selectedLocker]);
-  const featuredProductCoverUrl = resolvePublicAssetUrl(productOfDay?.coverUrl);
   const previewCategories = useMemo(
     () => [
       { id: "", label: "Все" },
@@ -150,12 +140,8 @@ export function HomeClient() {
     let active = true;
     setLoading(true);
     setError("");
-    Promise.all([
-      fetchProducts({ cityId: selectedCityId, availableOnly: true, limit: 9 }),
-      fetchLockers(selectedCityId),
-      fetchFeaturedProduct(selectedCityId).catch(() => null),
-    ])
-      .then(([productItems, lockerItems, featuredProduct]) => {
+    Promise.all([fetchProducts({ cityId: selectedCityId, availableOnly: true, limit: 9 }), fetchLockers(selectedCityId)])
+      .then(([productItems, lockerItems]) => {
         if (!active) {
           return;
         }
@@ -164,9 +150,6 @@ export function HomeClient() {
         setSelectedLockerId((current) =>
           current && lockerItems.some((locker) => locker.id === current) ? current : lockerItems[0]?.id || "",
         );
-        const featured = featuredProduct as FeaturedProduct | null;
-        setProductOfDay(featured?.product ?? null);
-        setProductOfDayDate(featured?.activeDate ?? "");
       })
       .catch(() => {
         if (active) {
@@ -219,11 +202,11 @@ export function HomeClient() {
     <PageChrome compact>
       <section className="hero-service">
         <div className="hero-service-copy">
-          <p className="eyebrow">Аренда через постаматы</p>
-          <h1>Бери нужное на время. Не покупай лишнее.</h1>
+          <p className="eyebrow">Как начать аренду</p>
+          <h1>Аренда нужных вещей рядом с вами</h1>
           <div className="hero-service-summary">
             <p className="hero-service-description">
-              Аренда нужных вещей быстро и без залога
+              Выберите технику в каталоге, найдите ближайший постамат и получите код для аренды за пару минут.
             </p>
             <div className="hero-service-highlights" aria-label="Ключевые преимущества сервиса">
               {heroHighlights.map((item) => {
@@ -237,94 +220,16 @@ export function HomeClient() {
               })}
             </div>
           </div>
-          <div className="hero-service-cta">
-            <Link className="button button-primary" href="/catalog">
-              Начать аренду
-              <ArrowRight size={18} />
+          <div className="hero-service-actions">
+            <Link className="button button-primary hero-cta-button" href="/catalog">
+              <Boxes size={18} />
+              Каталог
+            </Link>
+            <Link className="button button-secondary hero-cta-button" href="/lockers">
+              <MapPinned size={18} />
+              Карта постаматов
             </Link>
           </div>
-        </div>
-
-        <div className="hero-dashboard" aria-label="Сценарий аренды">
-          <p className="hero-dashboard-label">Товар дня рядом с вами</p>
-          <article className="product-of-day-card">
-            <div className="product-of-day-media">
-              {featuredProductCoverUrl ? (
-                <img src={featuredProductCoverUrl} alt={productOfDay?.name || "Товар дня"} />
-              ) : (
-                <ImageIcon size={54} />
-              )}
-                <span title={productOfDayDate ? `Обновлено: ${productOfDayDate}` : undefined}>
-                Товар дня
-              </span>
-            </div>
-            <div className="product-of-day-copy">
-              <p className="eyebrow">{productOfDay?.brand || "Подборка из каталога"}</p>
-              <h2>{productOfDay?.name || "Товар дня появится после загрузки каталога"}</h2>
-              <p>
-                {productOfDay?.shortDescription ||
-                  "Собрали заметную позицию из каталога, чтобы вы могли сразу выбрать ближайшую точку получения."}
-              </p>
-            </div>
-            <div className="product-of-day-meta">
-              <span>
-                <PackageSearch size={16} />
-                {productOfDay
-                  ? formatCountRu(productOfDay.availableLockerCount, [
-                      "постамат",
-                      "постамата",
-                      "постаматов",
-                    ])
-                  : "ищем наличие"}
-              </span>
-              <span>
-                <MapPinned size={16} />
-                {selectedLocker?.address || selectedCity?.name || "выберите город"}
-              </span>
-            </div>
-            <div className="product-of-day-bottom">
-              <strong>
-                {productOfDay
-                  ? `от ${formatMoney(productOfDay.priceFrom, productOfDay.currency)}`
-                  : "цена после загрузки"}
-              </strong>
-              <Link
-                className="button button-primary product-of-day-action"
-                href={productOfDay ? `/catalog/${productOfDay.slug || productOfDay.id}` : "/catalog"}
-              >
-                Найти поблизости
-              </Link>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section className="stats-grid" aria-label="Статистика сервиса">
-        {stats.map((item) => (
-          <article className="stat-card" key={item.label}>
-            <strong>{item.value}</strong>
-            <span>{item.label}</span>
-          </article>
-        ))}
-      </section>
-
-      <section className="section-band">
-        <div className="section-kicker">
-          <p className="eyebrow">Как это работает</p>
-          <h2 className="section-heading">От выбора до возврата без лишних шагов</h2>
-        </div>
-        <div className="workflow-grid">
-          {workflowSteps.map((item, index) => {
-            const Icon = item.icon;
-            return (
-              <article className="workflow-card" key={item.title}>
-                <span className="workflow-index">{index + 1}</span>
-                <Icon size={24} />
-                <strong>{item.title}</strong>
-                <p>{item.text}</p>
-              </article>
-            );
-          })}
         </div>
       </section>
 
@@ -332,7 +237,7 @@ export function HomeClient() {
         <div className="catalog-preview-heading">
           <div>
             <p className="eyebrow">Каталог</p>
-            <h2 className="section-heading">Популярное в аренду</h2>
+            <h2 className="section-heading">Выберите технику и вещи для аренды</h2>
           </div>
         </div>
 
@@ -388,7 +293,7 @@ export function HomeClient() {
       <section className="section-band">
         <div className="section-kicker">
           <p className="eyebrow">Постаматы</p>
-          <h2 className="section-heading">Выберите точку по адресу и наличию</h2>
+          <h2 className="section-heading">Найдите удобный постамат рядом с вами</h2>
         </div>
         {lockers.length ? (
           <div className="locker-preview-grid">
@@ -418,31 +323,46 @@ export function HomeClient() {
         )}
       </section>
 
-      <section className="section-band faq-preview">
-        <div className="surface faq-preview-card">
+      <section className="section-band">
+        <div className="section-kicker">
+          <p className="eyebrow">Как это работает</p>
+          <h2 className="section-heading">Коротко и ясно: 4 шага до аренды</h2>
+        </div>
+        <div className="workflow-grid">
+          {workflowSteps.map((item, index) => {
+            const Icon = item.icon;
+            return (
+              <article className="workflow-card" key={item.title}>
+                <span className="workflow-index">{index + 1}</span>
+                <Icon size={24} />
+                <strong>{item.title}</strong>
+                <p>{item.text}</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="stats-grid" aria-label="Статистика сервиса">
+        {stats.map((item) => (
+          <article className="stat-card" key={item.label}>
+            <strong>{item.value}</strong>
+            <span>{item.label}</span>
+          </article>
+        ))}
+      </section>
+
+      <section className="section-band section-band-compact">
+        <div className="surface faq-inline-card">
           <div>
             <p className="eyebrow">FAQ</p>
-            <h2 className="section-heading">Перед первой арендой</h2>
+            <h2 className="section-title">Ответы перед первой арендой</h2>
           </div>
-          <div className="faq-preview-list">
-            {faqItems.slice(0, 5).map((item) => (
-              <Link href="/faq" key={item.question}>
-                <HelpCircle size={17} />
-                {item.question}
-              </Link>
-            ))}
-          </div>
-          <Link className="button button-secondary" href="/faq">
-            Все вопросы
+          <Link className="button button-secondary faq-inline-action" href="/faq">
+            <HelpCircle size={18} />
+            Открыть вопросы и ответы
+            <ArrowRight size={18} />
           </Link>
-        </div>
-        <div className="surface support-card">
-          <ShieldCheck size={30} />
-          <h2 className="section-title">Оформление под контролем</h2>
-          <p>
-            Все шаги аренды собраны в одном понятном сценарии: от выбора товара до
-            получения кода и возврата через постамат.
-          </p>
         </div>
       </section>
     </PageChrome>

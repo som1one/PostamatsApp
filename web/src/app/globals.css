@@ -928,6 +928,10 @@ h3 {
   margin-top: 54px;
 }
 
+.section-band-compact {
+  padding-top: 22px;
+}
+
 .section-heading {
   margin: 0 0 14px;
   color: var(--ink);
@@ -2348,36 +2352,37 @@ h3 {
 }
 
 .hero-service {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(330px, 440px);
-  gap: 30px;
-  align-items: stretch;
-  min-height: 560px;
-  padding: 58px 0 8px;
+  padding: 34px 0 0;
 }
 
 .hero-service-copy {
   display: grid;
-  align-content: center;
-  gap: 20px;
+  gap: 18px;
+  padding: 28px;
+  border: 1px solid rgba(234, 223, 206, 0.95);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 244, 0.98), rgba(255, 255, 255, 0.96)),
+    linear-gradient(135deg, rgba(221, 54, 45, 0.05), rgba(212, 176, 134, 0.12));
+  box-shadow: var(--shadow-md);
 }
 
 .hero-service-description {
-  max-width: 650px;
+  max-width: 720px;
 }
 
 .hero-service-summary {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .hero-service h1 {
-  max-width: 760px;
+  max-width: 12.5ch;
   margin: 0;
   color: var(--text);
-  font-size: 64px;
+  font-size: 56px;
   font-weight: 950;
-  line-height: 0.98;
+  line-height: 1;
   overflow-wrap: break-word;
 }
 
@@ -2393,6 +2398,22 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.hero-cta-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 52px;
+  padding-inline: 18px;
+  border-radius: 16px;
+  font-weight: 900;
+  box-shadow: var(--shadow-sm);
+}
+
+.hero-cta-button svg {
+  flex: 0 0 auto;
 }
 
 .hero-service-highlights {
@@ -2937,6 +2958,25 @@ h3 {
   display: flex;
   justify-content: center;
   margin-top: 22px;
+}
+
+.faq-inline-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+.faq-inline-card .section-title {
+  margin: 0;
+}
+
+.faq-inline-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
 }
 
 .product-card {
@@ -4169,7 +4209,6 @@ h3 {
   }
 
   .hero-service {
-    min-height: auto;
     gap: 18px;
     padding-top: 18px;
   }
@@ -4187,6 +4226,7 @@ h3 {
 
   .hero-service-copy {
     gap: 14px;
+    padding: 22px;
   }
 
   .hero-service-actions {
@@ -5129,13 +5169,13 @@ h3 {
   }
 
   .hero-service {
-    min-height: 0;
     gap: 14px;
     padding-top: 12px;
   }
 
   .hero-service-copy {
     gap: 10px;
+    padding: 18px;
   }
 
   .hero-service h1 {
@@ -5186,16 +5226,28 @@ h3 {
     white-space: nowrap;
   }
 
-  .hero-service-cta {
-    gap: 0;
-    padding-top: 4px;
+  .hero-service-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
-  .hero-service-cta .button-primary {
+  .hero-cta-button {
     width: 100%;
     min-height: 42px;
     padding-inline: 12px;
     font-size: 13px;
+  }
+
+  .faq-inline-card {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .faq-inline-action {
+    justify-content: center;
+    width: 100%;
   }
 
   .hero-dashboard {
@@ -5807,11 +5859,7 @@ h3 {
     font-size: 10px;
   }
 
-  .hero-service-cta {
-    gap: 0;
-  }
-
-  .hero-service-cta .button-primary {
+  .hero-cta-button {
     min-height: 40px;
     font-size: 12px;
   }
