@@ -175,7 +175,10 @@ export function AppHeader() {
             <span className="brand-mark">
               <Image src="/naprokatberu-logo.png" alt="" width={44} height={44} />
             </span>
-            <span>naprokatberu</span>
+            <span className="brand-copy">
+              <strong>naprokatberu</strong>
+              <small>Аренда рядом с вами</small>
+            </span>
           </Link>
 
           <nav className="desktop-nav" aria-label="Основная навигация">

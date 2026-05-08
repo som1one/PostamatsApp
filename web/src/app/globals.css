@@ -130,9 +130,30 @@ h3 {
   align-items: center;
   gap: 10px;
   min-width: max-content;
+  min-height: 44px;
+}
+
+.brand-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.brand-copy strong {
+  display: block;
+  color: var(--text);
   font-size: 19px;
   font-weight: 950;
+  line-height: 1.02;
   letter-spacing: -0.03em;
+}
+
+.brand-copy small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .brand-mark {
@@ -5052,7 +5073,6 @@ h3 {
 
   .brand {
     gap: 8px;
-    font-size: 16px;
     min-width: 0;
     max-width: 100%;
   }
@@ -5062,11 +5082,22 @@ h3 {
     height: 38px;
   }
 
-  .brand span:last-child {
+  .brand-copy {
     min-width: 0;
+  }
+
+  .brand-copy strong {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-size: 16px;
+  }
+
+  .brand-copy small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
   }
 
   .header-actions {
@@ -5128,12 +5159,21 @@ h3 {
   }
 
   .hero-service-highlights {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, max-content));
-    gap: 4px 10px;
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .hero-service-highlights::-webkit-scrollbar {
+    display: none;
   }
 
   .hero-service-highlights span {
+    flex: 0 0 auto;
     min-height: 0;
     padding: 0;
     border: 0;
@@ -5143,6 +5183,7 @@ h3 {
     color: var(--muted);
     font-size: 11px;
     font-weight: 800;
+    white-space: nowrap;
   }
 
   .hero-service-cta {
@@ -5657,12 +5698,19 @@ h3 {
 
   .brand {
     gap: 7px;
-    font-size: 14px;
   }
 
   .brand-mark {
     width: 32px;
     height: 32px;
+  }
+
+  .brand-copy strong {
+    font-size: 14px;
+  }
+
+  .brand-copy small {
+    font-size: 10px;
   }
 
   .header-actions {
@@ -5752,8 +5800,7 @@ h3 {
   }
 
   .hero-service-highlights {
-    grid-template-columns: repeat(2, minmax(0, max-content));
-    gap: 3px 8px;
+    gap: 6px;
   }
 
   .hero-service-highlights span {
@@ -6007,12 +6054,20 @@ h3 {
   }
 
   .brand {
-    font-size: 13px;
+    min-width: 0;
   }
 
   .brand-mark {
     width: 30px;
     height: 30px;
+  }
+
+  .brand-copy strong {
+    font-size: 13px;
+  }
+
+  .brand-copy small {
+    font-size: 9px;
   }
 
   .header-actions .city-select-compact {

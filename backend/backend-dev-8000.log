@@ -1,0 +1,1206 @@
+INFO:     127.0.0.1:65498 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65498 - "GET /products?search=%D0%B2%D0%B5%D1%87%D0%B5%D1%80%D0%B8%D0%BD%D0%BA%D0%B8&limit=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58318 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62753 - "GET /products?search=%D0%B2%D0%B5%D1%87%D0%B5%D1%80%D0%B8%D0%BD%D0%BA%D0%B8&limit=10 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63721 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59623 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64303 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49310 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55265 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57619 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59623 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:57619 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:59623 - "OPTIONS /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63721 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59623 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63721 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59623 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59623 - "OPTIONS /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63721 - "GET /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63721 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59623 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57619 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57619 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63721 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59623 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55265 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50487 - "GET /assets/uploads/items/drill-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61371 - "GET /assets/uploads/items/drill-gallery-1.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55265 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57619 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55265 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59623 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61084 - "OPTIONS /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51162 - "OPTIONS /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49346 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51162 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61084 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49346 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61084 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51162 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51162 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61084 - "OPTIONS /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49346 - "OPTIONS /products/featured?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51162 - "GET /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61949 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61084 - "GET /products/featured?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58261 - "GET /assets/uploads/items/switch-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52572 - "GET /assets/uploads/items/home-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63421 - "GET /assets/uploads/items/vacuum-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64224 - "GET /assets/uploads/items/ps5-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55674 - "GET /assets/uploads/items/projector-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62608 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62608 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60513 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62608 - "GET /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60513 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54046 - "GET /products/featured?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57167 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59081 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61080 - "OPTIONS /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59081 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57167 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59081 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59081 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57167 - "OPTIONS /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61080 - "OPTIONS /products/featured?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59081 - "GET /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52739 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57167 - "GET /products/featured?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56532 - "GET /assets/uploads/items/drill-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56263 - "GET /assets/uploads/items/home-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53541 - "GET /assets/uploads/items/projector-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "OPTIONS /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56122 - "OPTIONS /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56122 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "GET /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56122 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56122 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "GET /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=g&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=g&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=gs&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=gs&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=gsk&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=gsk&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=gs&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=g&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=%D0%BF&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=%D0%BF&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=%D0%BF%D1%8B&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=%D0%BF%D1%8B&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=%D0%BF%D1%8B%D0%BB&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=%D0%BF%D1%8B%D0%BB&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=%D0%BF%D1%8B&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=%D0%BF&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53981 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:53981 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:59286 - "OPTIONS /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53981 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59286 - "OPTIONS /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54188 - "GET /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:54404 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54188 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53981 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54404 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54188 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53981 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58860 - "GET /assets/uploads/items/drill-gallery-1.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53981 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54188 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52871 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:64267 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64267 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52871 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52871 - "GET /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:52871 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64267 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64267 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52871 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:64267 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49557 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52871 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52871 - "GET /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:52871 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49557 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49557 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49557 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62486 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65433 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63935 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65433 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:65433 - "OPTIONS /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62486 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65433 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63935 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63935 - "OPTIONS /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65433 - "GET /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63935 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63935 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65433 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62486 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62486 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65433 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65433 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62486 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55664 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:59233 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55664 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55664 - "GET /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:59233 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55664 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59233 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59233 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59233 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55996 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55684 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51409 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55684 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:55996 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55996 - "OPTIONS /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55684 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55684 - "OPTIONS /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55996 - "GET /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:55996 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51409 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51409 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55684 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55684 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55996 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51409 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51409 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55996 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52980 - "OPTIONS /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52980 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:52980 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65238 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65238 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52980 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52980 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65238 - "OPTIONS /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65238 - "OPTIONS /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55178 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52980 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51866 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65238 - "GET /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64324 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49492 - "OPTIONS /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60626 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49492 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62223 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62223 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49492 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60626 - "GET /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63425 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60330 - "OPTIONS /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63425 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60330 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61049 - "GET /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63425 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60330 - "GET /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60330 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63425 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60330 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:60330 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63425 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60330 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63425 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61049 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60330 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60330 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60330 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:61049 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61049 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60330 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60330 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64929 - "GET /assets/uploads/items/drill-gallery-1.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60330 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50141 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63935 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63935 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59631 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:50141 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59631 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59631 - "OPTIONS /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59631 - "OPTIONS /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63935 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63935 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50141 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50141 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59631 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59631 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63935 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50141 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50141 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63935 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55462 - "GET /products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64916 - "GET /products?availableOnly=true&limit=3 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60085 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50259 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65427 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52600 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65427 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:50259 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65427 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65427 - "OPTIONS /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65427 - "OPTIONS /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50259 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52600 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:52600 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50259 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65427 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52600 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52600 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65427 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65427 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52600 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61896 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64820 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59197 - "OPTIONS /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:56721 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63346 - "GET /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52970 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52970 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:56721 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:56721 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63346 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:65180 - "OPTIONS /auth/request-code HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58518 - "POST /auth/request-code HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58677 - "OPTIONS /auth/confirm-code HTTP/1.1" 200 OK
+INFO:     192.168.1.7:55245 - "POST /auth/confirm-code HTTP/1.1" 200 OK
+INFO:     192.168.1.7:55245 - "OPTIONS /me HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57566 - "OPTIONS /me/verification HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53378 - "OPTIONS /me/verification HTTP/1.1" 200 OK
+INFO:     192.168.1.7:60437 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59776 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:60603 - "GET /me HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52178 - "GET /me/verification HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59264 - "GET /me HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59236 - "GET /me/verification HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58996 - "OPTIONS /me HTTP/1.1" 200 OK
+INFO:     192.168.1.7:60834 - "PATCH /me HTTP/1.1" 200 OK
+INFO:     192.168.1.7:51891 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53738 - "GET /me HTTP/1.1" 200 OK
+INFO:     192.168.1.7:54540 - "GET /me/verification HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53501 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58490 - "GET /me HTTP/1.1" 200 OK
+INFO:     192.168.1.7:54094 - "GET /me/verification HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53383 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:55432 - "GET /me HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58009 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61926 - "GET /me HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49516 - "GET /me/verification HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53274 - "GET /me/verification HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61410 - "OPTIONS /auth/logout HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63817 - "POST /auth/logout HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63817 - "OPTIONS /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:60804 - "OPTIONS /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64772 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57321 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52885 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57194 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49307 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62706 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57194 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49307 - "OPTIONS /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57321 - "OPTIONS /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64772 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62706 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52885 - "GET /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52885 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64772 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64772 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53254 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52885 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58870 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:60715 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57080 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:60715 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58870 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53254 - "GET /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53254 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58870 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58870 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53254 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:60715 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53254 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64772 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57080 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53254 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57080 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:60715 - "GET /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:56152 - "OPTIONS /lockers/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:65045 - "OPTIONS /lockers/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63675 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:50006 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63296 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63942 - "GET /lockers/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49669 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64853 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:50006 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63942 - "GET /lockers/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64853 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58595 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49969 - "GET /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61510 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53391 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61357 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49969 - "GET /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61357 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58329 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=g&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61673 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=g&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:54112 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=gs&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57112 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=gs&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57112 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=gsk&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61673 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=gsk&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61673 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=gskt&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62719 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=gskt&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62719 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=gsktc&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58375 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=gsktc&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58375 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=gsktc+&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62766 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=gsktc+&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64417 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=gsktc&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58359 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=gskt&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:55297 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=gsk&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:51389 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=gs&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64417 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=g&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62766 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:55297 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BF&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:51389 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BF%D1%8B&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62766 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BF&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58359 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BF%D1%8B%D0%BB&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62766 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BF%D1%8B&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64417 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BF%D1%8B%D0%BB&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49154 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BF%D1%8B%D0%BB%D0%B5&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63215 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BF%D1%8B%D0%BB%D0%B5%D1%81&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:50959 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BF%D1%8B%D0%BB%D0%B5&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53964 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BF%D1%8B%D0%BB%D0%B5%D1%81&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53964 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BF%D1%8B%D0%BB%D0%B5&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53964 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BF%D1%8B%D0%BB&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:50959 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BF%D1%8B&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64417 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BF&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53964 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53964 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BC&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:50959 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BC&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:50959 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BC%D0%BE&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64417 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BC%D0%BE&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64417 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BC%D0%BE%D1%8E&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58275 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BC%D0%BE%D1%8E&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58275 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BC%D0%BE&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58275 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D0%BC&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58275 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58275 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D1%88&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53259 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D1%88&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53259 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D1%88%D1%83&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49239 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D1%88%D1%83&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49239 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D1%88%D1%83%D0%BF&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49601 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D1%88%D1%83%D0%BF&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49601 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D1%88%D1%83&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49601 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D1%88%D1%83%D1%80&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63047 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D1%88%D1%83%D1%80&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63047 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D1%88%D1%83&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63047 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=%D1%88&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63047 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58847 - "OPTIONS /products/playstation-5-slim HTTP/1.1" 200 OK
+INFO:     192.168.1.7:54814 - "OPTIONS /products/playstation-5-slim HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61999 - "GET /products/playstation-5-slim HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.7:52673 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64477 - "GET /products/playstation-5-slim HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.7:60274 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52437 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62118 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64477 - "OPTIONS /products?search=playstation-5-slim&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61999 - "OPTIONS /products?search=playstation-5-slim&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:60274 - "GET /products?search=playstation-5-slim&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62118 - "OPTIONS /products/playstation-5-slim?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52437 - "GET /products?search=playstation-5-slim&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52673 - "GET /products/playstation-5-slim?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.7:60274 - "OPTIONS /products/22a083f8-67a8-46e0-bf33-5630968fe504 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:65263 - "GET /products/22a083f8-67a8-46e0-bf33-5630968fe504 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:65263 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=playstation-5-slim&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52437 - "GET /products/22a083f8-67a8-46e0-bf33-5630968fe504 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52673 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=playstation-5-slim&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52673 - "OPTIONS /products/22a083f8-67a8-46e0-bf33-5630968fe504?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52437 - "GET /products/22a083f8-67a8-46e0-bf33-5630968fe504?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61932 - "GET /assets/uploads/items/ps5-gallery-1.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52437 - "OPTIONS /products/22a083f8-67a8-46e0-bf33-5630968fe504/pricing?lockerId=508b6f5c-b81d-4189-806f-7af96928a3d1&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58764 - "GET /products/22a083f8-67a8-46e0-bf33-5630968fe504/pricing?lockerId=508b6f5c-b81d-4189-806f-7af96928a3d1&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:60468 - "OPTIONS /products/22a083f8-67a8-46e0-bf33-5630968fe504/pricing?lockerId=508b6f5c-b81d-4189-806f-7af96928a3d1&durationType=hour&durationValue=12 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59447 - "GET /products/22a083f8-67a8-46e0-bf33-5630968fe504/pricing?lockerId=508b6f5c-b81d-4189-806f-7af96928a3d1&durationType=hour&durationValue=12 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:60194 - "OPTIONS /products/22a083f8-67a8-46e0-bf33-5630968fe504/pricing?lockerId=508b6f5c-b81d-4189-806f-7af96928a3d1&durationType=day&durationValue=1 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:56009 - "GET /products/22a083f8-67a8-46e0-bf33-5630968fe504/pricing?lockerId=508b6f5c-b81d-4189-806f-7af96928a3d1&durationType=day&durationValue=1 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:65345 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:51462 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61191 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61893 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52567 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49530 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59507 - "GET /lockers/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58627 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:56122 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59507 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49530 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:55222 - "GET /lockers/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59507 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59507 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:56122 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:55594 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59674 - "GET /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59191 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57803 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:50295 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59674 - "GET /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:50295 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:50295 - "OPTIONS /products/dyson-am09 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57803 - "GET /products/dyson-am09 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.7:55594 - "GET /products/dyson-am09 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.7:59191 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59674 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:51683 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:56649 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:55594 - "OPTIONS /products?search=dyson-am09&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57803 - "OPTIONS /products?search=dyson-am09&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59191 - "GET /products?search=dyson-am09&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:51683 - "OPTIONS /products/dyson-am09?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:56649 - "GET /products/dyson-am09?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.7:59674 - "GET /products?search=dyson-am09&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59191 - "OPTIONS /products/fc03dad3-e23a-429a-b341-ac3d43495c00 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:56649 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=dyson-am09&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62933 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58409 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=dyson-am09&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59674 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58409 - "OPTIONS /products/fc03dad3-e23a-429a-b341-ac3d43495c00?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59674 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:60258 - "GET /assets/uploads/items/home-gallery-1.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59674 - "OPTIONS /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62933 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57838 - "OPTIONS /products/dyson-am09?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53545 - "GET /products/dyson-am09?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.7:53545 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=dyson-am09&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:55440 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=dyson-am09&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:55440 - "OPTIONS /products/fc03dad3-e23a-429a-b341-ac3d43495c00?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53370 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53370 - "OPTIONS /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:56332 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53670 - "GET /products/dyson-am09?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.7:53670 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=dyson-am09&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53670 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53670 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57384 - "GET /admin HTTP/1.1" 307 Temporary Redirect
+INFO:     192.168.1.7:57384 - "GET /admin/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57384 - "GET /admin/styles.css?v=12 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57384 - "GET /admin/app.js?v=15 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57384 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     192.168.1.7:51522 - "POST /api/admin/auth/login HTTP/1.1" 200 OK
+INFO:     192.168.1.7:54434 - "GET /api/admin/users?page=1&limit=20 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57102 - "GET /api/admin/cities HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58323 - "GET /api/admin/lockers HTTP/1.1" 200 OK
+INFO:     192.168.1.7:51522 - "GET /api/admin/dashboard/overview HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58890 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:59936 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57567 - "OPTIONS /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62657 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58205 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61320 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:58205 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62657 - "OPTIONS /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61320 - "OPTIONS /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57293 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61687 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64661 - "GET /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57293 - "GET /products/dyson-am09 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.7:61687 - "GET /products/dyson-am09 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.7:64661 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52053 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:56367 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64389 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57293 - "GET /products?search=dyson-am09&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52053 - "GET /products?search=dyson-am09&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64389 - "GET /products/dyson-am09?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.7:57293 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52053 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64389 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=dyson-am09&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64389 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64389 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53403 - "OPTIONS /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=12 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:50219 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=12 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:50219 - "OPTIONS /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=3 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:55309 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=3 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:55309 - "OPTIONS /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=2 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63926 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=2 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63926 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63926 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=12 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63926 - "OPTIONS /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=1 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57790 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=1 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57790 - "OPTIONS /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=7 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57870 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=7 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57870 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=3 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57870 - "GET /products/fc03dad3-e23a-429a-b341-ac3d43495c00/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=2 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:57354 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62971 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63049 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:60409 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:50225 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.7:63049 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:60409 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:50225 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62971 - "GET /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:62414 - "GET /assets/uploads/items/switch-cover.jpg HTTP/1.1" 304 Not Modified
+INFO:     192.168.1.7:56161 - "GET /assets/uploads/items/drill-cover.jpg HTTP/1.1" 304 Not Modified
+INFO:     192.168.1.7:64044 - "GET /assets/uploads/items/home-cover.jpg HTTP/1.1" 304 Not Modified
+INFO:     192.168.1.7:55610 - "GET /assets/uploads/items/vacuum-cover.jpg HTTP/1.1" 304 Not Modified
+INFO:     192.168.1.7:61222 - "GET /assets/uploads/items/ps5-cover.jpg HTTP/1.1" 304 Not Modified
+INFO:     192.168.1.7:51963 - "GET /assets/uploads/items/projector-cover.jpg HTTP/1.1" 304 Not Modified
+INFO:     192.168.1.7:60800 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49264 - "OPTIONS /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.7:53664 - "OPTIONS /products/featured?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.7:64254 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:52290 - "GET /products/featured?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.7:49236 - "GET /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.7:56108 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.7:61467 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.7:55393 - "GET /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62476 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60823 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64734 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60823 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:62476 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60823 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60823 - "OPTIONS /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62476 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62476 - "OPTIONS /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60823 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:60823 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60823 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62476 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64734 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64734 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62476 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62476 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54387 - "GET /assets/uploads/items/drill-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60044 - "GET /assets/uploads/items/drill-gallery-1.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64734 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64734 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62476 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:60823 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60823 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60823 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:60823 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62476 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62476 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62476 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51658 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60058 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:51658 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51658 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51658 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:51658 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60058 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60058 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60058 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60058 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51658 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:62174 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62174 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62174 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:62174 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51658 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51658 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51658 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50834 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63434 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54254 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63434 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:50834 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63434 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63434 - "OPTIONS /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63434 - "OPTIONS /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54254 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:54254 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50834 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50834 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63434 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54254 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54254 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63434 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63434 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54254 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56311 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:64244 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56311 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64244 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:56311 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64244 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56311 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64244 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64244 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49937 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:62142 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49937 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49937 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49937 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:49937 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62142 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62142 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62142 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62142 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62142 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:49937 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49937 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49937 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:49937 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62142 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62142 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62142 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49530 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=3 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49530 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=3 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49723 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:55293 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49723 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49723 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49723 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49723 - "OPTIONS /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55293 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:49723 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49723 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55293 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55293 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:55293 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55293 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49723 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55293 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49723 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55293 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:49723 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49723 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49723 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49723 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64409 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:57938 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64409 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55433 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:57938 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64409 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55433 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57938 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57938 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57938 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60238 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:65056 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60238 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60238 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60238 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:65056 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60238 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65056 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65056 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65056 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65056 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65056 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:60238 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60238 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61513 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:65056 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61513 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60238 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60238 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60238 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51128 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:56124 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51128 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53770 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:51128 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56124 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53770 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51128 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53770 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53770 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56886 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52875 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58801 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52875 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:56886 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52875 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52875 - "OPTIONS /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58801 - "OPTIONS /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52992 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:52992 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56886 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56886 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52875 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58801 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58801 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52992 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52875 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52875 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52992 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64702 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64702 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63425 - "OPTIONS /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64702 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63425 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62033 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63425 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64702 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62033 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62033 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64702 - "OPTIONS /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63425 - "OPTIONS /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51129 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62033 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64702 - "GET /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55436 - "GET /assets/uploads/items/switch-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64550 - "GET /assets/uploads/items/home-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55148 - "GET /assets/uploads/items/vacuum-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61352 - "GET /assets/uploads/items/ps5-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57614 - "GET /assets/uploads/items/projector-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59968 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63721 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59968 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63721 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59968 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57617 - "GET /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64974 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64974 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55646 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64974 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55646 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51400 - "GET /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65488 - "OPTIONS /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65518 - "OPTIONS /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49768 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65518 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65488 - "GET /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49768 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65488 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65518 - "GET /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65518 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65488 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65488 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65518 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49768 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65518 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65488 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49768 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65488 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49768 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65518 - "GET /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52465 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52465 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57669 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57669 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57669 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57669 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49486 - "GET /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65209 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49486 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57669 - "GET /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57669 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49486 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:65209 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:57669 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49486 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57669 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65209 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49486 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57669 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65209 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:65209 - "OPTIONS /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57669 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:54095 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49486 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57669 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57669 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57669 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60142 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60142 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49298 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60142 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49298 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:49298 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60142 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:49298 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49298 - "OPTIONS /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60142 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49298 - "OPTIONS /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60736 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:60736 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60142 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60142 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49298 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60736 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60736 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60736 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49298 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49298 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60736 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:60736 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60736 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49298 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60736 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60142 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60142 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64923 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:52767 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52767 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64923 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64372 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:64923 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52767 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64923 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64923 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64923 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63430 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56236 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63430 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63430 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56236 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63430 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56236 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63722 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63722 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56236 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56236 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:56236 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56236 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56236 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63722 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:56236 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56236 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63722 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63722 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63722 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52177 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:53830 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53830 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52177 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61357 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:53830 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61357 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52177 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52177 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52177 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59656 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=12 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59656 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=12 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59656 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=2 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49528 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=2 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49528 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=1 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59656 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=1 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56308 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=2 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49194 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:56878 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56878 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49194 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56878 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:49194 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56878 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55830 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55830 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55830 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55830 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=12 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55830 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55830 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=12 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60437 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60437 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=12 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58309 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50302 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60018 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50302 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:58309 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50302 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58309 - "OPTIONS /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58309 - "OPTIONS /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60018 - "OPTIONS /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58309 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:50302 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50302 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58309 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49720 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50302 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60018 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60018 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50302 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50302 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60018 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56407 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=3 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56407 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=3 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56407 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61165 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=day&durationValue=7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49945 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53820 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63422 - "OPTIONS /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49945 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "OPTIONS /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "OPTIONS /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53820 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63422 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53820 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49945 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64166 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64166 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64166 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64166 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63422 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64166 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64166 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49945 - "GET /products/bosch-ixo-7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63422 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49945 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64166 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64166 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63425 - "GET /assets/uploads/items/drill-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64166 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=b47af936-f6bc-4141-8fad-324a82105656&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57081 - "OPTIONS /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58769 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57081 - "GET /products?limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57081 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58769 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51763 - "GET /assets/uploads/items/home-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61780 - "GET /assets/uploads/items/vacuum-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50481 - "GET /assets/uploads/items/switch-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:55494 - "GET /assets/uploads/items/projector-cover.jpg HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57081 - "OPTIONS /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58769 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57081 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58769 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57081 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "OPTIONS /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57081 - "OPTIONS /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58769 - "OPTIONS /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61939 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57081 - "GET /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60192 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60192 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61882 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61882 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51675 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58192 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61882 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51675 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61882 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51675 - "GET /products?cityId=d73eaf00-6647-4118-ae62-753c129d7580&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58192 - "GET /products/featured?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50524 - "OPTIONS /lockers/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59802 - "OPTIONS /lockers/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60866 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52827 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50524 - "GET /lockers/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59802 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50524 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:60866 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52827 - "GET /lockers/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59802 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59802 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59802 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52827 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52827 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59802 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59439 - "GET /lockers/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52331 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59439 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59802 - "GET /lockers/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52827 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52331 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52331 - "GET /lockers/?cityId=d73eaf00-6647-4118-ae62-753c129d7580 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64514 - "OPTIONS /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52290 - "OPTIONS /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56051 - "OPTIONS /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:59297 - "OPTIONS /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61256 - "OPTIONS /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63422 - "GET /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:61256 - "GET /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:52290 - "GET /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64514 - "GET /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52290 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61256 - "GET /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64514 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64514 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61256 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52290 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61256 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61256 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=day&durationValue=7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52290 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=day&durationValue=7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52290 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61256 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52290 - "OPTIONS /products?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61256 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52290 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61256 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52290 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64514 - "GET /products?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52290 - "GET /products?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52290 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64514 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49152 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49152 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49539 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49539 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57034 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61207 - "GET /products?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:49539 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57034 - "GET /products?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:57034 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&limit=100&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56855 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:52861 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52861 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:56855 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52861 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56855 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51339 - "GET /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:52861 - "GET /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56855 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51339 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52861 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56855 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:51339 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56855 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56855 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58514 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:54576 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58514 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58514 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58514 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:54576 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54576 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58514 - "GET /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:54576 - "GET /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54576 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58514 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54846 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54576 - "GET /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:58514 - "GET /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54846 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54576 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50819 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50819 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50819 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50819 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54576 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:50819 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54576 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54576 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50819 - "GET /products/bosch-ixo-7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:54576 - "GET /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:50819 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54846 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54846 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:54846 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=6 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61648 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=12 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61648 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=hour&durationValue=12 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61648 - "OPTIONS /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=day&durationValue=1 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:58681 - "GET /products/0a8cc6f2-8a05-48af-817b-f1932bfabdd7/pricing?lockerId=0e23c99c-0095-46a9-8e89-34cdb743de22&durationType=day&durationValue=1 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53155 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62067 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53155 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62067 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61811 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53155 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53155 - "OPTIONS /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53155 - "OPTIONS /products/featured?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:61811 - "GET /lockers/?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62067 - "GET /products?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de&limit=9&availableOnly=true HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53155 - "GET /products/featured?cityId=449f7af9-cc4b-4fec-9643-8c312639a8de HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53155 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62067 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62067 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:53155 - "GET /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56264 - "OPTIONS /auth/request-code HTTP/1.1" 200 OK
+INFO:     192.168.1.6:56264 - "POST /auth/request-code HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63721 - "OPTIONS /auth/confirm-code HTTP/1.1" 200 OK
+INFO:     192.168.1.6:63721 - "POST /auth/confirm-code HTTP/1.1" 400 Bad Request
+INFO:     192.168.1.6:64824 - "OPTIONS /cities/ HTTP/1.1" 200 OK
+INFO:     192.168.1.6:64824 - "GET /cities/ HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:52918 - "OPTIONS /products/bosch-ixo-7 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52918 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:52918 - "OPTIONS /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 200 OK
+INFO:     192.168.1.6:52918 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63937 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:57686 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:53859 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:49878 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:65275 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:65275 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:58788 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:51506 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:60643 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:51005 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:52757 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:59459 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:52986 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:59589 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:50064 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:55754 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:59949 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:58242 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:50415 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:52377 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:61814 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63422 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:57836 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:58612 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:64438 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:64438 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63430 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:54820 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:64795 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:64795 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:54539 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:55513 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63433 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:56710 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:52933 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:49490 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:50847 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:50847 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:50789 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:50789 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:55560 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:53038 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:56736 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:56736 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:57144 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:63942 - "GET /products/bosch-ixo-7 HTTP/1.1" 422 Unprocessable Content
+INFO:     192.168.1.6:64716 - "GET /cities/ HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:57144 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:63942 - "GET /cities/ HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:64716 - "GET /products?search=bosch-ixo-7&limit=100&availableOnly=false HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:57144 - "GET /cities/ HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:64716 - "GET /cities/ HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:57144 - "GET /cities/ HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:58773 - "POST /auth/request-code HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:61618 - "POST /auth/request-code HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:51433 - "GET /cities/ HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:62416 - "OPTIONS /lockers/?page=1&limit=100 HTTP/1.1" 200 OK
+INFO:     192.168.1.6:62416 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:63722 - "GET /cities/ HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:62416 - "GET /cities/ HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:54290 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:62416 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:54290 - "GET /cities/ HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:54290 - "GET /cities/ HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:62416 - "GET /lockers/?page=1&limit=100 HTTP/1.1" 500 Internal Server Error
+INFO:     192.168.1.6:54290 - "GET /cities/ HTTP/1.1" 500 Internal Server Error

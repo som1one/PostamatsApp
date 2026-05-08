@@ -32,7 +32,7 @@ import {
   fetchProducts,
 } from "@/shared/api/endpoints";
 import type { City, FeaturedProduct, Locker, ProductListItem } from "@/shared/api/types";
-import { benefits, faqItems, workflowSteps } from "@/shared/content";
+import { faqItems, workflowSteps } from "@/shared/content";
 import { formatCountRu, formatMoney, pluralizeRu } from "@/shared/format";
 import { resolvePublicAssetUrl } from "@/shared/media";
 
@@ -223,8 +223,7 @@ export function HomeClient() {
           <h1>Бери нужное на время. Не покупай лишнее.</h1>
           <div className="hero-service-summary">
             <p className="hero-service-description">
-              Техника, инструменты и вещи для дома доступны в постаматах рядом с
-              вами: выберите товар, точку, срок аренды и получите код после оплаты.
+              Аренда нужных вещей быстро и без залога
             </p>
             <div className="hero-service-highlights" aria-label="Ключевые преимущества сервиса">
               {heroHighlights.map((item) => {
@@ -307,27 +306,6 @@ export function HomeClient() {
             <span>{item.label}</span>
           </article>
         ))}
-      </section>
-
-      <section className="section-band">
-        <div className="section-kicker">
-          <p className="eyebrow">Почему удобно</p>
-          <h2 className="section-heading">Вещь появляется тогда, когда она действительно нужна</h2>
-        </div>
-        <div className="benefit-grid">
-          {benefits.map((item) => {
-            const Icon = item.icon;
-            return (
-              <article className="benefit-card" key={item.title}>
-                <span className="icon-badge">
-                  <Icon size={20} />
-                </span>
-                <strong>{item.title}</strong>
-                <p>{item.text}</p>
-              </article>
-            );
-          })}
-        </div>
       </section>
 
       <section className="section-band">
