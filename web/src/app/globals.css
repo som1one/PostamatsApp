@@ -5738,7 +5738,7 @@ h3 {
   }
 
   .header-mobile-auth {
-    display: none;
+    display: inline-flex;
   }
 
   .menu-button {
