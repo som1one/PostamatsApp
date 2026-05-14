@@ -2334,7 +2334,7 @@ h3 {
     flex: 0 0 auto;
   }
 
-  .header-actions .button-secondary {
+  .app-header .header-actions .button-secondary {
     display: none;
   }
 
