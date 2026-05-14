@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CreditCard, PackageCheck, ShoppingBag } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeftRight, CreditCard, PackageCheck, RotateCcw, ShoppingBag } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { PageChrome } from "@/components/PageChrome";
 import { PageHeader } from "@/components/PageHeader";
@@ -10,6 +11,8 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { StatusPill } from "@/components/StatusPill";
 import { Surface } from "@/components/Surface";
 import {
+  authorizePaymentDevStub,
+  cancelReservation,
   confirmReservation,
   fetchPayment,
   fetchReservation,
@@ -22,6 +25,9 @@ import {
 } from "@/shared/checkout/pending";
 import { formatDateTime, formatMoney } from "@/shared/format";
 
+const DEV_PAYMENT_BYPASS_ENABLED =
+  process.env.NEXT_PUBLIC_ENABLE_DEV_PAYMENT_BYPASS === "true";
+
 export function PaymentReturnClient() {
   return (
     <PageChrome>
@@ -33,6 +39,7 @@ export function PaymentReturnClient() {
 }
 
 function PaymentReturnContent() {
+  const router = useRouter();
   const [payment, setPayment] = useState<PaymentSummary | null>(null);
   const [reservation, setReservation] = useState<ReservationSummary | null>(null);
   const [rental, setRental] = useState<{
@@ -43,28 +50,27 @@ function PaymentReturnContent() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [pending, setPending] = useState<PendingCheckout | null | undefined>(
-    undefined,
-  );
+  const [busy, setBusy] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
+  const [pending, setPending] = useState<PendingCheckout | null | undefined>(undefined);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   useEffect(() => {
     setPending(readPendingCheckout());
   }, []);
 
   useEffect(() => {
-    if (pending === undefined) {
-      return;
-    }
-    if (pending === null) {
-      setLoading(false);
+    if (pending === undefined || pending === null || cancelled) {
+      if (pending === null) {
+        setLoading(false);
+      }
       return;
     }
 
     let active = true;
     let timer: number | null = null;
-    const currentPending = pending;
 
-    async function load() {
+    async function loadStatus(currentPending: PendingCheckout) {
       try {
         const [pay, res] = await Promise.all([
           fetchPayment(currentPending.paymentId),
@@ -73,6 +79,7 @@ function PaymentReturnContent() {
         if (!active) {
           return;
         }
+
         setPayment(pay);
         setReservation(res);
 
@@ -83,11 +90,14 @@ function PaymentReturnContent() {
           }
           setRental(createdRental);
           clearPendingCheckout();
+          setPending(null);
           return;
         }
 
         if (pay.status === "pending") {
-          timer = window.setTimeout(load, 3500);
+          timer = window.setTimeout(() => {
+            void loadStatus(currentPending);
+          }, 3500);
         }
       } catch (err) {
         if (active) {
@@ -100,7 +110,7 @@ function PaymentReturnContent() {
       }
     }
 
-    void load();
+    void loadStatus(pending);
 
     return () => {
       active = false;
@@ -108,23 +118,70 @@ function PaymentReturnContent() {
         window.clearTimeout(timer);
       }
     };
-  }, [pending]);
+  }, [cancelled, pending]);
 
-  if (pending === undefined) {
-    return <div className="loader">Открываем платёж</div>;
+  async function handleDevBypass() {
+    if (!pending || !payment || !reservation) {
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    try {
+      const updatedPayment = await authorizePaymentDevStub(payment.id);
+      const createdRental = await confirmReservation(reservation.id, updatedPayment.id);
+      setPayment(updatedPayment);
+      setRental(createdRental);
+      clearPendingCheckout();
+      setPending(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось подтвердить тестовую выдачу");
+    } finally {
+      setBusy(false);
+    }
   }
 
-  if (!pending) {
+  async function handleCancelPayment() {
+    if (!reservation) {
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setShowCancelDialog(false);
+    try {
+      await cancelReservation(reservation.id);
+      clearPendingCheckout();
+      setCancelled(true);
+      setPending(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось отменить оплату");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleReschedule() {
+    clearPendingCheckout();
+    setShowCancelDialog(false);
+    router.push("/catalog");
+  }
+
+  if (pending === undefined) {
+    return <div className="loader">Открываем платеж</div>;
+  }
+
+  if (cancelled) {
     return (
       <>
         <PageHeader
           eyebrow="Оплата"
-          title="Нет активного платежа"
-          subtitle="Не нашли сохраненную бронь для проверки платежа."
+          title="Оплата отменена"
+          subtitle="Бронь снята, резерв по оплате больше не ждём."
         />
         <EmptyState
           icon={<ShoppingBag size={34} />}
-          title="Платёж не найден"
+          title="Можно выбрать другой товар"
           action={
             <Link className="button button-primary" href="/catalog">
               В каталог
@@ -135,16 +192,43 @@ function PaymentReturnContent() {
     );
   }
 
+  if (!pending && !rental) {
+    return (
+      <>
+        <PageHeader
+          eyebrow="Оплата"
+          title="Нет активного платежа"
+          subtitle="Не нашли сохраненную бронь для проверки оплаты."
+        />
+        <EmptyState
+          icon={<ShoppingBag size={34} />}
+          title="Платеж не найден"
+          action={
+            <Link className="button button-primary" href="/catalog">
+              В каталог
+            </Link>
+          }
+        />
+      </>
+    );
+  }
+
+  const status = rental?.status || payment?.status || "pending";
+  const title = rental ? "PIN готов" : "Проверяем статус";
+  const subtitle = rental
+    ? "Бронь подтверждена. Ниже уже есть PIN для получения."
+    : "После подтверждения платежа здесь появится PIN и ссылка на аренду.";
+
   return (
     <>
       <PageHeader
         eyebrow="Оплата"
-        title={rental ? "Бронь подтверждена" : "Проверяем статус"}
-        subtitle="После подтверждения платежа здесь появятся PIN и ссылка на аренды."
-        actions={<StatusPill status={rental?.status || payment?.status || "pending"} />}
+        title={title}
+        subtitle={subtitle}
+        actions={<StatusPill status={status} />}
       />
 
-      {loading ? <div className="loader">Ждём ответ платёжной системы</div> : null}
+      {loading ? <div className="loader">Ждем ответ платежной системы</div> : null}
       {error ? <div className="alert alert-danger">{error}</div> : null}
 
       <div className="layout-split">
@@ -153,27 +237,49 @@ function PaymentReturnContent() {
             <span className="icon-badge">
               <CreditCard size={20} />
             </span>
-            <StatusPill status={payment?.status || "pending"} />
           </div>
           <div>
-            <p className="eyebrow">Платёж</p>
+            <p className="eyebrow">Платеж</p>
             <h2 className="section-title">{formatMoney(payment?.amount, payment?.currency)}</h2>
           </div>
           <div className="meta-list">
             <div className="meta-line">
               <span>Создан</span>
-              <strong>{formatDateTime(pending.createdAt)}</strong>
+              <strong>{formatDateTime(pending?.createdAt)}</strong>
             </div>
             <div className="meta-line">
               <span>ID платежа</span>
-              <strong>{pending.paymentId}</strong>
+              <strong className="payment-return-id">{payment?.id || pending?.paymentId}</strong>
             </div>
           </div>
+
           {payment?.status === "pending" ? (
             <div className="alert alert-warn">
-              Платёж ещё обрабатывается. Бронь подтвердится автоматически после обновления
+              Платеж еще обрабатывается. Бронь подтвердится автоматически после обновления
               статуса.
             </div>
+          ) : null}
+
+          {DEV_PAYMENT_BYPASS_ENABLED && payment?.status === "pending" && reservation ? (
+            <button
+              className="button button-secondary"
+              type="button"
+              disabled={busy}
+              onClick={handleDevBypass}
+            >
+              {busy ? "Готовим PIN" : "Тест без оплаты"}
+            </button>
+          ) : null}
+
+          {!rental && reservation && ["pending", "authorized"].includes(payment?.status || "") ? (
+            <button
+              className="button button-ghost"
+              type="button"
+              disabled={busy}
+              onClick={() => setShowCancelDialog(true)}
+            >
+              {busy ? "Отменяем" : "Отменить оплату"}
+            </button>
           ) : null}
         </Surface>
 
@@ -182,25 +288,70 @@ function PaymentReturnContent() {
             <span className="icon-badge">
               <PackageCheck size={20} />
             </span>
-            <StatusPill status={reservation?.status || rental?.status || "pending"} />
           </div>
           <div>
-            <p className="eyebrow">Бронь</p>
+            <p className="eyebrow">{rental ? "Выдача" : "Бронь"}</p>
             <h2 className="section-title">{reservation?.product?.name || "Товар"}</h2>
           </div>
           <p className="muted">{reservation?.locker?.address}</p>
+
           {rental ? (
             <>
-              <div className="alert">
-                <strong>PIN: {rental.pickupPin}</strong>
+              <div className="payment-pin-card">
+                <span className="payment-pin-label">PIN</span>
+                <strong className="payment-pin-value">{rental.pickupPin}</strong>
               </div>
               <Link className="button button-primary" href="/rentals">
                 Мои аренды
               </Link>
             </>
-          ) : null}
+          ) : (
+            <div className="alert">
+              После подтверждения здесь появится PIN и переход к аренде.
+            </div>
+          )}
         </Surface>
       </div>
+
+      {/* Cancel confirmation dialog */}
+      {showCancelDialog ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-box">
+            <div className="modal-icon">
+              <RotateCcw size={26} />
+            </div>
+            <h2 className="modal-title">Вернуть деньги?</h2>
+            <p className="modal-text">
+              Вы уверены, что хотите вернуть деньги? Вы можете перенести запись на другое время — просто выберите новый товар и постамат в каталоге.
+            </p>
+            <div className="modal-actions">
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={() => setShowCancelDialog(false)}
+              >
+                Назад
+              </button>
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={handleReschedule}
+              >
+                <ArrowLeftRight size={16} />
+                Перенести запись
+              </button>
+              <button
+                className="button button-primary"
+                type="button"
+                disabled={busy}
+                onClick={handleCancelPayment}
+              >
+                {busy ? "Отменяем" : "Да, вернуть деньги"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

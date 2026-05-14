@@ -40,11 +40,23 @@ from backend.utils.featured_product import (
     start_featured_product_scheduler,
     stop_featured_product_scheduler,
 )
+from backend.utils.reservation_expiry import (
+    start_reservation_expiry_scheduler,
+    stop_reservation_expiry_scheduler,
+)
+from backend.utils.rental_pickup_expiry import (
+    start_rental_pickup_expiry_scheduler,
+    stop_rental_pickup_expiry_scheduler,
+)
 
 
 app = FastAPI()
 featured_product_worker: threading.Thread | None = None
 featured_product_stop_event: threading.Event | None = None
+reservation_expiry_worker: threading.Thread | None = None
+reservation_expiry_stop_event: threading.Event | None = None
+rental_pickup_expiry_worker: threading.Thread | None = None
+rental_pickup_expiry_stop_event: threading.Event | None = None
 
 app.add_middleware(
     CORSMiddleware,
@@ -87,17 +99,29 @@ if admin_frontend_dir.exists():
 @app.on_event("startup")
 async def startup_event():
     global featured_product_worker, featured_product_stop_event
+    global reservation_expiry_worker, reservation_expiry_stop_event
+    global rental_pickup_expiry_worker, rental_pickup_expiry_stop_event
     await init_db()
     await init_redis()
     loop = asyncio.get_running_loop()
     featured_product_worker, featured_product_stop_event = start_featured_product_scheduler(loop)
+    reservation_expiry_worker, reservation_expiry_stop_event = start_reservation_expiry_scheduler(loop)
+    rental_pickup_expiry_worker, rental_pickup_expiry_stop_event = start_rental_pickup_expiry_scheduler(loop)
 
 @app.on_event("shutdown")
 async def shutdown_event():
     global featured_product_worker, featured_product_stop_event
+    global reservation_expiry_worker, reservation_expiry_stop_event
+    global rental_pickup_expiry_worker, rental_pickup_expiry_stop_event
     await stop_featured_product_scheduler(featured_product_worker, featured_product_stop_event)
     featured_product_worker = None
     featured_product_stop_event = None
+    await stop_reservation_expiry_scheduler(reservation_expiry_worker, reservation_expiry_stop_event)
+    reservation_expiry_worker = None
+    reservation_expiry_stop_event = None
+    await stop_rental_pickup_expiry_scheduler(rental_pickup_expiry_worker, rental_pickup_expiry_stop_event)
+    rental_pickup_expiry_worker = None
+    rental_pickup_expiry_stop_event = None
     await close_redis()
     await close_db()
 

@@ -199,6 +199,8 @@ export type UpcomingReservation = {
   id: string;
   status: string;
   expiresAt: string;
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
   product: {
     id: string;
     name?: string | null;
@@ -242,6 +244,7 @@ export type PresignUploadResponse = {
 export type RentalListItem = {
   id: string;
   status: string;
+  cancelReason?: string | null;
   plannedEndAt?: string | null;
   actualEndAt?: string | null;
   product: {

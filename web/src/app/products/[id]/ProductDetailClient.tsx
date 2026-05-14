@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Boxes, CalendarClock, MapPinned } from "lucide-react";
 import {
   CitySelector,
@@ -27,7 +28,6 @@ import type { City, Locker, PricePlan, PricingQuote, ProductDetail } from "@/sha
 import { useAuth } from "@/shared/auth/auth-context";
 import { resolvePublicAssetUrl } from "@/shared/media";
 
-type ProductLocker = ProductDetail["availableLockers"][number];
 type LockerOption = {
   lockerId: string;
   name: string;
@@ -57,6 +57,11 @@ function durationText(plan?: PricePlan | null) {
 
 export function ProductDetailClient({ productRef }: { productRef: string }) {
   const { isAuthed } = useAuth();
+  const searchParams = useSearchParams();
+  const preselectedLockerId = searchParams.get("lockerId") || "";
+  const preselectedDurationType = searchParams.get("durationType") || "";
+  const preselectedDurationValue = Number(searchParams.get("durationValue") || 0);
+  const rescheduleReservationId = searchParams.get("reservationId") || "";
   const [cities, setCities] = useState<City[]>([]);
   const [cityLockers, setCityLockers] = useState<Locker[]>([]);
   const [cityId, setCityId] = useState("");
@@ -78,10 +83,6 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
       null,
     [planId, product],
   );
-  const selectedLocker = useMemo<ProductLocker | undefined>(
-    () => product?.availableLockers.find((locker) => locker.lockerId === lockerId),
-    [lockerId, product],
-  );
   const lockerOptions = useMemo<LockerOption[]>(() => {
     if (!product) {
       return [];
@@ -101,13 +102,15 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
 
     const all = cityLockers.map((locker) => {
       const available = availableById.get(locker.id);
+      const isRescheduleLocker =
+        Boolean(rescheduleReservationId) && preselectedLockerId === locker.id;
       return {
         lockerId: locker.id,
         name: available?.name ?? locker.name,
         address: available?.address ?? locker.address,
         status: available?.status ?? locker.status,
-        availableUnits: available?.availableUnits ?? 0,
-        isAvailable: (available?.availableUnits ?? 0) > 0,
+        availableUnits: available?.availableUnits ?? (isRescheduleLocker ? 1 : 0),
+        isAvailable: (available?.availableUnits ?? 0) > 0 || isRescheduleLocker,
       };
     });
 
@@ -128,7 +131,11 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
       }
       return a.name.localeCompare(b.name, "ru");
     });
-  }, [cityLockers, product]);
+  }, [cityLockers, preselectedLockerId, product, rescheduleReservationId]);
+  const selectedLocker = useMemo<LockerOption | undefined>(
+    () => lockerOptions.find((locker) => locker.lockerId === lockerId),
+    [lockerId, lockerOptions],
+  );
   const images = useMemo(() => {
     if (!product) {
       return [];
@@ -144,7 +151,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
   const startDateTime = date && time ? `${date} ${time}` : "";
   const checkoutHref =
     product && selectedPlan && lockerId && date && time
-      ? `/checkout?productId=${product.id}&lockerId=${lockerId}&durationType=${selectedPlan.durationType}&durationValue=${selectedPlan.durationValue}&startAt=${encodeURIComponent(`${date}T${time}:00`)}`
+      ? `/checkout?productId=${product.id}&lockerId=${lockerId}&durationType=${selectedPlan.durationType}&durationValue=${selectedPlan.durationValue}&startAt=${encodeURIComponent(`${date}T${time}:00`)}${rescheduleReservationId ? `&reservationId=${encodeURIComponent(rescheduleReservationId)}` : ""}`
       : "/catalog";
   const canCheckout = Boolean(product && selectedPlan && lockerId && date && time);
 
@@ -198,19 +205,30 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
     let active = true;
     setLoading(true);
     setError("");
-    resolveProductBySlugOrId(productRef, cityId || undefined)
+    resolveProductBySlugOrId(productRef, cityId || undefined, rescheduleReservationId || undefined)
       .then((item) => {
         if (!active) {
           return;
         }
         setProduct(item);
         setPlanId((current) =>
-          item.pricePlans.some((plan) => plan.id === current) ? current : item.pricePlans[0]?.id || "",
+          item.pricePlans.some((plan) => plan.id === current)
+            ? current
+            : item.pricePlans.find(
+                (plan) =>
+                  plan.durationType === preselectedDurationType &&
+                  plan.durationValue === preselectedDurationValue,
+              )?.id ||
+              item.pricePlans[0]?.id ||
+              "",
         );
         setLockerId((current) =>
           item.availableLockers.some((locker) => locker.lockerId === current)
             ? current
-            : item.availableLockers[0]?.lockerId || "",
+            : item.availableLockers.find((locker) => locker.lockerId === preselectedLockerId)
+                ?.lockerId ||
+              item.availableLockers[0]?.lockerId ||
+              "",
         );
       })
       .catch(() => {
@@ -226,7 +244,14 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
     return () => {
       active = false;
     };
-  }, [cityId, productRef]);
+  }, [
+    cityId,
+    preselectedDurationType,
+    preselectedDurationValue,
+    preselectedLockerId,
+    productRef,
+    rescheduleReservationId,
+  ]);
 
   useEffect(() => {
     if (!product || !lockerId || !selectedPlan) {
@@ -242,6 +267,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
       lockerId,
       selectedPlan.durationType,
       selectedPlan.durationValue,
+      rescheduleReservationId || undefined,
     )
       .then((result) => {
         if (active) {
@@ -262,7 +288,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
     return () => {
       active = false;
     };
-  }, [lockerId, product, selectedPlan]);
+  }, [lockerId, product, rescheduleReservationId, selectedPlan]);
 
   return (
     <PageChrome>
@@ -377,7 +403,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                           <div className="product-locker-card-row">
                             <strong>{locker.name}</strong>
                             <div className="product-locker-card-badges">
-                              <small>{locker.isAvailable ? `${locker.availableUnits} шт.` : "нет в наличии"}</small>
+                              <small>{locker.isAvailable ? `${locker.availableUnits} шт.` : "временно недоступно"}</small>
                               {isSelected ? <em>Выбран</em> : null}
                             </div>
                           </div>

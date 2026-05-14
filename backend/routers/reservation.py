@@ -47,6 +47,7 @@ from backend.utils.product_filters import (
 from backend.utils.esi_client import EsiReserveError, reserve_pickup_cell
 from backend.utils.reservation_utils import (
     calculate_expires_at,
+    calculate_pickup_expires_at,
     calculate_planned_end_at,
     ensure_reservable_user,
     ensure_utc,
@@ -101,6 +102,7 @@ async def _get_available_inventory_unit(
     locker_id: UUID,
     product_id: UUID,
     db: AsyncSession,
+    source_reservation: Reservation | None = None,
 ) -> InventoryUnit | None:
     stmt = (
         select(InventoryUnit)
@@ -115,10 +117,38 @@ async def _get_available_inventory_unit(
         .limit(1)
         .with_for_update(skip_locked=True)
     )
-    return (await db.scalars(stmt)).first()
+    unit = (await db.scalars(stmt)).first()
+    if unit is not None:
+        return unit
+
+    if (
+        source_reservation is not None
+        and source_reservation.product_id == product_id
+        and source_reservation.locker_id == locker_id
+    ):
+        source_unit = await db.get(InventoryUnit, source_reservation.inventory_unit_id)
+        if source_unit is not None and source_unit.product_id == product_id:
+            cell = (
+                await db.scalars(
+                    select(LockerCell).where(LockerCell.id == source_unit.locker_cell_id).limit(1)
+                )
+            ).first()
+            if (
+                cell is not None
+                and cell.locker_id == locker_id
+                and cell.status not in LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY
+                and source_unit.status in (InventoryStatus.AVAILABLE, InventoryStatus.RESERVED)
+            ):
+                return source_unit
+
+    return None
 
 
-async def _ensure_no_active_reservation(user_id: UUID, db: AsyncSession) -> None:
+async def _ensure_no_active_reservation(
+    user_id: UUID,
+    db: AsyncSession,
+    ignore_reservation_id: UUID | None = None,
+) -> None:
     stmt = select(Reservation).where(
         Reservation.user_id == user_id,
         Reservation.status.in_(
@@ -129,6 +159,8 @@ async def _ensure_no_active_reservation(user_id: UUID, db: AsyncSession) -> None
             )
         ),
     )
+    if ignore_reservation_id is not None:
+        stmt = stmt.where(Reservation.id != ignore_reservation_id)
     active_reservation = (await db.scalars(stmt.limit(1))).first()
     if active_reservation is not None:
         raise HTTPException(status_code=409, detail="ACTIVE_RESERVATION_EXISTS")
@@ -198,15 +230,31 @@ async def create_reservation(
     ensure_reservable_user(user)
 
     now = datetime.now(timezone.utc)
+    source_reservation = None
 
     try:
-        await _ensure_no_active_reservation(user.id, db)
+        if payload.sourceReservationId is not None:
+            source_reservation = await _get_reservation_for_user(
+                payload.sourceReservationId,
+                user.id,
+                db,
+            )
+        await _ensure_no_active_reservation(
+            user.id,
+            db,
+            source_reservation.id if source_reservation is not None else None,
+        )
         await _get_product(payload.productId, db)
         await _get_locker(payload.lockerId, db)
         plan, quoted_amount_minor, currency = await _get_price_plan(
             payload.productId, payload.durationType, payload.durationValue, db
         )
-        unit = await _get_available_inventory_unit(payload.lockerId, payload.productId, db)
+        unit = await _get_available_inventory_unit(
+            payload.lockerId,
+            payload.productId,
+            db,
+            source_reservation=source_reservation,
+        )
     except HTTPException:
         raise
     except Exception as exc:
@@ -289,6 +337,10 @@ async def get_reservation(
             "reservation": {
                 "id": str(reservation.id),
                 "status": reservation.status.value,
+                "productId": str(reservation.product_id),
+                "lockerId": str(reservation.locker_id),
+                "durationType": reservation.duration_type,
+                "durationValue": reservation.duration_value,
                 "expiresAt": ensure_utc(reservation.expires_at).isoformat(),
                 "product": {
                     "id": str(product.id) if product else str(reservation.product_id),
@@ -391,6 +443,7 @@ async def confirm_reservation(
         pickup_locker_id=reservation.locker_id,
         pickup_pin=generate_pickup_pin(),
         status=RentalStatus.PICKUP_READY,
+        pickup_expires_at=calculate_pickup_expires_at(now),
         planned_end_at=calculate_planned_end_at(
             now,
             reservation.duration_type,

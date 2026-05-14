@@ -5,11 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  ChevronRight,
   CircleUserRound,
   HelpCircle,
   Home,
   Info,
   LogOut,
+  MapPin,
   MapPinned,
   Menu,
   PackageCheck,
@@ -167,8 +169,25 @@ export function AppHeader() {
 
   const mobileLinks = [...mainNav, ...serviceNav, ordersNavItem] as const;
 
+  const userInitial = session?.user?.phone ? session.user.phone.replace(/\D/g, "").slice(-1) : "?";
+
   return (
     <>
+      <div className="city-top-bar">
+        <div className="container city-top-bar-inner">
+          <div className="city-top-bar-location">
+            <MapPin size={14} className="city-top-bar-icon" />
+          <span className="city-top-bar-label">Ваш город:</span>
+            <CitySelector cities={cities} value={cityId} onChange={setCityId} compact />
+          </div>
+          {isAuthed ? (
+            <Link className="city-top-auth" href="/profile">
+              <CircleUserRound size={14} />
+              <span className="city-top-auth-phone">{session?.user?.phone}</span>
+            </Link>
+          ) : null}
+        </div>
+      </div>
       <header className="app-header">
         <div className="container app-header-inner">
           <Link className="brand" href="/" aria-label="naprokatberu">
@@ -215,11 +234,20 @@ export function AppHeader() {
                 >
                   <LogOut size={18} />
                 </button>
+                <Link className="button button-secondary header-mobile-auth" href="/profile">
+                  <CircleUserRound size={16} />
+                  <span className="header-mobile-auth-phone">{session?.user?.phone || "Кабинет"}</span>
+                </Link>
               </>
             ) : (
-              <Link className="button button-primary header-login" href="/login">
-                Войти
-              </Link>
+              <>
+                <Link className="button button-primary header-login" href="/login">
+                  Войти
+                </Link>
+                <Link className="button button-primary header-mobile-auth" href="/login">
+                  Войти
+                </Link>
+              </>
             )}
             <button
               className="button button-secondary menu-button"
@@ -252,7 +280,7 @@ export function AppHeader() {
                 <div className="mobile-nav-head">
                   <Link className="mobile-nav-brand" href="/" aria-label="naprokatberu">
                     <span className="brand-mark">
-                      <Image src="/naprokatberu-logo.png" alt="" width={38} height={38} />
+                      <Image src="/naprokatberu-logo.png" alt="" width={36} height={36} />
                     </span>
                     <span>
                       <strong>naprokatberu</strong>
@@ -269,54 +297,86 @@ export function AppHeader() {
                   </button>
                 </div>
 
-                <nav className="mobile-nav-simple" aria-label="Мобильная навигация">
-                  {mobileLinks.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <Link
-                        key={item.href}
-                        className={isActive(pathname, item.href) ? "is-active" : ""}
-                        href={item.href}
-                      >
-                        <Icon size={18} />
-                        <span>{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </nav>
+                <div className="mobile-nav-body">
+                  {isAuthed && (
+                    <Link className="mobile-nav-user-card" href="/profile">
+                      <span className="mobile-nav-user-avatar">{userInitial}</span>
+                      <span className="mobile-nav-user-info">
+                        <span className="mobile-nav-user-label">Профиль</span>
+                        <span className="mobile-nav-user-phone">{session?.user?.phone}</span>
+                      </span>
+                      <ChevronRight size={16} className="mobile-nav-user-arrow" />
+                    </Link>
+                  )}
+
+                  <nav aria-label="Мобильная навигация">
+                    <p className="mobile-nav-group-label">Навигация</p>
+                    <div className="mobile-nav-group">
+                      {mainNav.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.href}
+                            className={`mobile-nav-item${isActive(pathname, item.href) ? " is-active" : ""}`}
+                            href={item.href}
+                          >
+                            <span className="mobile-nav-item-icon"><Icon size={18} /></span>
+                            <span>{item.label}</span>
+                          </Link>
+                        );
+                      })}
+                      {isAuthed && (
+                        <Link
+                          className={`mobile-nav-item${isActive(pathname, ordersNavItem.href) ? " is-active" : ""}`}
+                          href={ordersNavItem.href}
+                        >
+                          <span className="mobile-nav-item-icon"><PackageCheck size={18} /></span>
+                          <span>{ordersNavItem.label}</span>
+                        </Link>
+                      )}
+                    </div>
+
+                    <p className="mobile-nav-group-label">Информация</p>
+                    <div className="mobile-nav-group">
+                      {serviceNav.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.href}
+                            className={`mobile-nav-item${isActive(pathname, item.href) ? " is-active" : ""}`}
+                            href={item.href}
+                          >
+                            <span className="mobile-nav-item-icon"><Icon size={18} /></span>
+                            <span>{item.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </nav>
+                </div>
 
                 <div className="mobile-nav-foot">
-                  <div className="mobile-nav-city-card mobile-nav-city-card-simple">
-                    <div className="mobile-nav-city-copy">
-                      <span className="mobile-nav-section-label">Город</span>
-                      <strong>{selectedCity?.name || "Выберите город"}</strong>
-                    </div>
+                  <div className="mobile-nav-city-row">
+                    <span className="mobile-nav-city-label">
+                      <MapPinned size={13} />
+                      Город
+                    </span>
                     <CitySelector cities={cities} value={cityId} onChange={setCityId} compact />
                   </div>
 
                   {isAuthed ? (
-                    <>
-                      <Link className="mobile-nav-account-link" href="/profile">
-                        <CircleUserRound size={18} />
-                        <span>{session?.user?.phone || "Профиль"}</span>
-                      </Link>
-                      <div className="mobile-nav-foot-actions">
-                        <button
-                          className="button button-ghost"
-                          type="button"
-                          onClick={handleLogout}
-                        >
-                          <LogOut size={18} />
-                          Выйти
-                        </button>
-                      </div>
-                    </>
+                    <button
+                      className="button button-ghost mobile-nav-logout-btn"
+                      type="button"
+                      onClick={handleLogout}
+                    >
+                      <LogOut size={16} />
+                      Выйти из аккаунта
+                    </button>
                   ) : (
-                    <div className="mobile-nav-foot-actions mobile-nav-foot-actions-single">
-                      <Link className="button button-primary" href="/login">
-                        Войти
-                      </Link>
-                    </div>
+                    <Link className="button button-primary mobile-nav-login-btn" href="/login">
+                      Войти
+                    </Link>
                   )}
                 </div>
               </div>

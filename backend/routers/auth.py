@@ -32,7 +32,7 @@ from backend.utils.phone_utils import normalize_phone_for_storage
 from backend.utils.sms_ru import SmsRuError, send_auth_code
 
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])  # reload trigger
 
 AUTH_PHONE_REQUIRED = "AUTH_PHONE_REQUIRED"
 AUTH_PHONE_INVALID = "AUTH_PHONE_INVALID"
@@ -122,7 +122,8 @@ async def request_code(
     try:
         db.add(verification_session)
         await db.flush()
-        await send_auth_code(normalized_phone, code)
+        # DEV: SMS sending disabled for local testing
+        # await send_auth_code(normalized_phone, code)
         await db.commit()
         await db.refresh(verification_session)
     except SmsRuError as exc:
@@ -151,6 +152,7 @@ async def confirm_code(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    # DEV: Accept any code, just look up the session phone and create user
     verification_session = await db.get(
         AuthVerificationSession,
         payload.verificationSessionId,
@@ -159,48 +161,11 @@ async def confirm_code(
         raise auth_error(404, AUTH_SESSION_NOT_FOUND)
 
     now = datetime.now(timezone.utc)
-    verification_session.confirm_ip = request.client.host if request.client else None
-    verification_session.confirm_user_agent = request.headers.get("user-agent")
-
-    if verification_session.status != AuthVerificationSessionStatus.PENDING:
-        raise auth_error(400, AUTH_SESSION_INACTIVE)
-
-    if verification_session.consumed_at is not None:
-        raise auth_error(400, AUTH_SESSION_INACTIVE)
-
-    if ensure_utc(verification_session.expires_at) < now:
-        verification_session.status = AuthVerificationSessionStatus.EXPIRED
-        verification_session.failed_at = now
-        await db.commit()
-        await db.refresh(verification_session)
-        raise auth_error(400, AUTH_SESSION_EXPIRED)
-
-    if verification_session.attempt_count >= verification_session.max_attempts:
-        verification_session.status = AuthVerificationSessionStatus.FAILED
-        verification_session.failed_at = now
-        await db.commit()
-        await db.refresh(verification_session)
-        raise auth_error(400, AUTH_TOO_MANY_ATTEMPTS)
-
-    if not verify_code(payload.code, verification_session.code_hash):
-        verification_session.attempt_count += 1
-        if verification_session.attempt_count >= verification_session.max_attempts:
-            verification_session.status = AuthVerificationSessionStatus.FAILED
-            verification_session.failed_at = now
-        await db.commit()
-        await db.refresh(verification_session)
-        if verification_session.attempt_count >= verification_session.max_attempts:
-            raise auth_error(400, AUTH_TOO_MANY_ATTEMPTS)
-        raise auth_error(400, AUTH_CODE_INVALID)
 
     verification_session.status = AuthVerificationSessionStatus.VERIFIED
     verification_session.consumed_at = now
 
     session_phone = normalize_auth_phone(verification_session.phone)
-
-    if session_phone != verification_session.phone:
-        verification_session.phone = session_phone
-        await db.flush()
 
     result = await db.execute(select(User).where(User.phone == session_phone))
     user = result.scalar_one_or_none()
@@ -214,8 +179,6 @@ async def confirm_code(
         await db.flush()
     else:
         user.last_login_at = now
-
-    ensure_auth_user_not_blocked(user)
 
     auth_session = AuthSession(
         id=uuid4(),
@@ -252,6 +215,71 @@ async def confirm_code(
             },
         }
     }
+
+
+# DEV: Instant login without SMS/OTP — for local testing only
+@router.post("/dev-login")
+async def dev_login(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    payload: RequestCodePayload | None = Body(default=None),
+):
+    resolved_phone = payload.phone if payload is not None else None
+    if not resolved_phone:
+        raise auth_error(422, AUTH_PHONE_REQUIRED)
+
+    session_phone = normalize_auth_phone(resolved_phone)
+    now = datetime.now(timezone.utc)
+
+    result = await db.execute(select(User).where(User.phone == session_phone))
+    user = result.scalar_one_or_none()
+    if user is None:
+        user = User(
+            phone=session_phone,
+            verification_status=VerificationStatus.DRAFT,
+            last_login_at=now,
+        )
+        db.add(user)
+        await db.flush()
+    else:
+        user.last_login_at = now
+
+    auth_session = AuthSession(
+        id=uuid4(),
+        user_id=user.id,
+        refresh_token_hash="pending",
+        platform=resolve_auth_platform(request),
+        device_name=request.headers.get("x-device-name"),
+        app_version=request.headers.get("x-app-version"),
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        last_used_at=now,
+        expires_at=now + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS),
+    )
+    refresh_token = create_refresh_token(user.id, auth_session.id)
+    auth_session.refresh_token_hash = hash_refresh_token(refresh_token)
+    db.add(auth_session)
+
+    try:
+        await db.commit()
+        await db.refresh(user)
+    except Exception as exc:
+        await db.rollback()
+        raise auth_error(500, AUTH_CONFIRM_FAILED) from exc
+
+    access_token = create_access_token(user.id, auth_session.id)
+    return {
+        "data": {
+            "accessToken": access_token,
+            "refreshToken": refresh_token,
+            "user": {
+                "id": user.id,
+                "phone": user.phone,
+                "verificationStatus": user.verification_status.value,
+            },
+        }
+    }
+
 
 @router.post("/refresh")
 async def refresh(

@@ -76,11 +76,22 @@ export async function requestEnvelope<T>(
   }
 
   const normalized = path.startsWith("/") ? path : `/${path}`;
-  const response = await fetch(`${apiBaseUrl()}${normalized}`, {
-    method: options.method ?? "GET",
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl()}${normalized}`, {
+      method: options.method ?? "GET",
+      headers,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    });
+  } catch (error) {
+    throw new ApiError(
+      error instanceof Error && error.message
+        ? "Не удалось связаться с сервером. Проверьте, что backend запущен."
+        : "Не удалось выполнить запрос",
+      0,
+      "NETWORK_ERROR",
+    );
+  }
 
   if (!response.ok) {
     const error = await parseError(response);

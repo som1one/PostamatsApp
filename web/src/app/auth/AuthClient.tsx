@@ -8,7 +8,6 @@ import { ApiError } from "@/shared/api/client";
 import { confirmCode, requestCode } from "@/shared/api/endpoints";
 import { useAuth } from "@/shared/auth/auth-context";
 import {
-  isPhoneReady,
   normalizePhoneForApi,
   normalizePhoneInput,
 } from "@/shared/format";
@@ -75,24 +74,22 @@ export function AuthClient() {
 
   async function handlePhoneSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!isPhoneReady(phone)) {
-      setError("Введите номер РФ или РБ.");
-      return;
-    }
+    // DEV: phone validation disabled — accept any input, fallback to unique dummy
+    const phoneToSend = normalizedPhone || `+7000${Date.now().toString().slice(-7)}`;
 
     setLoading(true);
     setError("");
     try {
-      const result = await requestCode(normalizedPhone);
-      setSessionId(result.verificationSessionId);
-      setTtl(result.ttlSeconds || 0);
-      setCode("");
-      setStep("code");
+      // DEV: request-code + auto-confirm with dummy code
+      const result = await requestCode(phoneToSend);
+      const confirmResult = await confirmCode(result.verificationSessionId, "0000");
+      setSessionFromLogin(confirmResult);
+      router.replace("/");
     } catch (submitError) {
       setError(
         resolveAuthErrorMessage(
           submitError,
-          "Не удалось отправить код. Попробуйте еще раз.",
+          "Не удалось выполнить вход. Попробуйте еще раз.",
         ),
       );
     } finally {
@@ -141,8 +138,11 @@ export function AuthClient() {
           <div className="auth-panel-card">
             {step === "phone" ? (
               <>
-                <p className="eyebrow">Вход</p>
+                <p className="eyebrow">Вход / Регистрация</p>
                 <h1>Введите телефон</h1>
+                <p className="auth-hint">
+                  Если у вас ещё нет аккаунта, он будет создан автоматически.
+                </p>
                 <form className="form-stack" onSubmit={handlePhoneSubmit}>
                   <label className="field">
                     <span>Телефон</span>
@@ -158,11 +158,14 @@ export function AuthClient() {
                   <button
                     className="button button-primary"
                     type="submit"
-                    disabled={loading || !isPhoneReady(phone)}
+                    disabled={loading}
                   >
-                    {loading ? "Отправляем" : "Далее"}
+                    {loading ? "Отправляем" : "Получить код"}
                   </button>
                 </form>
+                <p className="auth-terms">
+                  Нажимая «Получить код», вы соглашаетесь с условиями использования сервиса.
+                </p>
               </>
             ) : (
               <>

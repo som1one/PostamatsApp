@@ -61,6 +61,27 @@ def _create_payment_sync(
     }
 
 
+def _cancel_payment_sync(provider_payment_id: str) -> dict[str, Any]:
+    from yookassa import Configuration, Payment
+
+    Configuration.configure(settings.YOOKASSA_SHOP_ID, settings.YOOKASSA_SECRET_KEY)
+    idempotency_key = str(uuid.uuid4())
+    payment = Payment.cancel(provider_payment_id, idempotency_key)
+    return {"status": payment.status}
+
+
+async def cancel_yookassa_payment(provider_payment_id: str) -> dict[str, Any]:
+    if settings.YOOKASSA_DEV_STUB:
+        return {"status": "canceled"}
+    if not settings.YOOKASSA_SHOP_ID or not settings.YOOKASSA_SECRET_KEY:
+        raise RuntimeError("YooKassa is not configured")
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None,
+        lambda: _cancel_payment_sync(provider_payment_id),
+    )
+
+
 async def create_yookassa_preauth_payment(
     *,
     amount_value: Decimal,

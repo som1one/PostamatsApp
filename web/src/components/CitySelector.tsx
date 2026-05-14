@@ -98,7 +98,9 @@ export function CitySelector({
         aria-label="Выбор города"
       >
         {allLabel ? <option value="">{allLabel}</option> : null}
-        {!cities.length && !allLabel ? <option value="">Города загружаются</option> : null}
+        {!cities.length && !allLabel ? (
+          <option value="">{compact ? "Выберите город" : "Города загружаются"}</option>
+        ) : null}
         {cities.map((city) => (
           <option key={city.id} value={city.id}>
             {city.name}

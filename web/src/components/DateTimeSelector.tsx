@@ -14,24 +14,33 @@ function parseInputDate(value: string) {
   return new Date(year, month - 1, day);
 }
 
-function movePastDateForward(value: string, minDate: string, maxDate: string) {
-  if (!value) {
+function clampDate(value: string, minDate: string, maxDate: string) {
+  if (!value || value < minDate) {
     return minDate;
   }
-
-  const min = parseInputDate(minDate);
-  const max = parseInputDate(maxDate);
-  const next = parseInputDate(value);
-
-  while (next < min) {
-    next.setMonth(next.getMonth() + 1);
-  }
-
-  if (next > max) {
+  if (value > maxDate) {
     return maxDate;
   }
+  return value;
+}
 
-  return toInputDate(next);
+function formatDateOption(value: string, index: number) {
+  const date = parseInputDate(value);
+  const title =
+    index === 0
+      ? "Сегодня"
+      : index === 1
+        ? "Завтра"
+        : new Intl.DateTimeFormat("ru-RU", { weekday: "short" })
+            .format(date)
+            .replace(".", "")
+            .replace(/^./, (char) => char.toUpperCase());
+  const caption = new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+  }).format(date);
+
+  return { title, caption };
 }
 
 const slots = ["09:00", "10:30", "12:00", "13:30", "15:00", "16:30", "18:00", "20:00"];
@@ -53,18 +62,20 @@ export function DateTimeSelector({
     next.setDate(next.getDate() + 14);
     return toInputDate(next);
   }, []);
-  const safeDate = useMemo(() => {
-    if (!date) {
-      return today;
+  const safeDate = useMemo(() => clampDate(date, today, maxDate), [date, maxDate, today]);
+  const dateOptions = useMemo(() => {
+    const items: Array<{ value: string; title: string; caption: string }> = [];
+    const cursor = parseInputDate(today);
+
+    while (toInputDate(cursor) <= maxDate) {
+      const value = toInputDate(cursor);
+      const { title, caption } = formatDateOption(value, items.length);
+      items.push({ value, title, caption });
+      cursor.setDate(cursor.getDate() + 1);
     }
-    if (date < today) {
-      return movePastDateForward(date, today, maxDate);
-    }
-    if (date > maxDate) {
-      return maxDate;
-    }
-    return date;
-  }, [date, maxDate, today]);
+
+    return items;
+  }, [maxDate, today]);
   const disabledSlots = useMemo(() => {
     if (safeDate !== today) {
       return new Set<string>();
@@ -81,28 +92,39 @@ export function DateTimeSelector({
   }, [safeDate, today]);
 
   useEffect(() => {
-    if (date && date !== safeDate) {
+    if (date !== safeDate) {
       onDateChange(safeDate);
+    }
+  }, [date, onDateChange, safeDate]);
+
+  useEffect(() => {
+    if (time && disabledSlots.has(time)) {
       onTimeChange("");
     }
-  }, [date, onDateChange, onTimeChange, safeDate]);
+  }, [disabledSlots, onTimeChange, time]);
 
   return (
     <div className="date-time-selector">
-      <label className="field date-field">
+      <div className="field date-field">
         <span>Дата начала</span>
-        <input
-          className="input"
-          type="date"
-          min={today}
-          max={maxDate}
-          value={safeDate}
-          onChange={(event) => {
-            onDateChange(event.target.value);
-            onTimeChange("");
-          }}
-        />
-      </label>
+        <div className="date-chip-grid">
+          {dateOptions.map((option) => (
+            <button
+              className={`date-chip ${safeDate === option.value ? "is-selected" : ""}`}
+              key={option.value}
+              type="button"
+              onClick={() => {
+                onDateChange(option.value);
+                onTimeChange("");
+              }}
+            >
+              <strong>{option.title}</strong>
+              <span>{option.caption}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="field time-field">
         <span>Время получения</span>
         <div className="time-grid">

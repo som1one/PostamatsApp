@@ -1,15 +1,17 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import and_, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
 from backend.models.city import City
-from backend.models.enums import LockerStatus
+from backend.models.enums import LockerStatus, ReservationStatus
 from backend.models.locker_location import LockerLocation
 from backend.models.product import Product
 from backend.models.product_category import ProductCategory
+from backend.models.reservation import Reservation
+from backend.utils.auth_utils import get_current_client_user
 from backend.utils.featured_product import get_featured_product_state
 from backend.utils.lockers_utils import (
     aggregate_available_inventory_by_product,
@@ -48,6 +50,34 @@ def _parse_uuid_param(raw: str | None, error_code: str) -> UUID | None:
         return UUID(raw)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=error_code) from exc
+
+
+async def _load_reschedule_reservation(
+    request: Request,
+    db: AsyncSession,
+    reservation_id: UUID | None,
+    *,
+    product_id: UUID | None = None,
+    locker_id: UUID | None = None,
+) -> Reservation | None:
+    if reservation_id is None:
+        return None
+
+    user = await get_current_client_user(request, db)
+    reservation = await db.get(Reservation, reservation_id)
+    if reservation is None or reservation.user_id != user.id:
+        raise HTTPException(status_code=404, detail="RESERVATION_NOT_FOUND")
+    if reservation.status not in (
+        ReservationStatus.CREATED,
+        ReservationStatus.AWAITING_PAYMENT,
+        ReservationStatus.PAYMENT_AUTHORIZED,
+    ):
+        return None
+    if product_id is not None and reservation.product_id != product_id:
+        return None
+    if locker_id is not None and reservation.locker_id != locker_id:
+        return None
+    return reservation
 
 
 async def _serialize_product_list_payload(
@@ -285,10 +315,12 @@ async def get_featured_product(
 @router.get("/{product_id}/pricing")
 async def get_product_pricing(
     product_id: UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     lockerId: str = Query(..., description="Pickup point UUID"),
     durationType: str = Query("day"),
     durationValue: int = Query(1, ge=1),
+    reservationId: str | None = Query(None),
 ):
     product = await db.get(Product, product_id)
     if not product:
@@ -300,6 +332,7 @@ async def get_product_pricing(
     locker_uuid = _parse_uuid_param(lockerId, "INVALID_LOCKER_ID")
     if locker_uuid is None:
         raise HTTPException(status_code=400, detail="INVALID_LOCKER_ID")
+    reservation_uuid = _parse_uuid_param(reservationId, "INVALID_RESERVATION_ID")
 
     locker = await db.get(LockerLocation, locker_uuid)
     if not locker:
@@ -319,7 +352,16 @@ async def get_product_pricing(
     except Exception as exc:
         raise HTTPException(status_code=500, detail="PRICING_FAILED") from exc
 
+    reschedule_reservation = await _load_reschedule_reservation(
+        request,
+        db,
+        reservation_uuid,
+        product_id=product_id,
+        locker_id=locker_uuid,
+    )
     units = counts.get(product_id, 0)
+    if units <= 0 and reschedule_reservation is not None:
+        units = 1
     if units <= 0:
         raise HTTPException(status_code=409, detail="PRODUCT_NOT_AVAILABLE")
 
@@ -350,8 +392,10 @@ async def get_product_pricing(
 @router.get("/{product_id}")
 async def get_product(
     product_id: UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     cityId: str | None = Query(None),
+    reservationId: str | None = Query(None),
 ):
     product = await db.get(Product, product_id)
     if not product:
@@ -361,6 +405,7 @@ async def get_product(
         raise HTTPException(status_code=410, detail="PRODUCT_INACTIVE")
 
     city_uuid = _parse_uuid_param(cityId, "INVALID_CITY_ID")
+    reservation_uuid = _parse_uuid_param(reservationId, "INVALID_RESERVATION_ID")
     if city_uuid is not None:
         city = await db.get(City, city_uuid)
         if not city:
@@ -374,6 +419,33 @@ async def get_product(
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail="PRODUCT_FETCH_FAILED") from exc
+
+    reschedule_reservation = await _load_reschedule_reservation(
+        request,
+        db,
+        reservation_uuid,
+        product_id=product_id,
+    )
+    if reschedule_reservation is not None:
+        locker = await db.get(LockerLocation, reschedule_reservation.locker_id)
+        if locker is not None and locker.status == LockerStatus.ONLINE:
+            existing = next(
+                (item for item in lockers if item["lockerId"] == str(locker.id)),
+                None,
+            )
+            if existing is not None:
+                existing["availableUnits"] = max(int(existing["availableUnits"]), 1)
+            else:
+                lockers.append(
+                    {
+                        "lockerId": str(locker.id),
+                        "name": locker.name,
+                        "address": locker.address,
+                        "status": locker.status.value,
+                        "availableUnits": 1,
+                    }
+                )
+                lockers.sort(key=lambda item: item["name"])
 
     price_plans_out = resolve_effective_price_plans(
         [serialize_base_price_plan(pl) for pl in plans],

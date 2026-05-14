@@ -35,6 +35,14 @@ export async function confirmCode(verificationSessionId: string, code: string) {
   });
 }
 
+// DEV: Instant login without SMS
+export async function devLogin(phone: string) {
+  return requestJson<ConfirmCodeResponse>("/auth/dev-login", {
+    method: "POST",
+    body: { phone },
+  });
+}
+
 export async function logoutSession() {
   return requestWithAuth<{ message: string }>("/auth/logout", {
     method: "POST",
@@ -206,17 +214,28 @@ export async function fetchFeaturedProduct(cityId?: string) {
   return requestJson<FeaturedProduct>(`/products/featured${query}`);
 }
 
-export async function fetchProduct(productId: string, cityId?: string) {
-  const query = cityId ? `?cityId=${encodeURIComponent(cityId)}` : "";
+export async function fetchProduct(productId: string, cityId?: string, reservationId?: string) {
+  const params = new URLSearchParams();
+  if (cityId) {
+    params.set("cityId", cityId);
+  }
+  if (reservationId) {
+    params.set("reservationId", reservationId);
+  }
+  const query = params.toString() ? `?${params.toString()}` : "";
   const payload = await requestJson<{ product: ProductDetail }>(
     `/products/${productId}${query}`,
   );
   return payload.product;
 }
 
-export async function resolveProductBySlugOrId(productRef: string, cityId?: string) {
+export async function resolveProductBySlugOrId(
+  productRef: string,
+  cityId?: string,
+  reservationId?: string,
+) {
   try {
-    return await fetchProduct(productRef, cityId);
+    return await fetchProduct(productRef, cityId, reservationId);
   } catch (error) {
     if (productRef.length > 20 && /^[0-9a-f-]+$/i.test(productRef)) {
       throw error;
@@ -235,10 +254,10 @@ export async function resolveProductBySlugOrId(productRef: string, cityId?: stri
     products[0];
 
   if (!item) {
-    return fetchProduct(productRef, cityId);
+    return fetchProduct(productRef, cityId, reservationId);
   }
 
-  return fetchProduct(item.id, cityId);
+  return fetchProduct(item.id, cityId, reservationId);
 }
 
 export async function fetchProductPricing(
@@ -246,12 +265,16 @@ export async function fetchProductPricing(
   lockerId: string,
   durationType = "day",
   durationValue = 1,
+  reservationId?: string,
 ) {
   const params = new URLSearchParams({
     lockerId,
     durationType,
     durationValue: String(durationValue),
   });
+  if (reservationId) {
+    params.set("reservationId", reservationId);
+  }
   return requestJson<PricingQuote>(
     `/products/${productId}/pricing?${params.toString()}`,
   );
@@ -276,6 +299,7 @@ export async function createReservation(payload: {
   durationType: string;
   durationValue: number;
   pickupWindowMinutes: number;
+  sourceReservationId?: string;
 }) {
   const data = await requestWithAuth<{ reservation: ReservationSummary }>(
     "/reservations",
@@ -307,6 +331,16 @@ export async function createPaymentPreauth(payload: {
 export async function fetchPayment(paymentId: string) {
   const data = await requestWithAuth<{ payment: PaymentSummary }>(
     `/payments/${paymentId}`,
+  );
+  return data.payment;
+}
+
+export async function authorizePaymentDevStub(paymentId: string) {
+  const data = await requestWithAuth<{ payment: PaymentSummary }>(
+    `/payments/${paymentId}/authorize-dev-stub`,
+    {
+      method: "POST",
+    },
   );
   return data.payment;
 }

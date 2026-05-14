@@ -1,10 +1,13 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.core.database import get_db
+from backend.core.settings import settings
+from backend.models.enums import PaymentStatus, PaymentType, ReservationStatus
 from backend.models.reservation import Reservation
+from backend.core.database import get_db
 from backend.schemas.payment_schemas import PreauthPayload, YooKassaWebhookBody
 from backend.utils.auth_utils import get_current_client_user
 from backend.utils.payment_flow import (
@@ -50,6 +53,48 @@ async def get_payment(
         raise HTTPException(status_code=404, detail="PAYMENT_NOT_FOUND")
     if payment.user_id != user.id:
         raise HTTPException(status_code=403, detail="PAYMENT_FORBIDDEN")
+    return {"data": {"payment": serialize_payment_for_user(payment)}}
+
+
+@router.post("/{payment_id}/authorize-dev-stub")
+async def authorize_payment_dev_stub(
+    payment_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_current_client_user(request, db)
+    if not settings.YOOKASSA_DEV_STUB:
+        raise HTTPException(status_code=404, detail="PAYMENT_NOT_FOUND")
+
+    payment = await db.get(Payment, payment_id)
+    if payment is None:
+        raise HTTPException(status_code=404, detail="PAYMENT_NOT_FOUND")
+    if payment.user_id != user.id:
+        raise HTTPException(status_code=403, detail="PAYMENT_FORBIDDEN")
+    if payment.type != PaymentType.PREAUTH:
+        raise HTTPException(status_code=409, detail="PAYMENT_NOT_AUTHORIZABLE")
+
+    if payment.status in (PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED):
+        return {"data": {"payment": serialize_payment_for_user(payment)}}
+    if payment.status != PaymentStatus.PENDING:
+        raise HTTPException(status_code=409, detail="PAYMENT_NOT_AUTHORIZABLE")
+
+    now = datetime.now(timezone.utc)
+    payment.status = PaymentStatus.AUTHORIZED
+    payment.processed_at = now
+
+    if payment.reservation_id:
+        reservation = await db.get(Reservation, payment.reservation_id)
+        if reservation is not None and reservation.status == ReservationStatus.AWAITING_PAYMENT:
+            reservation.status = ReservationStatus.PAYMENT_AUTHORIZED
+
+    try:
+        await db.commit()
+        await db.refresh(payment)
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="PAYMENT_AUTHORIZE_FAILED") from exc
+
     return {"data": {"payment": serialize_payment_for_user(payment)}}
 
 

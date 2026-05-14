@@ -37,3 +37,11 @@ def calculate_planned_end_at(starts_at: datetime, duration_type: str, duration_v
 
 def generate_pickup_pin() -> str:
     return f"{secrets.randbelow(10000):04d}"
+
+
+# Сколько минут даётся пользователю на получение товара после создания аренды
+PICKUP_WINDOW_MINUTES = 30
+
+
+def calculate_pickup_expires_at(now: datetime) -> datetime:
+    return now + timedelta(minutes=PICKUP_WINDOW_MINUTES)

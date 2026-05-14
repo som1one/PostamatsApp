@@ -2,17 +2,19 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
 from backend.models.enums import (
     DocumentType,
     InventoryStatus,
+    PaymentStatus,
     RentalStatus,
     ReservationStatus,
     VerificationStatus,
 )
+from backend.models.payment import Payment
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_location import LockerLocation
 from backend.models.product import Product
@@ -28,6 +30,7 @@ from backend.schemas.me_schemas import (
 )
 from backend.utils.auth_utils import get_current_client_user
 from backend.utils.document_numbers import normalize_document_number
+from backend.utils.yookassa_service import cancel_yookassa_payment
 from backend.utils.me_utils import (
     UPDATE_ME_FIELD_MAP,
     VerificationFileResolveError,
@@ -360,18 +363,65 @@ async def cancel_my_reservation(
         raise HTTPException(status_code=404, detail="RESERVATION_NOT_FOUND")
     if reservation.user_id != user.id:
         raise HTTPException(status_code=403, detail="RESERVATION_FORBIDDEN")
-    if reservation.status not in (ReservationStatus.CREATED, ReservationStatus.AWAITING_PAYMENT):
+
+    cancellable_statuses = (
+        ReservationStatus.CREATED,
+        ReservationStatus.AWAITING_PAYMENT,
+        ReservationStatus.PAYMENT_AUTHORIZED,
+    )
+    if reservation.status not in cancellable_statuses:
         raise HTTPException(status_code=409, detail="RESERVATION_NOT_CANCELLABLE")
 
-    inventory_unit = await db.get(InventoryUnit, reservation.inventory_unit_id)
-    if inventory_unit is not None and inventory_unit.status == InventoryStatus.RESERVED:
-        inventory_unit.status = InventoryStatus.AVAILABLE
+    now = datetime.now(timezone.utc)
 
-    reservation.status = ReservationStatus.CANCELLED
-    reservation.cancelled_at = datetime.now(timezone.utc)
-    reservation.cancel_reason = "cancelled_by_user"
+    # Если платёж уже авторизован — сначала отменяем его в Юкасса
+    payment_id: UUID | None = None
+    provider_payment_id: str | None = None
+    if reservation.status == ReservationStatus.PAYMENT_AUTHORIZED:
+        payment_row = (
+            await db.execute(
+                select(Payment.id, Payment.provider_payment_id)
+                .where(
+                    Payment.reservation_id == reservation.id,
+                    Payment.status.in_(("AUTHORIZED", "authorized")),
+                    Payment.type.in_(("PREAUTH", "preauth")),
+                )
+                .limit(1)
+            )
+        ).first()
+        if payment_row is not None:
+            payment_id, provider_payment_id = payment_row
+        if provider_payment_id:
+            try:
+                await cancel_yookassa_payment(provider_payment_id)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=502, detail="YOOKASSA_CANCEL_FAILED"
+                ) from exc
 
     try:
+        if payment_id is not None:
+            await db.execute(
+                update(Payment)
+                .where(Payment.id == payment_id)
+                .values(status=PaymentStatus.CANCELLED, processed_at=now)
+            )
+
+        await db.execute(
+            update(InventoryUnit)
+            .where(InventoryUnit.id == reservation.inventory_unit_id)
+            .values(status=InventoryStatus.AVAILABLE)
+        )
+
+        await db.execute(
+            update(Reservation)
+            .where(Reservation.id == reservation.id)
+            .values(
+                status=ReservationStatus.CANCELLED,
+                cancelled_at=now,
+                cancel_reason="cancelled_by_user",
+            )
+        )
         await db.commit()
     except Exception as exc:
         await db.rollback()
@@ -381,10 +431,8 @@ async def cancel_my_reservation(
         "data": {
             "reservation": {
                 "id": str(reservation.id),
-                "status": reservation.status.value,
-                "cancelledAt": reservation.cancelled_at.isoformat()
-                if reservation.cancelled_at is not None
-                else None,
+                "status": ReservationStatus.CANCELLED.value,
+                "cancelledAt": now.isoformat(),
             }
         }
     }

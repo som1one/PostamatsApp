@@ -12,6 +12,10 @@ class ReservationQuotePayload(BaseModel):
 
 class CreateReservationPayload(ReservationQuotePayload):
     pickupWindowMinutes: int = Field(..., ge=1, description="Pickup window in minutes")
+    sourceReservationId: UUID | None = Field(
+        None,
+        description="Existing reservation UUID when user is rescheduling their own booking",
+    )
 
 
 class ConfirmReservationPayload(BaseModel):
