@@ -110,8 +110,9 @@
 
   .hero-service-copy {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(92px, 32vw);
-    gap: 1px 3px;
+    grid-template-columns: minmax(0, 1fr) clamp(108px, 31vw, 132px);
+    gap: 8px 10px;
+    align-items: start;
   }
 
   .hero-service-lead {
@@ -129,10 +130,10 @@
   }
 
   .hero-service-media-frame {
-    max-width: 112px;
+    width: 100%;
+    max-width: none;
     border-radius: 16px;
-    transform: scale(1.35);
-    transform-origin: top left;
+    transform: none;
   }
 
   .hero-service-media {
@@ -140,7 +141,8 @@
     order: 2;
     align-self: start;
     margin-top: 0;
-    margin-left: -2px;
+    margin-left: 0;
+    justify-self: end;
     transform: translateY(0);
   }
 
@@ -152,14 +154,17 @@
   }
 
   .hero-service-description {
-    max-width: 30ch;
-    font-size: 12px;
+    max-width: none;
+    font-size: 13px;
+    line-height: 1.45;
   }
 
   .hero-service-summary {
+    grid-column: 1 / -1;
     order: 3;
-    gap: 3px;
-    padding-bottom: 6px;
+    gap: 6px;
+    padding-top: 2px;
+    padding-bottom: 8px;
   }
 
   .hero-service-actions {
@@ -169,16 +174,37 @@
   }
 
   .hero-service-highlights {
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 6px 10px;
   }
 
   .hero-service-highlights span {
     font-size: 10px;
+    white-space: nowrap;
   }
 
   .hero-cta-button {
     min-height: 40px;
     font-size: 12px;
+  }
+
+  .workflow-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .workflow-card {
+    min-height: 136px;
+    aspect-ratio: auto;
+    grid-template-rows: auto 42px minmax(0, auto);
+    padding: 16px 12px 14px;
+    gap: 10px;
+  }
+
+  .workflow-card strong {
+    max-width: 9ch;
+    font-size: 14px;
+    line-height: 1.14;
   }
 
   .hero-dashboard {
