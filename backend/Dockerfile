@@ -15,6 +15,8 @@ RUN sed -i 's#^script_location = .*#script_location = %(here)s/alembic#' /app/al
 COPY backend ./backend
 COPY admin ./admin
 COPY assets ./assets
+COPY scripts ./scripts
+COPY deploy ./deploy
 
 EXPOSE 8000
 

@@ -44,6 +44,24 @@ Notes:
 - Public file URLs are served from the backend asset route and resolved by the web client automatically.
 - If you later switch back to S3, the same presign flow still exists, but filesystem mode is the deploy-safe default.
 
+## Catalog sync
+
+Export the local catalog bundle before deploy:
+
+```bash
+python -m scripts.export_catalog_bundle --output deploy/catalog-sync.bundle.json
+```
+
+After the server is updated and containers are rebuilt, run a dry-run first and then apply the bundle inside the backend image:
+
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml run --rm backend python -m scripts.apply_catalog_bundle --bundle /app/deploy/catalog-sync.bundle.json
+docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml run --rm backend python -m scripts.apply_catalog_bundle --bundle /app/deploy/catalog-sync.bundle.json --apply
+```
+
+For IP-only deploy, replace `deploy/.env` and `deploy/docker-compose.beget.yml` with `deploy/.env.ip` and `deploy/docker-compose.ip.yml`.
+Only add `--deactivate-missing-products` when you intentionally want to disable server-side products that are not present in the bundle.
+
 ## Deploy
 
 Production compose files and command examples live in [deploy/README.md](/C:/Users/Green_Tea/Documents/New%20project/deploy/README.md).

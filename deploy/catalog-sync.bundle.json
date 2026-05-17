@@ -1,0 +1,1349 @@
+{
+  "meta": {
+    "generatedAt": "2026-05-17T12:55:22.070822+00:00",
+    "sourceDb": "backend\\dev.sqlite3",
+    "excludedSlugPrefixes": [
+      "test-"
+    ],
+    "productCount": 13,
+    "lockerCount": 5,
+    "inventoryUnitCount": 26
+  },
+  "categories": [
+    {
+      "slug": "consoles",
+      "name": "Приставки",
+      "sortOrder": 10,
+      "isActive": true
+    },
+    {
+      "slug": "projectors",
+      "name": "Проекторы",
+      "sortOrder": 20,
+      "isActive": true
+    },
+    {
+      "slug": "cleaning",
+      "name": "Уборка",
+      "sortOrder": 30,
+      "isActive": true
+    },
+    {
+      "slug": "tools",
+      "name": "Инструменты",
+      "sortOrder": 40,
+      "isActive": true
+    },
+    {
+      "slug": "home",
+      "name": "Для дома",
+      "sortOrder": 50,
+      "isActive": true
+    },
+    {
+      "slug": "photo",
+      "name": "Фото",
+      "sortOrder": 109,
+      "isActive": true
+    }
+  ],
+  "mediaFiles": [
+    {
+      "fileKey": "uploads/items/beri-bery-avtonomnyj-projektor.png",
+      "mimeType": "image/png",
+      "fileSize": 280989,
+      "originalName": "beri-bery-avtonomnyj-projektor.png",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/beri-bery-avtonomnyj-projektor.png"
+    },
+    {
+      "fileKey": "uploads/items/beri-bery-drel.png",
+      "mimeType": "image/png",
+      "fileSize": 230302,
+      "originalName": "beri-bery-drel.png",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/beri-bery-drel.png"
+    },
+    {
+      "fileKey": "uploads/items/beri-bery-moyushchij-pylesos.png",
+      "mimeType": "image/png",
+      "fileSize": 695846,
+      "originalName": "beri-bery-moyushchij-pylesos.png",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/beri-bery-moyushchij-pylesos.png"
+    },
+    {
+      "fileKey": "uploads/items/beri-bery-otparivatel.png",
+      "mimeType": "image/png",
+      "fileSize": 356233,
+      "originalName": "beri-bery-otparivatel.png",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/beri-bery-otparivatel.png"
+    },
+    {
+      "fileKey": "uploads/items/beri-bery-paroochistitel-karcher.png",
+      "mimeType": "image/png",
+      "fileSize": 215915,
+      "originalName": "beri-bery-paroochistitel-karcher.png",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/beri-bery-paroochistitel-karcher.png"
+    },
+    {
+      "fileKey": "uploads/items/beri-bery-perforator-elitech.png",
+      "mimeType": "image/png",
+      "fileSize": 561185,
+      "originalName": "beri-bery-perforator-elitech.png",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/beri-bery-perforator-elitech.png"
+    },
+    {
+      "fileKey": "uploads/items/beri-bery-perforator.png",
+      "mimeType": "image/png",
+      "fileSize": 453248,
+      "originalName": "beri-bery-perforator.png",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/beri-bery-perforator.png"
+    },
+    {
+      "fileKey": "uploads/items/beri-bery-playstation-5.png",
+      "mimeType": "image/png",
+      "fileSize": 201754,
+      "originalName": "beri-bery-playstation-5.png",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/beri-bery-playstation-5.png"
+    },
+    {
+      "fileKey": "uploads/items/beri-bery-polaroid.png",
+      "mimeType": "image/png",
+      "fileSize": 324005,
+      "originalName": "beri-bery-polaroid.png",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/beri-bery-polaroid.png"
+    },
+    {
+      "fileKey": "uploads/items/beri-bery-projektor.png",
+      "mimeType": "image/png",
+      "fileSize": 281701,
+      "originalName": "beri-bery-projektor.png",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/beri-bery-projektor.png"
+    },
+    {
+      "fileKey": "uploads/items/beri-bery-rashodniki-instax.png",
+      "mimeType": "image/png",
+      "fileSize": 575077,
+      "originalName": "beri-bery-rashodniki-instax.png",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/beri-bery-rashodniki-instax.png"
+    },
+    {
+      "fileKey": "uploads/items/beri-bery-robot-mojshchik-okon.png",
+      "mimeType": "image/png",
+      "fileSize": 279376,
+      "originalName": "beri-bery-robot-mojshchik-okon.png",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/beri-bery-robot-mojshchik-okon.png"
+    },
+    {
+      "fileKey": "uploads/items/beri-bery-shurupovert.png",
+      "mimeType": "image/png",
+      "fileSize": 542126,
+      "originalName": "beri-bery-shurupovert.png",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/beri-bery-shurupovert.png"
+    }
+  ],
+  "products": [
+    {
+      "slug": "avtonomnyj-projektor",
+      "name": "Автономный проектор",
+      "brand": null,
+      "shortDescription": "Автономный проектор, который работает без розетки: до 2,5 часов фильмов или 6 часов музыки, можно зарядить даже от пауэрбанка USB-C 65 Вт.",
+      "fullDescription": "Автономный проектор, который работает без розетки: до 2,5 часов фильмов или 6 часов музыки, можно зарядить даже от пауэрбанка USB-C 65 Вт. Компактный и лёгкий — удобно брать на дачу, пикник или в поездку.\n\nПоказывает яркое Full HD-изображение размером от 60 до 180 дюймов на стену, потолок или любую ровную поверхность. Автофокус, автокоррекция и защита глаз делают просмотр простым и безопасным.",
+      "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
+      "kitDescription": "Проектор; питание USB-C",
+      "specsJson": null,
+      "categorySlug": "projectors",
+      "coverFileKey": "uploads/items/beri-bery-avtonomnyj-projektor.png",
+      "galleryFileKeys": [
+        "uploads/items/beri-bery-avtonomnyj-projektor.png"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "590.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "drel",
+      "name": "Дрель",
+      "brand": "Bosch",
+      "shortDescription": "Ударная дрель Bosch GSB 13 RE – мощный инструмент для сверления в дереве, металле и бетоне.",
+      "fullDescription": "Ударная дрель Bosch GSB 13 RE – мощный инструмент для сверления в дереве, металле и бетоне. С электронным управлением и регулировкой скорости вы легко сможете контролировать процесс. В комплекте – набор из 18 бит и магнитный адаптер, что делает дрель универсальной для любых задач. Bosch GSB 13 RE – надежный помощник для профессионалов и домашних мастеров.",
+      "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
+      "kitDescription": "Дрель; набор из 18 бит; магнитный адаптер",
+      "specsJson": null,
+      "categorySlug": "tools",
+      "coverFileKey": "uploads/items/beri-bery-drel.png",
+      "galleryFileKeys": [
+        "uploads/items/beri-bery-drel.png"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "490.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "moyushchij-pylesos",
+      "name": "Моющий пылесос",
+      "brand": null,
+      "shortDescription": "Подходит для глубокой влажной уборки любых текстильных поверхностей: ковров, мебели и автомобильных сидений.",
+      "fullDescription": "Подходит для глубокой влажной уборки любых текстильных поверхностей: ковров, мебели и автомобильных сидений.  В комплект входит моющая насадка для мягкой мебели и щелевая насадка",
+      "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
+      "kitDescription": "Моющий пылесос; насадка для мягкой мебели; щелевая насадка",
+      "specsJson": null,
+      "categorySlug": "cleaning",
+      "coverFileKey": "uploads/items/beri-bery-moyushchij-pylesos.png",
+      "galleryFileKeys": [
+        "uploads/items/beri-bery-moyushchij-pylesos.png"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "750.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "otparivatel",
+      "name": "Отпариватель",
+      "brand": "Spawnson",
+      "shortDescription": "Ручной отпариватель Spawnson 5600 Вт — быстрый способ привести одежду в порядок без покупки.",
+      "fullDescription": "Ручной отпариватель Spawnson 5600 Вт — быстрый способ привести одежду в порядок без покупки. Нагревается за считанные секунды, убирает складки и освежает вещи перед встречей, поездкой или мероприятием. Возьми в аренду на время, приведи одежду в порядок и верни обратно — без лишних трат и хранения дома.",
+      "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
+      "kitDescription": "Ручной отпариватель",
+      "specsJson": null,
+      "categorySlug": "home",
+      "coverFileKey": "uploads/items/beri-bery-otparivatel.png",
+      "galleryFileKeys": [
+        "uploads/items/beri-bery-otparivatel.png"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "590.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "paroochistitel-karcher",
+      "name": "Пароочиститель Karcher",
+      "brand": "Karcher",
+      "shortDescription": "Пароочиститель для уборки без бытовой химии.",
+      "fullDescription": "Пароочиститель для уборки без бытовой химии. Подходит для очистки полов, плитки, кухни и ванной, включая труднодоступные места и швы. Можно регулировать подачу пара. В комплект входят насадки и салфетки.",
+      "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
+      "kitDescription": "Пароочиститель; насадки; салфетки",
+      "specsJson": null,
+      "categorySlug": "cleaning",
+      "coverFileKey": "uploads/items/beri-bery-paroochistitel-karcher.png",
+      "galleryFileKeys": [
+        "uploads/items/beri-bery-paroochistitel-karcher.png"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "590.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "perforator",
+      "name": "Перфоратор",
+      "brand": "Bosch",
+      "shortDescription": "Перфоратор BOSCH 1200Вт с бурами Мощный сетевой перфоратор для дома и ремонта.",
+      "fullDescription": "Перфоратор BOSCH 1200Вт с бурами\n\nМощный сетевой перфоратор для дома и ремонта. Сверлит бетон, кирпич, камень, дерево и металл. 1200 Вт мощности, 3 режима работы (сверление, ударное сверление, долбление).\n\nВ комплекте кейс, буры (3 шт.), пика, лопатка и ограничитель глубины.",
+      "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
+      "kitDescription": "Перфоратор; кейс; 3 бура; пика; лопатка; ограничитель глубины",
+      "specsJson": null,
+      "categorySlug": "tools",
+      "coverFileKey": "uploads/items/beri-bery-perforator.png",
+      "galleryFileKeys": [
+        "uploads/items/beri-bery-perforator.png"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "490.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "perforator-elitech",
+      "name": "Перфоратор Elitech",
+      "brand": "Elitech",
+      "shortDescription": "Подходит для бетона, кирпича и камня.",
+      "fullDescription": "Подходит для бетона, кирпича и камня. Три режима работы: сверление, ударное сверление, долбление. В комплекте 3 бура (6, 8, 10 мм), пика и лопатка для снятия старых покрытий и ограничитель глубини сверления. Совместим с бурами SDS plus",
+      "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
+      "kitDescription": "Перфоратор; 3 бура (6, 8, 10 мм); пика; лопатка; ограничитель глубины",
+      "specsJson": null,
+      "categorySlug": "tools",
+      "coverFileKey": "uploads/items/beri-bery-perforator-elitech.png",
+      "galleryFileKeys": [
+        "uploads/items/beri-bery-perforator-elitech.png"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "490.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "playstation-5",
+      "name": "PlayStation 5",
+      "brand": "Sony",
+      "shortDescription": "Sony PlayStation 5 Игровая приставка с поддержкой 4K.",
+      "fullDescription": "Sony PlayStation 5\n\nИгровая приставка с поддержкой 4K. Подписка на игры уже оплачена. В комплекте HDMI кабель для подключения к телевизору, монитору или проектору.",
+      "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
+      "kitDescription": "Приставка; HDMI кабель; кабель питания",
+      "specsJson": null,
+      "categorySlug": "consoles",
+      "coverFileKey": "uploads/items/beri-bery-playstation-5.png",
+      "galleryFileKeys": [
+        "uploads/items/beri-bery-playstation-5.png"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "750.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "polaroid",
+      "name": "Polaroid",
+      "brand": "Fujifilm",
+      "shortDescription": "Фотоаппарат моментальной печати Fujifilm Instax Wide 400 Делает широкие фотографии на фотобумаге — снимок выходит сразу после съёмки.",
+      "fullDescription": "Фотоаппарат моментальной печати Fujifilm Instax Wide 400\n\nДелает широкие фотографии на фотобумаге — снимок выходит сразу после съёмки. Для фотографирования нужны картриджы Instax wide. Катриджы в комплект не входят. Их можно приобрести самостоятельно в любом магизне или в постамате.",
+      "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
+      "kitDescription": "Фотоаппарат моментальной печати; картриджи Instax Wide в комплект не входят",
+      "specsJson": null,
+      "categorySlug": "photo",
+      "coverFileKey": "uploads/items/beri-bery-polaroid.png",
+      "galleryFileKeys": [
+        "uploads/items/beri-bery-polaroid.png"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "590.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "projektor",
+      "name": "Проектор",
+      "brand": "Akenori",
+      "shortDescription": "Full HD-проектор Akenori LED-330A для вывода изображения на любую поверхность.",
+      "fullDescription": "Full HD-проектор Akenori LED-330A для вывода изображения на любую поверхность. Подключается к ноутбуку и PlayStation по HDMI, поддерживает трансляцию с телефона через AirPlay и Miracast. Работает по Wi-Fi, есть встроенные онлайн-кинотеатры и динамики.",
+      "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
+      "kitDescription": "Проектор; встроенные динамики; Wi-Fi; HDMI",
+      "specsJson": null,
+      "categorySlug": "projectors",
+      "coverFileKey": "uploads/items/beri-bery-projektor.png",
+      "galleryFileKeys": [
+        "uploads/items/beri-bery-projektor.png"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "590.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "rashodniki-instax",
+      "name": "Расходники Instax",
+      "brand": "Fujifilm",
+      "shortDescription": "Подходит для фотоаппарата Instax Wide 400.",
+      "fullDescription": "Подходит для фотоаппарата Instax Wide 400. Одного картриджа хватает на 10 фотографий.\n\nПосле использования возвращать картридж в постамат не нужно. Его ареда завершится автоматически.",
+      "rulesText": "Подходит для Instax Wide 400. Возвращать картридж в постамат не нужно: аренда завершается автоматически.",
+      "kitDescription": "Картридж Instax Wide на 10 снимков",
+      "specsJson": null,
+      "categorySlug": "photo",
+      "coverFileKey": "uploads/items/beri-bery-rashodniki-instax.png",
+      "galleryFileKeys": [
+        "uploads/items/beri-bery-rashodniki-instax.png"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "1400.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "robot-mojshchik-okon",
+      "name": "Робот мойщик окон",
+      "brand": null,
+      "shortDescription": "Может мыть окна, зеркла и плитку.",
+      "fullDescription": "Может мыть окна, зеркла и плитку. Самостоятельно распыляет воду и перемещается по поверхности, убирая грязь и разводы. В комплекте есть сменные салфетки из микрофибры и страховочный шнур, чтобы робот не разбился.",
+      "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
+      "kitDescription": "Робот; сменные салфетки из микрофибры; страховочный шнур",
+      "specsJson": null,
+      "categorySlug": "cleaning",
+      "coverFileKey": "uploads/items/beri-bery-robot-mojshchik-okon.png",
+      "galleryFileKeys": [
+        "uploads/items/beri-bery-robot-mojshchik-okon.png"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "490.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "shurupovert",
+      "name": "Шуруповерт",
+      "brand": null,
+      "shortDescription": "Аккумуляторная дрель-шуруповёрт — для сверления или закручивания крепежа.",
+      "fullDescription": "Аккумуляторная дрель-шуруповёрт — для сверления или закручивания крепежа.\n\nСправится с металлом, деревом или пластиком. Подойдёт для ремонта, сборки мебели или работы в мастерской. Удобна для работы в ограниченном пространстве.\n\nВ комплект входит набор из 15 бит и 4 универсальных сверла (4, 6, 8, 10 мм).",
+      "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
+      "kitDescription": "Шуруповерт; набор из 15 бит; 4 сверла (4, 6, 8, 10 мм)",
+      "specsJson": null,
+      "categorySlug": "tools",
+      "coverFileKey": "uploads/items/beri-bery-shurupovert.png",
+      "galleryFileKeys": [
+        "uploads/items/beri-bery-shurupovert.png"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "490.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    }
+  ],
+  "cities": [
+    {
+      "slug": "moscow",
+      "name": "Москва",
+      "timezone": "Europe/Moscow",
+      "isActive": true,
+      "sortOrder": 1
+    },
+    {
+      "slug": "spb",
+      "name": "Санкт-Петербург",
+      "timezone": "Europe/Moscow",
+      "isActive": true,
+      "sortOrder": 10
+    },
+    {
+      "slug": "velikiy-novgorod",
+      "name": "Великий Новгород",
+      "timezone": "Europe/Moscow",
+      "isActive": true,
+      "sortOrder": 20
+    }
+  ],
+  "lockers": [
+    {
+      "citySlug": "moscow",
+      "name": "Тестовый постамат (несуществующий)",
+      "address": "Москва, ул. Несуществующая, д. 0",
+      "lat": 55.751244,
+      "lon": 37.618423,
+      "status": "ONLINE",
+      "workingHoursJson": null,
+      "externalProvider": "esi",
+      "externalLockerId": "test-moscow-fake-001",
+      "partnerName": null,
+      "lastOnlineAt": null
+    },
+    {
+      "citySlug": "spb",
+      "name": "СПб Невский",
+      "address": "Санкт-Петербург, Невский пр., 114",
+      "lat": 59.931258,
+      "lon": 30.360748,
+      "status": "ONLINE",
+      "workingHoursJson": {
+        "mode": "daily",
+        "from": "08:00",
+        "to": "23:00"
+      },
+      "externalProvider": "seed",
+      "externalLockerId": "seed-spb-nevsky",
+      "partnerName": "Dev Seed",
+      "lastOnlineAt": null
+    },
+    {
+      "citySlug": "spb",
+      "name": "СПб Петроградская",
+      "address": "Санкт-Петербург, Каменноостровский пр., 42",
+      "lat": 59.966394,
+      "lon": 30.311838,
+      "status": "ONLINE",
+      "workingHoursJson": {
+        "mode": "daily",
+        "from": "09:00",
+        "to": "22:00"
+      },
+      "externalProvider": "seed",
+      "externalLockerId": "seed-spb-petrogradka",
+      "partnerName": "Dev Seed",
+      "lastOnlineAt": null
+    },
+    {
+      "citySlug": "velikiy-novgorod",
+      "name": "Великий Новгород Западный",
+      "address": "Великий Новгород, ул. Кочетова, 10",
+      "lat": 58.541245,
+      "lon": 31.219804,
+      "status": "ONLINE",
+      "workingHoursJson": {
+        "mode": "daily",
+        "from": "09:00",
+        "to": "21:00"
+      },
+      "externalProvider": "seed",
+      "externalLockerId": "seed-vn-west",
+      "partnerName": "Dev Seed",
+      "lastOnlineAt": null
+    },
+    {
+      "citySlug": "velikiy-novgorod",
+      "name": "Великий Новгород Центр",
+      "address": "Великий Новгород, Большая Санкт-Петербургская ул., 39",
+      "lat": 58.533147,
+      "lon": 31.269947,
+      "status": "ONLINE",
+      "workingHoursJson": {
+        "mode": "daily",
+        "from": "08:00",
+        "to": "22:00"
+      },
+      "externalProvider": "seed",
+      "externalLockerId": "seed-vn-center",
+      "partnerName": "Dev Seed",
+      "lastOnlineAt": null
+    }
+  ],
+  "cells": [
+    {
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "externalCellId": "beri-bery-moscow-01",
+      "label": "M01",
+      "size": "standard",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "externalCellId": "beri-bery-moscow-02",
+      "label": "M02",
+      "size": "standard",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "externalCellId": "beri-bery-moscow-03",
+      "label": "M03",
+      "size": "standard",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "externalCellId": "beri-bery-moscow-04",
+      "label": "M04",
+      "size": "standard",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "externalCellId": "beri-bery-moscow-05",
+      "label": "M05",
+      "size": "standard",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "externalCellId": "beri-bery-moscow-06",
+      "label": "M06",
+      "size": "standard",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "externalCellId": "beri-bery-moscow-07",
+      "label": "M07",
+      "size": "standard",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "externalCellId": "beri-bery-moscow-08",
+      "label": "M08",
+      "size": "standard",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "externalCellId": "beri-bery-moscow-09",
+      "label": "M09",
+      "size": "standard",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "externalCellId": "beri-bery-moscow-10",
+      "label": "M10",
+      "size": "standard",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "externalCellId": "beri-bery-moscow-11",
+      "label": "M11",
+      "size": "standard",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "externalCellId": "beri-bery-moscow-12",
+      "label": "M12",
+      "size": "standard",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "externalCellId": "beri-bery-moscow-13",
+      "label": "M13",
+      "size": "standard",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-nevsky",
+      "externalCellId": "seed-spb-nevsky-cell-01",
+      "label": "A1",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-nevsky",
+      "externalCellId": "seed-spb-nevsky-cell-02",
+      "label": "A2",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-nevsky",
+      "externalCellId": "seed-spb-nevsky-cell-03",
+      "label": "A3",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-petrogradka",
+      "externalCellId": "seed-spb-petrogradka-cell-01",
+      "label": "A1",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-petrogradka",
+      "externalCellId": "seed-spb-petrogradka-cell-02",
+      "label": "A2",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-petrogradka",
+      "externalCellId": "seed-spb-petrogradka-cell-03",
+      "label": "A3",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-petrogradka",
+      "externalCellId": "seed-spb-petrogradka-cell-04",
+      "label": "A4",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-west",
+      "externalCellId": "seed-vn-west-cell-01",
+      "label": "A1",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-west",
+      "externalCellId": "seed-vn-west-cell-02",
+      "label": "A2",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-west",
+      "externalCellId": "seed-vn-west-cell-03",
+      "label": "A3",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
+      "externalCellId": "seed-vn-center-cell-01",
+      "label": "A1",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
+      "externalCellId": "seed-vn-center-cell-02",
+      "label": "A2",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
+      "externalCellId": "seed-vn-center-cell-03",
+      "label": "A3",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    }
+  ],
+  "inventoryUnits": [
+    {
+      "productSlug": "playstation-5",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "cellExternalCellId": "beri-bery-moscow-01",
+      "cellLabel": "M01",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "polaroid",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "cellExternalCellId": "beri-bery-moscow-02",
+      "cellLabel": "M02",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "avtonomnyj-projektor",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "cellExternalCellId": "beri-bery-moscow-03",
+      "cellLabel": "M03",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "drel",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "cellExternalCellId": "beri-bery-moscow-04",
+      "cellLabel": "M04",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "moyushchij-pylesos",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "cellExternalCellId": "beri-bery-moscow-05",
+      "cellLabel": "M05",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "otparivatel",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "cellExternalCellId": "beri-bery-moscow-06",
+      "cellLabel": "M06",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "paroochistitel-karcher",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "cellExternalCellId": "beri-bery-moscow-07",
+      "cellLabel": "M07",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "perforator",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "cellExternalCellId": "beri-bery-moscow-08",
+      "cellLabel": "M08",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "perforator-elitech",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "cellExternalCellId": "beri-bery-moscow-09",
+      "cellLabel": "M09",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "projektor",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "cellExternalCellId": "beri-bery-moscow-10",
+      "cellLabel": "M10",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "rashodniki-instax",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "cellExternalCellId": "beri-bery-moscow-11",
+      "cellLabel": "M11",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "robot-mojshchik-okon",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "cellExternalCellId": "beri-bery-moscow-12",
+      "cellLabel": "M12",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "shurupovert",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "test-moscow-fake-001",
+      "cellExternalCellId": "beri-bery-moscow-13",
+      "cellLabel": "M13",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "playstation-5",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-nevsky",
+      "cellExternalCellId": "seed-spb-nevsky-cell-01",
+      "cellLabel": "A1",
+      "serialNumber": "SEED-SPB-NEVSKY-PLAYSTATION-5-SLIM-1",
+      "barcode": "seed-spb-nevsky-playstation-5-slim-1",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "polaroid",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-nevsky",
+      "cellExternalCellId": "seed-spb-nevsky-cell-02",
+      "cellLabel": "A2",
+      "serialNumber": "SEED-SPB-NEVSKY-XGIMI-MOGO-2-PRO-1",
+      "barcode": "seed-spb-nevsky-xgimi-mogo-2-pro-1",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "avtonomnyj-projektor",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-nevsky",
+      "cellExternalCellId": "seed-spb-nevsky-cell-03",
+      "cellLabel": "A3",
+      "serialNumber": "SEED-SPB-NEVSKY-KARCHER-SE-3-COMPACT-1",
+      "barcode": "seed-spb-nevsky-karcher-se-3-compact-1",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "drel",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-petrogradka",
+      "cellExternalCellId": "seed-spb-petrogradka-cell-01",
+      "cellLabel": "A1",
+      "serialNumber": "SEED-SPB-PETROGRADKA-NINTENDO-SWITCH-OLED-1",
+      "barcode": "seed-spb-petrogradka-nintendo-switch-oled-1",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "moyushchij-pylesos",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-petrogradka",
+      "cellExternalCellId": "seed-spb-petrogradka-cell-02",
+      "cellLabel": "A2",
+      "serialNumber": "SEED-SPB-PETROGRADKA-BOSCH-IXO-7-1",
+      "barcode": "seed-spb-petrogradka-bosch-ixo-7-1",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "otparivatel",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-petrogradka",
+      "cellExternalCellId": "seed-spb-petrogradka-cell-03",
+      "cellLabel": "A3",
+      "serialNumber": "SEED-SPB-PETROGRADKA-BOSCH-IXO-7-2",
+      "barcode": "seed-spb-petrogradka-bosch-ixo-7-2",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "paroochistitel-karcher",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-petrogradka",
+      "cellExternalCellId": "seed-spb-petrogradka-cell-04",
+      "cellLabel": "A4",
+      "serialNumber": "SEED-SPB-PETROGRADKA-DYSON-AM09-1",
+      "barcode": "seed-spb-petrogradka-dyson-am09-1",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "perforator",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-west",
+      "cellExternalCellId": "seed-vn-west-cell-01",
+      "cellLabel": "A1",
+      "serialNumber": "SEED-VN-WEST-KARCHER-SE-3-COMPACT-1",
+      "barcode": "seed-vn-west-karcher-se-3-compact-1",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "perforator-elitech",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-west",
+      "cellExternalCellId": "seed-vn-west-cell-02",
+      "cellLabel": "A2",
+      "serialNumber": "SEED-VN-WEST-BOSCH-IXO-7-1",
+      "barcode": "seed-vn-west-bosch-ixo-7-1",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "projektor",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-west",
+      "cellExternalCellId": "seed-vn-west-cell-03",
+      "cellLabel": "A3",
+      "serialNumber": "SEED-VN-WEST-DYSON-AM09-1",
+      "barcode": "seed-vn-west-dyson-am09-1",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "rashodniki-instax",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
+      "cellExternalCellId": "seed-vn-center-cell-01",
+      "cellLabel": "A1",
+      "serialNumber": "SEED-VN-CENTER-PLAYSTATION-5-SLIM-1",
+      "barcode": "seed-vn-center-playstation-5-slim-1",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "robot-mojshchik-okon",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
+      "cellExternalCellId": "seed-vn-center-cell-02",
+      "cellLabel": "A2",
+      "serialNumber": "SEED-VN-CENTER-NINTENDO-SWITCH-OLED-1",
+      "barcode": "seed-vn-center-nintendo-switch-oled-1",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "shurupovert",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
+      "cellExternalCellId": "seed-vn-center-cell-03",
+      "cellLabel": "A3",
+      "serialNumber": "SEED-VN-CENTER-XGIMI-MOGO-2-PRO-1",
+      "barcode": "seed-vn-center-xgimi-mogo-2-pro-1",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    }
+  ],
+  "managedProductSlugs": [
+    "avtonomnyj-projektor",
+    "drel",
+    "moyushchij-pylesos",
+    "otparivatel",
+    "paroochistitel-karcher",
+    "perforator",
+    "perforator-elitech",
+    "playstation-5",
+    "polaroid",
+    "projektor",
+    "rashodniki-instax",
+    "robot-mojshchik-okon",
+    "shurupovert"
+  ]
+}
