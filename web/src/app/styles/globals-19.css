@@ -626,3 +626,63 @@
     text-wrap: balance;
   }
 }
+
+@media (min-width: 681px) and (max-width: 750px) {
+  .workflow-grid {
+    width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .workflow-card {
+    min-height: 0;
+    aspect-ratio: auto;
+    grid-template-rows: 18px 28px minmax(0, auto);
+    gap: 5px;
+    padding: 8px 5px 7px;
+    border-radius: 12px;
+  }
+
+  .workflow-index {
+    top: 6px;
+    left: 6px;
+    min-height: 16px;
+    padding: 0 4px;
+    font-size: 7px;
+  }
+
+  .workflow-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+  }
+
+  .workflow-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .workflow-card strong {
+    max-width: 100%;
+    font-size: 9px;
+    line-height: 1.08;
+  }
+}
+
+@media (min-width: 1101px) and (max-width: 1400px) {
+  .header-city-control {
+    display: flex;
+    min-width: 0;
+  }
+
+  .header-city-control .city-select-compact {
+    display: flex;
+    min-width: 138px;
+  }
+
+  .header-city-control .city-select-compact .select {
+    min-height: 38px;
+    padding: 0 32px 0 12px;
+    font-size: 12px;
+  }
+}
