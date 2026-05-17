@@ -210,22 +210,18 @@ export function HomeClient() {
     {
       icon: Boxes,
       title: "Выберите вещь",
-      text: "Сравните карточки по цене, сроку и доступности в вашем городе.",
     },
     {
       icon: MapPinned,
       title: "Выберите постамат",
-      text: "Отметьте удобную точку выдачи на карте и посмотрите остатки.",
     },
     {
       icon: ShieldCheck,
       title: "Оплатите аренду",
-      text: "Заказ закрепляется после оплаты, а код для ячейки приходит сразу.",
     },
     {
       icon: PackageSearch,
       title: "Заберите и верните",
-      text: "Откройте ячейку, пользуйтесь вещью и верните её в срок.",
     },
   ];
 
@@ -303,7 +299,6 @@ export function HomeClient() {
                   <Icon size={24} />
                 </span>
                 <strong>{item.title}</strong>
-                {item.text ? <p>{item.text}</p> : null}
               </article>
             );
           })}
