@@ -30,12 +30,8 @@ async def esi_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     try:
         await process_esi_webhook_payload(
             db,
-            event_type=payload.eventType,
-            event_id=payload.eventId,
-            rental_id=payload.rentalId,
+            payload=payload.model_dump(exclude_none=True),
         )
-    except HTTPException:
-        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail="ESI_WEBHOOK_FAILED") from exc
 

@@ -1,4 +1,4 @@
-"""Инициация возврата товара: выбор return-ячейки, вызов ESI, смена статусов аренды."""
+"""Return flow bootstrap: choose a cell, open it via ESI, persist a return request."""
 
 from datetime import datetime, timezone
 from uuid import UUID
@@ -6,13 +6,27 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models.enums import InventoryStatus, LockerStatus, LockerCellStatus, RentalEventSource, RentalStatus
+from backend.models.enums import (
+    InventoryStatus,
+    LockerCellStatus,
+    LockerStatus,
+    RentalEventSource,
+    RentalStatus,
+    ReturnRequestStatus,
+)
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
+from backend.models.return_request import ReturnRequest
 from backend.utils.esi_client import EsiReturnOpenError, esi_trigger_return_cell_open
+from backend.utils.reservation_utils import generate_pickup_pin
+from backend.utils.return_requests import (
+    generate_return_deadline,
+    get_active_return_request_for_rental,
+    serialize_return_request_payload,
+)
 
 
 class ReturnRequestError(Exception):
@@ -29,10 +43,17 @@ async def start_rental_return(
     return_locker_id: UUID,
 ) -> dict:
     if rental.status == RentalStatus.RETURN_IN_PROGRESS:
-        raise ReturnRequestError("RETURN_ALREADY_IN_PROGRESS")
+        active_request = await get_active_return_request_for_rental(db, rental.id)
+        if active_request is None:
+            raise ReturnRequestError("RETURN_ALREADY_IN_PROGRESS")
+        return await serialize_return_request_payload(db, active_request)
 
     if rental.status not in (RentalStatus.ACTIVE, RentalStatus.OVERDUE):
         raise ReturnRequestError("INVALID_RENTAL_STATUS")
+
+    active_request = await get_active_return_request_for_rental(db, rental.id)
+    if active_request is not None:
+        return await serialize_return_request_payload(db, active_request)
 
     locker = (
         await db.execute(select(LockerLocation).where(LockerLocation.id == return_locker_id))
@@ -63,6 +84,8 @@ async def start_rental_return(
         raise ReturnRequestError("INVENTORY_NOT_FOUND")
 
     now = datetime.now(timezone.utc)
+    return_pin = generate_pickup_pin()
+    deadline = generate_return_deadline(now)
 
     try:
         await esi_trigger_return_cell_open(
@@ -70,6 +93,7 @@ async def start_rental_return(
             locker_id=return_locker_id,
             cell_id=cell.id,
             rental_id=rental.id,
+            pin=return_pin,
         )
     except EsiReturnOpenError as exc:
         code = exc.code
@@ -83,6 +107,19 @@ async def start_rental_return(
     rental.return_locker_id = return_locker_id
     rental.status = RentalStatus.RETURN_IN_PROGRESS
     unit.status = InventoryStatus.RETURN_PENDING
+    cell.status = LockerCellStatus.OPENED
+
+    return_request = ReturnRequest(
+        rental_id=rental.id,
+        locker_id=return_locker_id,
+        cell_id=cell.id,
+        pin=return_pin,
+        status=ReturnRequestStatus.LOCKER_OPENED,
+        requested_at=now,
+        deadline_at=deadline,
+        opened_at=now,
+    )
+    db.add(return_request)
 
     db.add(
         RentalEvent(
@@ -94,23 +131,17 @@ async def start_rental_return(
             payload_json={
                 "returnLockerId": str(return_locker_id),
                 "cellId": str(cell.id),
+                "pin": return_pin,
+                "expiresAt": deadline.isoformat(),
             },
         )
     )
 
     try:
         await db.commit()
-        await db.refresh(rental)
-        await db.refresh(cell)
+        await db.refresh(return_request)
     except Exception as exc:
         await db.rollback()
         raise ReturnRequestError("RETURN_REQUEST_FAILED") from exc
 
-    label = (cell.label or "").strip() or str(cell.external_cell_id or cell.id)[:8]
-    return {
-        "rentalId": str(rental.id),
-        "status": rental.status.value,
-        "lockerId": str(return_locker_id),
-        "cellLabel": label,
-        "instructions": "Откройте ячейку и положите товар внутрь, затем закройте дверцу.",
-    }
+    return await serialize_return_request_payload(db, return_request)

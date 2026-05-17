@@ -9,7 +9,15 @@
 backend/*.log
 web/*.log
 *.log
+*.sqlite
+*.sqlite3
+*.tgz
+backend/dev.sqlite3
+backend/tests/*.sqlite
+backend/.env
+backend/.env.production
+deploy/.env
+deploy/.env.ip
 mobile/node_modules/
 web/node_modules/
 web/.next/
-

@@ -1,0 +1,272 @@
+@media (max-width: 680px) {
+
+  .summary-secondary-action {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding-right: 10px;
+    padding-left: 10px;
+    white-space: nowrap;
+  }
+
+  .detail-info-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .detail-side-stack {
+    gap: 8px;
+  }
+
+  .detail-side-stack .equipment-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .detail-side-stack .equipment-grid span {
+    min-height: 32px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+}@media (max-width: 400px) {
+  .time-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rental-step-panel .tariff-grid {
+    grid-auto-columns: minmax(148px, 72vw);
+  }
+
+  .summary-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .auth-prompt-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}/* ── Order detail mobile layout ───────────────────────────── */@media (max-width: 1080px) {
+  /* Actions panel (sticky-panel) floats to top on mobile */
+  .layout-split .sticky-panel {
+    order: -1;
+  }
+
+  /* Tighten the detail panel gap on single-column layout */
+  .detail-panel {
+    gap: 10px;
+  }
+}@media (max-width: 680px) {
+  /* Cap the product image height so it doesn't dominate the screen */
+  .detail-panel .product-cover {
+    aspect-ratio: unset;
+    max-height: 220px;
+    border-radius: 12px;
+  }
+
+  /* Tighter meta rows */
+  .meta-line {
+    padding: 7px 0;
+    gap: 10px;
+    font-size: 13px;
+  }
+
+  .meta-list {
+    gap: 0;
+  }
+
+  /* Smaller heading in detail panels */
+  .detail-panel .section-title {
+    font-size: 18px;
+  }
+
+  /* Tighter detail panel padding */
+  .detail-panel {
+    gap: 8px;
+    padding: 14px !important;
+  }
+
+  /* Rental deadline banner — tighter on mobile */
+  .rental-deadline {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .rental-deadline strong {
+    font-size: 12px;
+  }
+
+  /* Orders list — single column on mobile */
+  .orders-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px;
+  }
+
+  /* Uniform card height — stretch cover to fixed ratio */
+  .orders-grid .product-card-clickable {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .orders-grid .product-card {
+    flex: 1;
+  }
+}@media (max-width: 480px) {
+  .detail-panel .product-cover {
+    max-height: 180px;
+  }
+
+  .meta-line {
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 0;
+  }
+
+  .meta-line span:first-child {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .meta-line strong {
+    font-size: 13px;
+  }
+
+  /* Orders list — single column on small phones too */
+  .orders-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}/* ── Order detail action buttons ──────────────────────────── */.detail-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}.detail-actions > :only-child {
+  grid-column: 1 / -1;
+}.detail-actions .button {
+  width: 100%;
+  justify-content: center;
+}.order-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}.order-detail-card {
+  max-width: 760px;
+}/* ── Clickable product card ────────────────────────────────── */.product-card-clickable {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}.orders-grid {
+  align-items: stretch;
+  grid-auto-rows: 1fr;
+}.orders-grid .product-card-clickable,
+.orders-grid .product-card {
+  height: 100%;
+}.orders-grid .product-body {
+  flex: 1 1 auto;
+}.product-card-clickable:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}.product-card-clickable:active {
+  transform: translateY(0);
+}/* ── Card action buttons row ───────────────────────────────── */.card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}/* ── Small button variant ──────────────────────────────────── */.button.button-sm {
+  font-size: 13px;
+  padding: 6px 12px;
+  gap: 5px;
+  min-height: 32px;
+}@media (max-width: 480px) {
+  .detail-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .card-actions {
+    flex-direction: column;
+  }
+
+  .card-actions .button {
+    width: 100%;
+    justify-content: center;
+  }
+}/* ── Confirm modal ─────────────────────────────────────────── */.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(43, 36, 31, 0.56);
+  backdrop-filter: blur(4px);
+}.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 28px 24px 24px;
+  max-width: 420px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-md);
+}.modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  align-self: flex-start;
+}.modal-title {
+  font-size: 20px;
+  font-weight: 930;
+  color: var(--text);
+  margin: 0;
+}.modal-text {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0;
+}.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}.modal-actions .button {
+  width: 100%;
+}/* Two-button row in modal */.modal-actions-row {
+  display: flex;
+  gap: 10px;
+}.modal-actions-row .button {
+  flex: 1;
+}/* Back link in modal */.modal-back {
+  text-align: center;
+  margin-top: 4px;
+}.modal-back a,
+.modal-back button {
+  color: var(--muted);
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  font-family: inherit;
+}.modal-back a:hover,
+.modal-back button:hover {
+  color: var(--text);
+}@media (max-width: 480px) {
+  .modal-box {
+    padding: 20px 18px 18px;
+  }
+
+  .modal-actions-row {
+    flex-direction: column;
+  }
+
+  .modal-actions-row .button {
+    width: 100%;
+  }
+}

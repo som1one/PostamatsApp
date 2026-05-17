@@ -86,9 +86,11 @@ async def load_media_files_by_ids(
 
 
 def public_media_url(file_key: str) -> str | None:
-    if not settings.MEDIA_PUBLIC_BASE_URL:
-        return None
-    return f"{settings.MEDIA_PUBLIC_BASE_URL}/{file_key.lstrip('/')}"
+    if settings.MEDIA_PUBLIC_BASE_URL:
+        return f"{settings.MEDIA_PUBLIC_BASE_URL}/{file_key.lstrip('/')}"
+    if settings.STORAGE_PROVIDER == "filesystem":
+        return f"/assets/runtime-uploads/{file_key.lstrip('/')}"
+    return None
 
 
 async def load_price_plans_for_product(

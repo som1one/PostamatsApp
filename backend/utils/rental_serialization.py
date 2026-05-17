@@ -10,6 +10,7 @@ from backend.models.rental_event import RentalEvent
 from backend.models.enums import PaymentStatus, PaymentType
 from backend.models.product_filter import ProductFilter
 from backend.models.reservation import Reservation
+from backend.utils.return_requests import get_active_return_request_for_rental, serialize_return_request_payload
 from backend.utils.lockers_utils import price_plan_to_minor_units
 from backend.utils.products_utils import load_media_files_by_ids, public_media_url
 from backend.utils.product_filters import resolve_effective_cover_url
@@ -116,6 +117,7 @@ async def serialize_rental_detail(db: AsyncSession, rental: Rental) -> dict:
     ]
 
     res = await db.get(Reservation, rental.reservation_id) if rental.reservation_id else None
+    active_return_request = await get_active_return_request_for_rental(db, rental.id)
 
     prod_payload = {
         "id": str(product.id) if product else "",
@@ -144,5 +146,10 @@ async def serialize_rental_detail(db: AsyncSession, rental: Rental) -> dict:
             "paymentSummary": payment_summary,
             "events": events_out,
             "reservationId": str(res.id) if res else None,
+            "returnRequest": (
+                await serialize_return_request_payload(db, active_return_request)
+                if active_return_request is not None
+                else None
+            ),
         }
     }

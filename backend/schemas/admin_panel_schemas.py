@@ -76,6 +76,10 @@ class AdminUpdateLockerCellPayload(BaseModel):
     supportsReturn: bool | None = None
 
 
+class AdminAssignInventoryUnitPayload(BaseModel):
+    inventoryUnitId: UUID = Field(..., description="Concrete inventory unit to place into the cell")
+
+
 class AdminCreateProductCategoryPayload(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     slug: str = Field(..., min_length=1, max_length=200)

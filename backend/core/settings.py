@@ -92,6 +92,14 @@ class Settings:
         self.STORAGE_PROVIDER = (
             "stub" if self.UPLOAD_DEV_STUB else (ENV_VALUES.get("STORAGE_PROVIDER") or "s3")
         )
+        self.LOCAL_UPLOAD_ROOT = (
+            ENV_VALUES.get("LOCAL_UPLOAD_ROOT")
+            or str((BASE_DIR / "assets" / "runtime-uploads").resolve())
+        )
+        self.UPLOAD_TOKEN_SECRET = (
+            (ENV_VALUES.get("UPLOAD_TOKEN_SECRET") or self.JWT_SECRET_KEY or self.ADMIN_JWT_SECRET_KEY or "").strip()
+            or None
+        )
         self.MEDIA_PUBLIC_BASE_URL = (ENV_VALUES.get("MEDIA_PUBLIC_BASE_URL") or "").rstrip("/")
 
         # YooKassa
@@ -112,9 +120,18 @@ class Settings:
         self.ESI_RESERVE_TIMEOUT = float(ENV_VALUES.get("ESI_RESERVE_TIMEOUT", "15"))
         self.ESI_WEBHOOK_SECRET = (ENV_VALUES.get("ESI_WEBHOOK_SECRET") or "").strip() or None
         self.ESI_DISCOVERY_TIMEOUT = float(ENV_VALUES.get("ESI_DISCOVERY_TIMEOUT", "20"))
+        self.ESI_SNAPSHOT_TIMEOUT = float(ENV_VALUES.get("ESI_SNAPSHOT_TIMEOUT", "20"))
+        self.ESI_RECONCILE_INTERVAL_SECONDS = int(
+            ENV_VALUES.get("ESI_RECONCILE_INTERVAL_SECONDS", "60")
+        )
+        self.RETURN_REQUEST_TIMEOUT_SECONDS = int(
+            ENV_VALUES.get("RETURN_REQUEST_TIMEOUT_SECONDS", "1800")
+        )
 
     def storage_config_error_code(self) -> str | None:
         if self.UPLOAD_DEV_STUB:
+            return None
+        if self.STORAGE_PROVIDER == "filesystem":
             return None
         if self.STORAGE_PROVIDER != "s3":
             return "STORAGE_PROVIDER_UNSUPPORTED"

@@ -424,12 +424,18 @@ async def confirm_reservation(
             raise HTTPException(status_code=500, detail="RESERVATION_CONFIRM_FAILED") from exc
         raise HTTPException(status_code=409, detail="RESERVATION_EXPIRED")
 
+    inventory_unit = await db.get(InventoryUnit, reservation.inventory_unit_id)
+    if inventory_unit is None or inventory_unit.locker_cell_id is None:
+        raise HTTPException(status_code=409, detail="INVENTORY_CELL_MISSING")
+
+    pickup_pin = generate_pickup_pin()
+
     try:
         await reserve_pickup_cell(
             db,
             locker_id=reservation.locker_id,
-            inventory_unit_id=reservation.inventory_unit_id,
-            reservation_id=reservation.id,
+            cell_id=inventory_unit.locker_cell_id,
+            pickup_pin=pickup_pin,
         )
     except EsiReserveError as exc:
         await db.rollback()
@@ -441,7 +447,7 @@ async def confirm_reservation(
         reservation_id=reservation.id,
         inventory_unit_id=reservation.inventory_unit_id,
         pickup_locker_id=reservation.locker_id,
-        pickup_pin=generate_pickup_pin(),
+        pickup_pin=pickup_pin,
         status=RentalStatus.PICKUP_READY,
         pickup_expires_at=calculate_pickup_expires_at(now),
         planned_end_at=calculate_planned_end_at(

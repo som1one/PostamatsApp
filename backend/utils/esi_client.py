@@ -7,8 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.settings import settings
-from backend.models.enums import LockerCellStatus
-from backend.models.inventory_unit import InventoryUnit
+from backend.models.enums import LockerCellStatus, LockerStatus
 from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
 
@@ -78,18 +77,19 @@ def _normalize_external_lockers(raw_items: list[dict], city_name: str | None) ->
             "externalLockerId",
             "locationId",
             "code",
+            "serial",
         )
         if external_id is None:
             continue
 
-        name = _resolve_nested(item, "name", "title", "locationName") or f"Постамат {external_id}"
+        name = _resolve_nested(item, "name", "title", "locationName") or f"Locker {external_id}"
         address = _resolve_nested(
             item,
             "address",
             "location.address",
             "location.fullAddress",
             "addressLine",
-        ) or "Адрес не указан"
+        ) or "Address unavailable"
         item_city = _resolve_nested(item, "city", "cityName", "location.city")
 
         if city_filter and item_city:
@@ -122,6 +122,153 @@ def _normalize_external_lockers(raw_items: list[dict], city_name: str | None) ->
     return normalized
 
 
+def _external_serial(locker: LockerLocation) -> str | None:
+    raw = (locker.external_locker_id or "").strip()
+    return raw or None
+
+
+def _external_cell_key(cell: LockerCell) -> str | None:
+    raw = (cell.external_cell_id or "").strip()
+    return raw or None
+
+
+def _cell_status_from_esi_state(state: str | None) -> LockerCellStatus | None:
+    normalized = (state or "").strip().lower()
+    if normalized == "vacant":
+        return LockerCellStatus.VACANT
+    if normalized == "occupied":
+        return LockerCellStatus.OCCUPIED
+    if normalized == "blocked":
+        return LockerCellStatus.FAULT
+    return None
+
+
+async def _load_provider_cell(
+    db: AsyncSession,
+    *,
+    locker_id: UUID,
+    cell_id: UUID,
+) -> tuple[LockerLocation, LockerCell]:
+    locker = await db.get(LockerLocation, locker_id)
+    cell = await db.get(LockerCell, cell_id)
+    if locker is None or cell is None or cell.locker_id != locker_id:
+        raise EsiOpenError("CELL_NOT_FOUND")
+
+    serial = _external_serial(locker)
+    external_cell_id = _external_cell_key(cell)
+    if not serial or not external_cell_id:
+        raise EsiOpenError("ESI_NOT_CONFIGURED")
+    return locker, cell
+
+
+async def _esi_post(path: str, *, payload: dict | None = None, timeout: float | None = None) -> dict | None:
+    if not settings.ESI_BASE_URL:
+        raise EsiOpenError("ESI_NOT_CONFIGURED")
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout or settings.ESI_RESERVE_TIMEOUT) as client:
+            response = await client.post(
+                f"{settings.ESI_BASE_URL}{path}",
+                json=payload,
+                headers=_get_esi_headers(),
+            )
+    except httpx.RequestError as exc:
+        logger.exception("ESI POST failed for %s", path)
+        raise EsiOpenError("ESI_HTTP_ERROR") from exc
+
+    if response.status_code >= 400:
+        logger.warning("ESI POST %s failed: %s %s", path, response.status_code, response.text)
+        raise EsiOpenError("ESI_OPEN_FAILED")
+    if not response.content:
+        return None
+    try:
+        return response.json()
+    except ValueError:
+        return None
+
+
+async def _esi_get(path: str, *, timeout: float | None = None) -> dict | list | None:
+    if not settings.ESI_BASE_URL:
+        raise EsiDiscoveryError("ESI_DISCOVERY_FAILED")
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout or settings.ESI_SNAPSHOT_TIMEOUT) as client:
+            response = await client.get(
+                f"{settings.ESI_BASE_URL}{path}",
+                headers=_get_esi_headers(),
+            )
+    except httpx.RequestError as exc:
+        logger.exception("ESI GET failed for %s", path)
+        raise EsiDiscoveryError("ESI_DISCOVERY_HTTP_ERROR") from exc
+
+    if response.status_code >= 400:
+        logger.warning("ESI GET %s failed: %s %s", path, response.status_code, response.text)
+        raise EsiDiscoveryError("ESI_DISCOVERY_FAILED")
+    if not response.content:
+        return None
+    return response.json()
+
+
+async def sync_cell_state(
+    db: AsyncSession,
+    *,
+    locker_id: UUID,
+    cell_id: UUID,
+    state: str,
+    pin: str | None,
+) -> None:
+    locker = await db.get(LockerLocation, locker_id)
+    cell = await db.get(LockerCell, cell_id)
+    if locker is None or cell is None or cell.locker_id != locker_id:
+        raise EsiOpenError("CELL_NOT_FOUND")
+
+    if settings.ESI_DEV_STUB:
+        mapped_status = _cell_status_from_esi_state(state)
+        if mapped_status is not None:
+            cell.status = mapped_status
+        await db.flush()
+        return
+
+    serial = _external_serial(locker)
+    external_cell_id = _external_cell_key(cell)
+    if not serial or not external_cell_id:
+        raise EsiOpenError("ESI_NOT_CONFIGURED")
+
+    await _esi_post(
+        f"/set-cell/{serial}/{external_cell_id}",
+        payload={"state": state, "pin": pin or ""},
+    )
+
+
+async def fetch_machine_snapshot(serial: str) -> dict | None:
+    if settings.ESI_DEV_STUB:
+        return None
+    payload = await _esi_get(f"/machine/{serial}")
+    return payload if isinstance(payload, dict) else None
+
+
+async def fetch_machines_snapshot() -> list[dict]:
+    if settings.ESI_DEV_STUB:
+        return []
+    payload = await _esi_get("/machines")
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if isinstance(payload, dict):
+        if "items" in payload and isinstance(payload["items"], list):
+            return [item for item in payload["items"] if isinstance(item, dict)]
+        if "machines" in payload and isinstance(payload["machines"], list):
+            return [item for item in payload["machines"] if isinstance(item, dict)]
+        # Some providers key by serial.
+        machines: list[dict] = []
+        for key, value in payload.items():
+            if isinstance(value, dict):
+                item = dict(value)
+                item.setdefault("serial", key)
+                machines.append(item)
+        return machines
+    return []
+
+
 async def discover_external_lockers(
     db: AsyncSession,
     *,
@@ -136,21 +283,18 @@ async def discover_external_lockers(
         )
     ).all()
     existing_keys = {
-        (
-            (provider or "").strip().lower(),
-            external_id.strip(),
-        )
+        ((provider or "").strip().lower(), external_id.strip())
         for provider, external_id in existing_rows
         if external_id
     }
 
     if settings.ESI_DEV_STUB or not settings.ESI_BASE_URL:
-        stub_city = city_name or "Без города"
+        stub_city = city_name or "Unknown city"
         stub_items = [
             {
                 "id": f"stub-{stub_city.lower().replace(' ', '-')}-001",
-                "name": f"{stub_city} Центр",
-                "address": f"{stub_city}, Центральная улица, 1",
+                "name": f"{stub_city} Center",
+                "address": f"{stub_city}, Central street, 1",
                 "cityName": stub_city,
                 "latitude": 53.9,
                 "longitude": 27.56,
@@ -158,8 +302,8 @@ async def discover_external_lockers(
             },
             {
                 "id": f"stub-{stub_city.lower().replace(' ', '-')}-002",
-                "name": f"{stub_city} Восток",
-                "address": f"{stub_city}, Восточная улица, 14",
+                "name": f"{stub_city} East",
+                "address": f"{stub_city}, East street, 14",
                 "cityName": stub_city,
                 "latitude": 53.91,
                 "longitude": 27.59,
@@ -173,67 +317,72 @@ async def discover_external_lockers(
             if (item["provider"], item["externalLockerId"]) not in existing_keys
         ]
 
-    endpoints = [
-        "/lockers",
-        "/locations",
-        "/postamats",
-        "/v1/lockers",
-        "/v1/locations",
-    ]
-    query_candidates = []
-    if city_name:
-        query_candidates.extend(
-            [
-                {"city": city_name},
-                {"cityName": city_name},
-                {"q": city_name},
-            ]
-        )
-    query_candidates.append(None)
-
-    raw_items: list[dict] | None = None
-    last_error: str | None = None
+    raw_items: list[dict] = []
 
     try:
-        async with httpx.AsyncClient(timeout=settings.ESI_DISCOVERY_TIMEOUT) as client:
-            for endpoint in endpoints:
-                for params in query_candidates:
-                    try:
-                        response = await client.get(
-                            f"{settings.ESI_BASE_URL}{endpoint}",
-                            params=params,
-                            headers=_get_esi_headers(),
-                        )
-                    except httpx.RequestError as exc:
-                        logger.exception("ESI discovery request failed")
-                        raise EsiDiscoveryError("ESI_DISCOVERY_HTTP_ERROR") from exc
-
-                    if response.status_code == 404:
-                        continue
-                    if response.status_code >= 400:
-                        last_error = response.text
-                        continue
-
-                    payload = response.json()
-                    if isinstance(payload, list):
-                        raw_items = payload
-                    elif isinstance(payload, dict):
-                        for key in ("items", "lockers", "locations", "results", "data"):
-                            candidate = payload.get(key)
-                            if isinstance(candidate, list):
-                                raw_items = candidate
-                                break
-                    if raw_items is not None:
-                        break
-                if raw_items is not None:
-                    break
+        machines = await fetch_machines_snapshot()
+        if machines:
+            raw_items.extend(machines)
     except EsiDiscoveryError:
-        raise
+        logger.info("ESI /machines discovery unavailable, falling back to legacy endpoints")
 
-    if raw_items is None:
-        if last_error:
-            logger.warning("ESI discovery failed: %s", last_error)
-        raise EsiDiscoveryError("ESI_DISCOVERY_FAILED")
+    if not raw_items:
+        endpoints = [
+            "/lockers",
+            "/locations",
+            "/postamats",
+            "/v1/lockers",
+            "/v1/locations",
+        ]
+        query_candidates = []
+        if city_name:
+            query_candidates.extend(
+                [{"city": city_name}, {"cityName": city_name}, {"q": city_name}]
+            )
+        query_candidates.append(None)
+
+        last_error: str | None = None
+
+        try:
+            async with httpx.AsyncClient(timeout=settings.ESI_DISCOVERY_TIMEOUT) as client:
+                for endpoint in endpoints:
+                    for params in query_candidates:
+                        try:
+                            response = await client.get(
+                                f"{settings.ESI_BASE_URL}{endpoint}",
+                                params=params,
+                                headers=_get_esi_headers(),
+                            )
+                        except httpx.RequestError as exc:
+                            logger.exception("ESI discovery request failed")
+                            raise EsiDiscoveryError("ESI_DISCOVERY_HTTP_ERROR") from exc
+
+                        if response.status_code == 404:
+                            continue
+                        if response.status_code >= 400:
+                            last_error = response.text
+                            continue
+
+                        payload = response.json()
+                        if isinstance(payload, list):
+                            raw_items = payload
+                        elif isinstance(payload, dict):
+                            for key in ("items", "lockers", "locations", "results", "data"):
+                                candidate = payload.get(key)
+                                if isinstance(candidate, list):
+                                    raw_items = candidate
+                                    break
+                        if raw_items:
+                            break
+                    if raw_items:
+                        break
+        except EsiDiscoveryError:
+            raise
+
+        if not raw_items:
+            if last_error:
+                logger.warning("ESI discovery failed: %s", last_error)
+            raise EsiDiscoveryError("ESI_DISCOVERY_FAILED")
 
     normalized = _normalize_external_lockers(raw_items, city_name)
     return [
@@ -247,53 +396,34 @@ async def reserve_pickup_cell(
     db: AsyncSession,
     *,
     locker_id: UUID,
-    inventory_unit_id: UUID,
-    reservation_id: UUID,
+    cell_id: UUID,
+    pickup_pin: str,
 ) -> None:
-    unit = await db.get(InventoryUnit, inventory_unit_id)
-    if unit is None or unit.locker_cell_id is None:
-        raise EsiReserveError("INVENTORY_CELL_MISSING")
-
-    cell = await db.get(LockerCell, unit.locker_cell_id)
-    if cell is None or cell.locker_id != locker_id:
+    locker = await db.get(LockerLocation, locker_id)
+    cell = await db.get(LockerCell, cell_id)
+    if locker is None or cell is None or cell.locker_id != locker_id:
         raise EsiReserveError("LOCKER_CELL_MISMATCH")
 
     if cell.status in (LockerCellStatus.FAULT, LockerCellStatus.DISABLED):
         raise EsiReserveError("CELL_NOT_RESERVABLE")
 
-    if settings.ESI_DEV_STUB:
-        if cell.status == LockerCellStatus.VACANT:
-            cell.status = LockerCellStatus.RESERVED
-        await db.flush()
-        return
-
-    if not settings.ESI_BASE_URL:
-        raise EsiReserveError("ESI_NOT_CONFIGURED")
-
-    url = f"{settings.ESI_BASE_URL}/cells/reserve"
-    headers = _get_esi_headers()
-
-    payload = {
-        "lockerId": str(locker_id),
-        "cellId": str(cell.id),
-        "externalCellId": cell.external_cell_id,
-        "inventoryUnitId": str(inventory_unit_id),
-        "reservationId": str(reservation_id),
-    }
-
     try:
-        async with httpx.AsyncClient(timeout=settings.ESI_RESERVE_TIMEOUT) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-    except httpx.RequestError as exc:
-        logger.exception("ESI HTTP error")
-        raise EsiReserveError("ESI_HTTP_ERROR") from exc
+        await sync_cell_state(
+            db,
+            locker_id=locker_id,
+            cell_id=cell_id,
+            state="occupied",
+            pin=pickup_pin,
+        )
+    except EsiOpenError as exc:
+        code = str(exc)
+        if code == "ESI_NOT_CONFIGURED":
+            raise EsiReserveError("ESI_NOT_CONFIGURED") from exc
+        if code == "ESI_HTTP_ERROR":
+            raise EsiReserveError("ESI_HTTP_ERROR") from exc
+        raise EsiReserveError("ESI_RESERVE_FAILED") from exc
 
-    if resp.status_code >= 400:
-        logger.warning("ESI reserve failed: %s %s", resp.status_code, resp.text)
-        raise EsiReserveError("ESI_RESERVE_FAILED")
-
-    if cell.status == LockerCellStatus.VACANT:
-        cell.status = LockerCellStatus.RESERVED
+    cell.status = LockerCellStatus.RESERVED
     await db.flush()
 
 
@@ -303,8 +433,9 @@ async def admin_trigger_open_cell(
     locker_id: UUID,
     cell_id: UUID,
 ) -> None:
+    locker = await db.get(LockerLocation, locker_id)
     cell = await db.get(LockerCell, cell_id)
-    if cell is None or cell.locker_id != locker_id:
+    if cell is None or locker is None or cell.locker_id != locker_id:
         raise EsiOpenError("CELL_NOT_FOUND")
 
     if cell.status in (LockerCellStatus.FAULT, LockerCellStatus.DISABLED):
@@ -313,34 +444,19 @@ async def admin_trigger_open_cell(
     now = datetime.now(timezone.utc)
 
     if settings.ESI_DEV_STUB:
+        cell.status = LockerCellStatus.OPENED
         cell.last_opened_at = now
         cell.last_event_at = now
         await db.flush()
         return
 
-    if not settings.ESI_BASE_URL:
+    serial = _external_serial(locker)
+    external_cell_id = _external_cell_key(cell)
+    if not serial or not external_cell_id:
         raise EsiOpenError("ESI_NOT_CONFIGURED")
 
-    url = f"{settings.ESI_BASE_URL}/cells/open"
-    headers = _get_esi_headers()
-
-    payload = {
-        "lockerId": str(locker_id),
-        "cellId": str(cell.id),
-        "externalCellId": cell.external_cell_id,
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=settings.ESI_RESERVE_TIMEOUT) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-    except httpx.RequestError as exc:
-        logger.exception("ESI open-cell HTTP error")
-        raise EsiOpenError("ESI_HTTP_ERROR") from exc
-
-    if resp.status_code >= 400:
-        logger.warning("ESI open-cell failed: %s %s", resp.status_code, resp.text)
-        raise EsiOpenError("ESI_OPEN_FAILED")
-
+    await _esi_post(f"/open-cell/{serial}/{external_cell_id}")
+    cell.status = LockerCellStatus.OPENED
     cell.last_opened_at = now
     cell.last_event_at = now
     await db.flush()
@@ -352,9 +468,11 @@ async def esi_trigger_return_cell_open(
     locker_id: UUID,
     cell_id: UUID,
     rental_id: UUID,
+    pin: str,
 ) -> None:
+    locker = await db.get(LockerLocation, locker_id)
     cell = await db.get(LockerCell, cell_id)
-    if cell is None or cell.locker_id != locker_id:
+    if cell is None or locker is None or cell.locker_id != locker_id:
         raise EsiReturnOpenError("RETURN_CELL_NOT_FOUND")
 
     if cell.status in (LockerCellStatus.FAULT, LockerCellStatus.DISABLED):
@@ -363,34 +481,32 @@ async def esi_trigger_return_cell_open(
     now = datetime.now(timezone.utc)
 
     if settings.ESI_DEV_STUB:
+        cell.status = LockerCellStatus.OPENED
         cell.last_opened_at = now
         cell.last_event_at = now
         await db.flush()
         return
 
-    if not settings.ESI_BASE_URL:
+    serial = _external_serial(locker)
+    external_cell_id = _external_cell_key(cell)
+    if not serial or not external_cell_id:
         raise EsiReturnOpenError("ESI_NOT_CONFIGURED")
 
-    url = f"{settings.ESI_BASE_URL}/cells/return-open"
-    headers = _get_esi_headers()
-    payload = {
-        "lockerId": str(locker_id),
-        "cellId": str(cell.id),
-        "externalCellId": cell.external_cell_id,
-        "rentalId": str(rental_id),
-    }
-
     try:
-        async with httpx.AsyncClient(timeout=settings.ESI_RESERVE_TIMEOUT) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-    except httpx.RequestError as exc:
-        logger.exception("ESI return-open HTTP error")
-        raise EsiReturnOpenError("ESI_HTTP_ERROR") from exc
+        await _esi_post(
+            f"/set-cell/{serial}/{external_cell_id}",
+            payload={"state": "vacant", "pin": pin},
+        )
+        await _esi_post(f"/open-cell/{serial}/{external_cell_id}")
+    except EsiOpenError as exc:
+        code = str(exc)
+        if code == "ESI_NOT_CONFIGURED":
+            raise EsiReturnOpenError("ESI_NOT_CONFIGURED") from exc
+        if code == "ESI_HTTP_ERROR":
+            raise EsiReturnOpenError("ESI_HTTP_ERROR") from exc
+        raise EsiReturnOpenError("ESI_OPEN_FAILED") from exc
 
-    if resp.status_code >= 400:
-        logger.warning("ESI return-open failed: %s %s", resp.status_code, resp.text)
-        raise EsiReturnOpenError("ESI_OPEN_FAILED")
-
+    cell.status = LockerCellStatus.OPENED
     cell.last_opened_at = now
     cell.last_event_at = now
     await db.flush()

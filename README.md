@@ -28,25 +28,22 @@ If the Yandex key is empty, the site keeps the postamat list fallback.
 
 ## Production file uploads
 
-The backend already supports direct presigned uploads to S3-compatible storage.
+Production uploads now use local filesystem storage inside the backend container, so the project can be deployed without S3 or MinIO.
 
 Use `backend/.env.production.example` as the base and configure:
 
 ```bash
 UPLOAD_DEV_STUB=false
-STORAGE_PROVIDER=s3
-S3_ENDPOINT_URL=https://your-s3-endpoint
-S3_FORCE_PATH_STYLE=true   # enable for many S3-compatible providers
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-S3_PUBLIC_BUCKET=naprokatberu-public
-S3_PRIVATE_BUCKET=naprokatberu-private
-MEDIA_PUBLIC_BASE_URL=https://cdn.naprokatberu.ru
+STORAGE_PROVIDER=filesystem
+LOCAL_UPLOAD_ROOT=/app/assets/runtime-uploads
 ```
 
 Notes:
 
-- `S3_PUBLIC_BUCKET` is for product photos that are shown on the site.
-- `S3_PRIVATE_BUCKET` is for verification documents and other non-public files.
-- `MEDIA_PUBLIC_BASE_URL` must point only to the public media surface, for example a CDN or a bucket/domain that serves product images.
-- The storage bucket must allow browser `PUT` requests from your web domain for the presigned upload flow to work.
+- Uploaded files are written under `backend_uploads` at `/app/assets/runtime-uploads` in the container.
+- Public file URLs are served from the backend asset route and resolved by the web client automatically.
+- If you later switch back to S3, the same presign flow still exists, but filesystem mode is the deploy-safe default.
+
+## Deploy
+
+Production compose files and command examples live in [deploy/README.md](/C:/Users/Green_Tea/Documents/New%20project/deploy/README.md).

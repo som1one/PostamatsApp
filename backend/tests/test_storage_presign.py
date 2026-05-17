@@ -1,8 +1,12 @@
 import unittest
+import tempfile
+from pathlib import Path
+from uuid import uuid4
 
 from backend.core.exceptions import ClientError
 from backend.models.enums import MediaFileKind
 from backend.utils.storage_presign import presign_put_object
+from backend.utils.local_storage import build_local_upload_token, store_local_upload, verify_local_upload_token
 from backend.utils.uploads_utils import bucket_for_media_kind
 
 
@@ -22,6 +26,8 @@ class StoragePresignTests(unittest.TestCase):
             "MEDIA_PUBLIC_BASE_URL": storage_presign.settings.MEDIA_PUBLIC_BASE_URL,
             "AWS_ACCESS_KEY_ID": storage_presign.settings.AWS_ACCESS_KEY_ID,
             "AWS_SECRET_ACCESS_KEY": storage_presign.settings.AWS_SECRET_ACCESS_KEY,
+            "LOCAL_UPLOAD_ROOT": storage_presign.settings.LOCAL_UPLOAD_ROOT,
+            "UPLOAD_TOKEN_SECRET": storage_presign.settings.UPLOAD_TOKEN_SECRET,
         }
 
     def tearDown(self):
@@ -47,6 +53,7 @@ class StoragePresignTests(unittest.TestCase):
         self.storage_presign.settings.MEDIA_PUBLIC_BASE_URL = public_base_url
         self.storage_presign.settings.AWS_ACCESS_KEY_ID = access_key
         self.storage_presign.settings.AWS_SECRET_ACCESS_KEY = secret_key
+        self.storage_presign.settings.LOCAL_UPLOAD_ROOT = str(Path(tempfile.gettempdir()) / "postamats-test-uploads")
 
         self.uploads_utils.settings.UPLOAD_DEV_STUB = stub
         self.uploads_utils.settings.STORAGE_PROVIDER = provider
@@ -55,6 +62,9 @@ class StoragePresignTests(unittest.TestCase):
         self.uploads_utils.settings.MEDIA_PUBLIC_BASE_URL = public_base_url
         self.uploads_utils.settings.AWS_ACCESS_KEY_ID = access_key
         self.uploads_utils.settings.AWS_SECRET_ACCESS_KEY = secret_key
+        self.uploads_utils.settings.LOCAL_UPLOAD_ROOT = str(Path(tempfile.gettempdir()) / "postamats-test-uploads")
+        self.storage_presign.settings.UPLOAD_TOKEN_SECRET = "test-upload-secret"
+        self.uploads_utils.settings.UPLOAD_TOKEN_SECRET = "test-upload-secret"
 
     def test_stub_mode_returns_stub_url(self):
         self.storage_presign.settings.UPLOAD_DEV_STUB = True
@@ -118,3 +128,29 @@ class StoragePresignTests(unittest.TestCase):
             bucket_for_media_kind(MediaFileKind.VERIFICATION_FRONT),
             "naprokatberu-private",
         )
+
+    def test_filesystem_upload_token_roundtrip_and_local_store(self):
+        self._set_storage(
+            stub=False,
+            provider="filesystem",
+            public_base_url="",
+        )
+
+        file_id = uuid4()
+        token = build_local_upload_token(
+            file_id=file_id,
+            file_key="verification/2026/05/17/demo.jpg",
+            mime_type="image/jpeg",
+            expires_in=900,
+        )
+        payload = verify_local_upload_token(token)
+        self.assertIsNotNone(payload)
+        self.assertEqual(payload["fileId"], str(file_id))
+        self.assertEqual(payload["mimeType"], "image/jpeg")
+
+        written = store_local_upload(
+            "verification/2026/05/17/demo.jpg",
+            b"hello-world",
+        )
+        self.assertTrue(written.exists())
+        self.assertEqual(written.read_bytes(), b"hello-world")

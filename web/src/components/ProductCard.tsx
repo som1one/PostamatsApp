@@ -9,7 +9,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
   const coverUrl = resolvePublicAssetUrl(product.coverUrl);
 
   return (
-    <article className="card product-card">
+    <article className="card product-card" data-product-slug={product.slug || product.id}>
       <Link className="product-cover" href={href} aria-label={`Открыть ${product.name}`}>
         {coverUrl ? (
           <img src={coverUrl} alt={product.name} />

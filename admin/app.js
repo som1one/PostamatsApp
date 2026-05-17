@@ -1841,6 +1841,13 @@ function renderLockerDetailModal() {
     )
     .join("");
 
+  const assignableUnitOptions = (d.assignableUnits || [])
+    .map((unit) => {
+      const label = `${unit.productName || "Без товара"} · ${unit.serialNumber || unit.id}`;
+      return `<option value="${escapeHtml(unit.id)}">${escapeHtml(label)}</option>`;
+    })
+    .join("");
+
   const cellsRows = (d.cells || [])
     .map((cell) => {
       const inv = cell.inventoryUnit;
@@ -1861,11 +1868,25 @@ function renderLockerDetailModal() {
             <select id="cell-status-${escapeHtml(cell.id)}" class="cell-inline-select" aria-label="Статус ячейки">
               ${lockerCellStatusOptions(cell.status)}
             </select>
+            <input id="cell-unit-${escapeHtml(cell.id)}" class="cell-inline-input" list="locker-assignable-units" placeholder="UUID юнита" value="${escapeHtml(inv?.id || "")}" />
+            <button type="button" class="ghost-button table-inline-button" data-locker-action="assign-unit" data-cell-id="${escapeHtml(cell.id)}">Привязать</button>
+            <button type="button" class="ghost-button table-inline-button" data-locker-action="unassign-unit" data-cell-id="${escapeHtml(cell.id)}">Снять</button>
             <button type="button" class="ghost-button table-inline-button" data-locker-action="save-cell" data-cell-id="${escapeHtml(cell.id)}">Сохранить</button>
             <button type="button" class="table-danger-button table-inline-button" data-locker-action="open-cell" data-cell-id="${escapeHtml(cell.id)}">Открыть</button>
           </td>
         </tr>`;
     })
+    .join("");
+
+  const incidentsRows = (d.incidents || [])
+    .map(
+      (item) => `
+      <tr>
+        <td>${escapeHtml(item.kind || "incident")}</td>
+        <td>${escapeHtml(item.title || "Инцидент")}</td>
+        <td class="muted-inline">${escapeHtml(item.details || "—")}</td>
+      </tr>`,
+    )
     .join("");
 
   const eventsRows = (d.recentEvents || [])
@@ -1883,6 +1904,7 @@ function renderLockerDetailModal() {
 
   lockerDetailBody.innerHTML = `
     <div class="user-detail-grid">
+      <datalist id="locker-assignable-units">${assignableUnitOptions}</datalist>
       <div class="detail-block">
         <h4 class="detail-block-title">Параметры точки</h4>
         <form id="locker-edit-form" class="locker-edit-form">
@@ -1940,6 +1962,17 @@ function renderLockerDetailModal() {
           <input id="locker-new-cell-size" type="text" placeholder="Размер" />
           <label class="checkbox-field locker-inline-check"><input id="locker-new-cell-return" type="checkbox" checked /><span>Приём возврата</span></label>
           <button type="button" class="primary-button" data-locker-action="add-cell">Добавить</button>
+        </div>
+      </div>
+      <div class="detail-block">
+        <h4 class="detail-block-title">Инциденты и рассинхрон</h4>
+        <div class="table-scroll">
+          <table class="data-table data-table-compact">
+            <thead><tr><th>Тип</th><th>Заголовок</th><th>Детали</th></tr></thead>
+            <tbody>${
+              incidentsRows || `<tr><td colspan="3" class="muted-inline">Пока всё чисто</td></tr>`
+            }</tbody>
+          </table>
         </div>
       </div>
       <div class="detail-block">
@@ -2096,6 +2129,47 @@ async function handleLockerDetailClick(event) {
       document.getElementById("locker-new-cell-label").value = "";
       document.getElementById("locker-new-cell-ext").value = "";
       document.getElementById("locker-new-cell-size").value = "";
+      await refreshLockerDetail(lockerId);
+      await loadLockersOnly();
+      return;
+    }
+
+    if (action === "assign-unit") {
+      const cellId = btn.getAttribute("data-cell-id");
+      if (!cellId) {
+        return;
+      }
+      const inventoryUnitId = String(document.getElementById(`cell-unit-${cellId}`)?.value || "").trim();
+      if (!UUID_RE.test(inventoryUnitId)) {
+        showToast("error", "Введите UUID юнита.");
+        return;
+      }
+      await authorizedRequest(
+        `/api/admin/lockers/${safeLid}/cells/${encodeURIComponent(cellId)}/assign-unit`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inventoryUnitId }),
+        },
+      );
+      showToast("success", "Юнит привязан к ячейке.");
+      await refreshLockerDetail(lockerId);
+      await loadLockersOnly();
+      return;
+    }
+
+    if (action === "unassign-unit") {
+      const cellId = btn.getAttribute("data-cell-id");
+      if (!cellId) {
+        return;
+      }
+      await authorizedRequest(
+        `/api/admin/lockers/${safeLid}/cells/${encodeURIComponent(cellId)}/assignment`,
+        {
+          method: "DELETE",
+        },
+      );
+      showToast("success", "Привязка снята.");
       await refreshLockerDetail(lockerId);
       await loadLockersOnly();
       return;

@@ -5,11 +5,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  ChevronDown,
   ChevronRight,
   CircleUserRound,
-  HelpCircle,
   Home,
-  Info,
   LogOut,
   MapPin,
   MapPinned,
@@ -34,31 +33,16 @@ const nav = [
     href: "/",
     label: "Главная",
     icon: Home,
-    group: "main",
   },
   {
     href: "/catalog",
     label: "Каталог",
     icon: ShoppingBag,
-    group: "main",
   },
   {
     href: "/lockers",
     label: "Постаматы",
     icon: MapPinned,
-    group: "main",
-  },
-  {
-    href: "/faq",
-    label: "FAQ",
-    icon: HelpCircle,
-    group: "service",
-  },
-  {
-    href: "/about",
-    label: "О сервисе",
-    icon: Info,
-    group: "service",
   },
 ] as const;
 
@@ -67,9 +51,6 @@ const ordersNavItem = {
   label: "Мои заказы",
   icon: PackageCheck,
 } as const;
-
-const mainNav = nav.filter((item) => item.group === "main");
-const serviceNav = nav.filter((item) => item.group === "service");
 
 function isActive(pathname: string, href: string) {
   if (href === "/") {
@@ -85,8 +66,11 @@ export function AppHeader() {
   const [cities, setCities] = useState<City[]>([]);
   const [cityId, setCityId] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const selectedCity = cities.find((item) => item.id === cityId);
   const desktopLinks = isAuthed ? [...nav, ordersNavItem] : nav;
+  const selectedCity = cities.find((item) => item.id === cityId);
+  const userInitial = session?.user?.phone
+    ? session.user.phone.replace(/\D/g, "").slice(-1)
+    : "?";
 
   useCitySync(cities, cityId, setCityId);
 
@@ -167,17 +151,13 @@ export function AppHeader() {
     router.push("/");
   }
 
-  const mobileLinks = [...mainNav, ...serviceNav, ordersNavItem] as const;
-
-  const userInitial = session?.user?.phone ? session.user.phone.replace(/\D/g, "").slice(-1) : "?";
-
   return (
     <>
       <div className="city-top-bar">
         <div className="container city-top-bar-inner">
           <div className="city-top-bar-location">
             <MapPin size={14} className="city-top-bar-icon" />
-          <span className="city-top-bar-label">Ваш город:</span>
+            <span className="city-top-bar-label">Ваш город:</span>
             <CitySelector cities={cities} value={cityId} onChange={setCityId} compact />
           </div>
           {isAuthed ? (
@@ -188,6 +168,7 @@ export function AppHeader() {
           ) : null}
         </div>
       </div>
+
       <header className="app-header">
         <div className="container app-header-inner">
           <Link className="brand" href="/" aria-label="naprokatberu">
@@ -196,7 +177,7 @@ export function AppHeader() {
             </span>
             <span className="brand-copy">
               <strong>naprokatberu</strong>
-              <small>Аренда рядом с вами</small>
+              <small>Сервис аренды вещей</small>
             </span>
           </Link>
 
@@ -220,6 +201,29 @@ export function AppHeader() {
             <div className="header-city-control">
               <CitySelector cities={cities} value={cityId} onChange={setCityId} compact />
             </div>
+            <div className="header-mobile-city">
+              <MapPin size={15} />
+              <span className="header-mobile-city-name">
+                {selectedCity?.name || "Город"}
+              </span>
+              <ChevronDown size={16} />
+              <select
+                className="header-mobile-city-select"
+                value={cityId}
+                onChange={(event) => {
+                  setCityId(event.target.value);
+                  saveSelectedCityId(event.target.value);
+                }}
+                aria-label="Выбор города"
+              >
+                {!cities.length ? <option value="">Выберите город</option> : null}
+                {cities.map((city) => (
+                  <option key={city.id} value={city.id}>
+                    {city.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             {isAuthed ? (
               <>
                 <Link className="button button-secondary header-profile" href="/profile">
@@ -236,7 +240,9 @@ export function AppHeader() {
                 </button>
                 <Link className="button button-secondary header-mobile-auth" href="/profile">
                   <CircleUserRound size={16} />
-                  <span className="header-mobile-auth-phone">{session?.user?.phone || "Кабинет"}</span>
+                  <span className="header-mobile-auth-phone">
+                    {session?.user?.phone || "Кабинет"}
+                  </span>
                 </Link>
               </>
             ) : (
@@ -262,7 +268,9 @@ export function AppHeader() {
           </div>
         </div>
 
-        {menuOpen ? (
+      </header>
+
+      {menuOpen ? (
           <div
             className="mobile-nav-overlay"
             role="presentation"
@@ -284,7 +292,7 @@ export function AppHeader() {
                     </span>
                     <span>
                       <strong>naprokatberu</strong>
-                      <small>Аренда рядом с вами</small>
+                      <small>Сервис аренды вещей</small>
                     </span>
                   </Link>
                   <button
@@ -312,7 +320,7 @@ export function AppHeader() {
                   <nav aria-label="Мобильная навигация">
                     <p className="mobile-nav-group-label">Навигация</p>
                     <div className="mobile-nav-group">
-                      {mainNav.map((item) => {
+                      {nav.map((item) => {
                         const Icon = item.icon;
                         return (
                           <Link
@@ -320,37 +328,24 @@ export function AppHeader() {
                             className={`mobile-nav-item${isActive(pathname, item.href) ? " is-active" : ""}`}
                             href={item.href}
                           >
-                            <span className="mobile-nav-item-icon"><Icon size={18} /></span>
+                            <span className="mobile-nav-item-icon">
+                              <Icon size={18} />
+                            </span>
                             <span>{item.label}</span>
                           </Link>
                         );
                       })}
-                      {isAuthed && (
+                      {isAuthed ? (
                         <Link
                           className={`mobile-nav-item${isActive(pathname, ordersNavItem.href) ? " is-active" : ""}`}
                           href={ordersNavItem.href}
                         >
-                          <span className="mobile-nav-item-icon"><PackageCheck size={18} /></span>
+                          <span className="mobile-nav-item-icon">
+                            <PackageCheck size={18} />
+                          </span>
                           <span>{ordersNavItem.label}</span>
                         </Link>
-                      )}
-                    </div>
-
-                    <p className="mobile-nav-group-label">Информация</p>
-                    <div className="mobile-nav-group">
-                      {serviceNav.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <Link
-                            key={item.href}
-                            className={`mobile-nav-item${isActive(pathname, item.href) ? " is-active" : ""}`}
-                            href={item.href}
-                          >
-                            <span className="mobile-nav-item-icon"><Icon size={18} /></span>
-                            <span>{item.label}</span>
-                          </Link>
-                        );
-                      })}
+                      ) : null}
                     </div>
                   </nav>
                 </div>
@@ -383,7 +378,6 @@ export function AppHeader() {
             </div>
           </div>
         ) : null}
-      </header>
     </>
   );
 }

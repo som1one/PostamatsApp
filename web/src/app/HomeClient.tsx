@@ -1,15 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  Boxes,
-  HelpCircle,
-  MapPinned,
-  PackageSearch,
-  ShieldCheck,
-} from "lucide-react";
+import { Boxes, MapPinned, PackageSearch, ShieldCheck } from "lucide-react";
 import { CategoryTabs } from "@/components/CategoryTabs";
 import {
   CitySelector,
@@ -30,7 +24,6 @@ import {
   fetchProducts,
 } from "@/shared/api/endpoints";
 import type { City, Locker, ProductListItem } from "@/shared/api/types";
-import { workflowSteps } from "@/shared/content";
 import { formatCountRu, pluralizeRu } from "@/shared/format";
 
 function categoryLabel(product: ProductListItem, index: number) {
@@ -62,6 +55,7 @@ export function HomeClient() {
     () => lockers.find((locker) => locker.id === selectedLockerId) ?? lockers[0],
     [lockers, selectedLockerId],
   );
+
   const lockerPreviewItems = useMemo(() => {
     if (!lockers.length) {
       return [];
@@ -69,6 +63,7 @@ export function HomeClient() {
     const leadLocker = selectedLocker ?? lockers[0];
     return [leadLocker, ...lockers.filter((locker) => locker.id !== leadLocker.id)].slice(0, 3);
   }, [lockers, selectedLocker]);
+
   const previewCategories = useMemo(
     () => [
       { id: "", label: "Все" },
@@ -82,8 +77,11 @@ export function HomeClient() {
     ],
     [products],
   );
+
   const previewProducts = useMemo(() => {
-    const items = previewCategoryId ? products.filter((product) => product.categoryId === previewCategoryId) : products;
+    const items = previewCategoryId
+      ? products.filter((product) => product.categoryId === previewCategoryId)
+      : products;
     return items.slice(0, 6);
   }, [previewCategoryId, products]);
 
@@ -103,7 +101,9 @@ export function HomeClient() {
           saveSelectedCityId(next);
         }
       })
-      .catch(() => setError("Не удалось загрузить города. Попробуйте обновить страницу."));
+      .catch(() =>
+        setError("Не удалось загрузить города. Попробуйте обновить страницу."),
+      );
     return () => {
       active = false;
     };
@@ -140,7 +140,11 @@ export function HomeClient() {
     let active = true;
     setLoading(true);
     setError("");
-    Promise.all([fetchProducts({ cityId: selectedCityId, availableOnly: true, limit: 9 }), fetchLockers(selectedCityId)])
+
+    Promise.all([
+      fetchProducts({ cityId: selectedCityId, availableOnly: true, limit: 9 }),
+      fetchLockers(selectedCityId),
+    ])
       .then(([productItems, lockerItems]) => {
         if (!active) {
           return;
@@ -148,7 +152,9 @@ export function HomeClient() {
         setProducts(productItems);
         setLockers(lockerItems);
         setSelectedLockerId((current) =>
-          current && lockerItems.some((locker) => locker.id === current) ? current : lockerItems[0]?.id || "",
+          current && lockerItems.some((locker) => locker.id === current)
+            ? current
+            : lockerItems[0]?.id || "",
         );
       })
       .catch(() => {
@@ -171,7 +177,9 @@ export function HomeClient() {
   const heroHighlights = [
     {
       icon: MapPinned,
-      label: cities.length ? formatCountRu(cities.length, ["город", "города", "городов"]) : "города загружаются",
+      label: cities.length
+        ? formatCountRu(cities.length, ["город", "города", "городов"])
+        : "города загружаются",
     },
     {
       icon: PackageSearch,
@@ -194,42 +202,111 @@ export function HomeClient() {
       label: pluralizeRu(totalLockerCount, ["постамат", "постамата", "постаматов"]),
       value: totalLockerCount,
     },
-    { label: "пользователей", value: "5k+" },
-    { label: "часов аренды", value: "45k+" },
+    { label: "Шагов в сценарии", value: "4" },
+    { label: "Карточек в подборке", value: previewProducts.length || "—" },
+  ];
+
+  const workflowCards = [
+    {
+      icon: Boxes,
+      title: "Выберите вещь",
+      text: "Сравните карточки по цене, сроку и доступности в вашем городе.",
+    },
+    {
+      icon: MapPinned,
+      title: "Выберите постамат",
+      text: "Отметьте удобную точку выдачи на карте и посмотрите остатки.",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Оплатите аренду",
+      text: "Заказ закрепляется после оплаты, а код для ячейки приходит сразу.",
+    },
+    {
+      icon: PackageSearch,
+      title: "Заберите и верните",
+      text: "Откройте ячейку, пользуйтесь вещью и верните её в срок.",
+    },
   ];
 
   return (
     <PageChrome compact>
       <section className="hero-service">
         <div className="hero-service-copy">
-          <p className="eyebrow">Как начать аренду</p>
-          <h1>Аренда нужных вещей рядом с вами</h1>
-          <div className="hero-service-summary">
-            <p className="hero-service-description">
-              Выберите технику в каталоге, найдите ближайший постамат и получите код для аренды за пару минут.
-            </p>
-            <div className="hero-service-highlights" aria-label="Ключевые преимущества сервиса">
-              {heroHighlights.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <span key={item.label}>
-                    <Icon size={14} />
-                    {item.label}
-                  </span>
-                );
-              })}
+          <div className="hero-service-lead">
+            <div className="hero-service-stack">
+              <div className="hero-service-content">
+                <p className="eyebrow">аренда через постаматы</p>
+                <h1>Аренда нужных вещей рядом с вами</h1>
+              </div>
+              <div className="hero-service-summary">
+                <p className="hero-service-description">
+                  Выберите технику в каталоге, найдите ближайший постамат и получите код
+                  для аренды за пару минут.
+                </p>
+                <div
+                  className="hero-service-highlights"
+                  aria-label="Ключевые преимущества сервиса"
+                >
+                  {heroHighlights.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <span key={item.label}>
+                        <Icon size={14} />
+                        {item.label}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="hero-service-actions">
+                <Link
+                  className="button button-primary hero-cta-button hero-cta-start"
+                  href="/catalog"
+                >
+                  Начать аренду
+                </Link>
+                <Link className="button button-secondary hero-cta-button" href="/lockers">
+                  <MapPinned size={18} />
+                  Карта постаматов
+                </Link>
+              </div>
+            </div>
+            <div className="hero-service-media">
+              <div className="hero-service-media-frame">
+                <Image
+                  src="/hero-rental-promo.png"
+                  alt="Витрина Naprokatberu с арендной техникой"
+                  width={1054}
+                  height={1492}
+                  className="hero-service-media-image"
+                  priority
+                  sizes="(max-width: 720px) 34vw, (max-width: 1100px) 38vw, 420px"
+                />
+              </div>
             </div>
           </div>
-          <div className="hero-service-actions">
-            <Link className="button button-primary hero-cta-button" href="/catalog">
-              <Boxes size={18} />
-              Каталог
-            </Link>
-            <Link className="button button-secondary hero-cta-button" href="/lockers">
-              <MapPinned size={18} />
-              Карта постаматов
-            </Link>
-          </div>
+        </div>
+      </section>
+
+      <section className="section-band workflow-band">
+        <div className="section-kicker workflow-kicker">
+          <h2 className="section-heading">Как это работает</h2>
+        </div>
+        <div className="workflow-grid">
+          {workflowCards.map((item, index) => {
+            const Icon = item.icon;
+            return (
+              <article className="workflow-card" key={item.title}>
+                <span className="workflow-index">{index + 1}</span>
+                <span className="workflow-icon">
+                  <Icon size={24} />
+                </span>
+                <strong>{item.title}</strong>
+                {item.text ? <p>{item.text}</p> : null}
+              </article>
+            );
+          })}
         </div>
       </section>
 
@@ -244,9 +321,18 @@ export function HomeClient() {
         <div className="catalog-filter-panel catalog-filter-panel-home">
           <div className="catalog-filter-city">
             <MapPinned size={16} />
-            <CitySelector cities={cities} value={selectedCityId} onChange={setSelectedCityId} compact />
+            <CitySelector
+              cities={cities}
+              value={selectedCityId}
+              onChange={setSelectedCityId}
+              compact
+            />
           </div>
-          <CategoryTabs categories={previewCategories} activeId={previewCategoryId} onChange={setPreviewCategoryId} />
+          <CategoryTabs
+            categories={previewCategories}
+            activeId={previewCategoryId}
+            onChange={setPreviewCategoryId}
+          />
         </div>
 
         {error ? <div className="alert alert-danger">{error}</div> : null}
@@ -273,7 +359,11 @@ export function HomeClient() {
         ) : (
           <EmptyState
             icon={<Boxes size={34} />}
-            title={previewCategoryId ? "В этой категории пока нет товаров" : "Каталог пока пуст"}
+            title={
+              previewCategoryId
+                ? "В этой категории пока нет товаров"
+                : "Каталог пока пуст"
+            }
             text={
               previewCategoryId
                 ? "Сбросьте категорию или откройте весь каталог, чтобы посмотреть другие позиции."
@@ -281,7 +371,11 @@ export function HomeClient() {
             }
             action={
               previewCategoryId ? (
-                <button className="button button-secondary" type="button" onClick={() => setPreviewCategoryId("")}>
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  onClick={() => setPreviewCategoryId("")}
+                >
                   Показать всё
                 </button>
               ) : undefined
@@ -323,26 +417,6 @@ export function HomeClient() {
         )}
       </section>
 
-      <section className="section-band">
-        <div className="section-kicker">
-          <p className="eyebrow">Как это работает</p>
-          <h2 className="section-heading">Коротко и ясно: 4 шага до аренды</h2>
-        </div>
-        <div className="workflow-grid">
-          {workflowSteps.map((item, index) => {
-            const Icon = item.icon;
-            return (
-              <article className="workflow-card" key={item.title}>
-                <span className="workflow-index">{index + 1}</span>
-                <Icon size={24} />
-                <strong>{item.title}</strong>
-                <p>{item.text}</p>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
       <section className="stats-grid" aria-label="Статистика сервиса">
         {stats.map((item) => (
           <article className="stat-card" key={item.label}>
@@ -350,20 +424,6 @@ export function HomeClient() {
             <span>{item.label}</span>
           </article>
         ))}
-      </section>
-
-      <section className="section-band section-band-compact">
-        <div className="surface faq-inline-card">
-          <div>
-            <p className="eyebrow">FAQ</p>
-            <h2 className="section-title">Ответы перед первой арендой</h2>
-          </div>
-          <Link className="button button-secondary faq-inline-action" href="/faq">
-            <HelpCircle size={18} />
-            Открыть вопросы и ответы
-            <ArrowRight size={18} />
-          </Link>
-        </div>
       </section>
     </PageChrome>
   );

@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from pydantic import BaseModel, ConfigDict
 
 
@@ -8,6 +6,10 @@ class EsiWebhookPayload(BaseModel):
 
     eventType: str
     eventId: str
-    rentalId: UUID | None = None
-    lockerId: UUID | None = None
-    cellId: UUID | None = None
+    rentalId: str | None = None
+    lockerId: str | None = None
+    lockerExternalId: str | None = None
+    serial: str | None = None
+    machineSerial: str | None = None
+    cellId: str | None = None
+    cellExternalId: str | None = None

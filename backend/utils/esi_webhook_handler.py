@@ -8,12 +8,34 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.settings import settings
-from backend.models.enums import InventoryStatus, RentalEventSource, RentalStatus
+from backend.models.esi_event_log import EsiEventLog
+from backend.models.enums import (
+    InventoryStatus,
+    LockerCellStatus,
+    LockerStatus,
+    RentalEventSource,
+    RentalStatus,
+    ReturnRequestStatus,
+)
 from backend.models.inventory_unit import InventoryUnit
+from backend.models.locker_cell import LockerCell
+from backend.models.locker_location import LockerLocation
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
+from backend.models.return_request import ReturnRequest
+from backend.utils.inventory_tracking import add_inventory_movement
+from backend.utils.return_requests import (
+    complete_return_request,
+    get_active_return_request_by_cell,
+    get_active_return_request_for_rental,
+)
 
 logger = logging.getLogger(__name__)
+
+OPEN_EVENTS = frozenset({"pickup_cell_opened", "cell_open", "cell_opened"})
+CLOSE_EVENTS = frozenset({"pickup_cell_closed", "return_cell_closed", "cell_close", "cell_closed"})
+VACANT_EVENTS = frozenset({"pickup_complete", "cell_vacant", "vacant"})
+OCCUPIED_EVENTS = frozenset({"return_cell_closed", "cell_occupied", "occupied"})
 
 
 def verify_esi_signature(body: bytes, signature_header: str | None) -> bool:
@@ -26,142 +48,292 @@ def verify_esi_signature(body: bytes, signature_header: str | None) -> bool:
     return hmac.compare_digest(expected, signature_header.strip())
 
 
-async def _esi_event_seen(
+def normalize_event_type(raw: str) -> str:
+    return raw.strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def _parse_optional_uuid(value) -> UUID | None:
+    if value in (None, ""):
+        return None
+    try:
+        return UUID(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_locker_external_id(payload: dict) -> str | None:
+    for key in ("lockerExternalId", "serial", "machineSerial", "lockerId"):
+        value = payload.get(key)
+        if value not in (None, ""):
+            return str(value).strip()
+    return None
+
+
+def _extract_cell_external_id(payload: dict) -> str | None:
+    for key in ("cellExternalId", "cellId"):
+        value = payload.get(key)
+        if value not in (None, ""):
+            return str(value).strip()
+    return None
+
+
+async def _find_locker(
     db: AsyncSession,
-    rental_id: UUID,
-    event_type_key: str,
+    locker_external_id: str | None,
+) -> LockerLocation | None:
+    locker_uuid = _parse_optional_uuid(locker_external_id)
+    if locker_uuid is not None:
+        locker = await db.get(LockerLocation, locker_uuid)
+        if locker is not None:
+            return locker
+
+    if locker_external_id:
+        stmt = select(LockerLocation).where(LockerLocation.external_locker_id == locker_external_id).limit(1)
+        return (await db.scalars(stmt)).first()
+    return None
+
+
+async def _find_cell(
+    db: AsyncSession,
+    *,
+    locker: LockerLocation | None,
+    cell_external_id: str | None,
+) -> LockerCell | None:
+    cell_uuid = _parse_optional_uuid(cell_external_id)
+    if cell_uuid is not None:
+        cell = await db.get(LockerCell, cell_uuid)
+        if cell is not None and (locker is None or cell.locker_id == locker.id):
+            return cell
+
+    if locker is not None and cell_external_id:
+        stmt = (
+            select(LockerCell)
+            .where(
+                LockerCell.locker_id == locker.id,
+                LockerCell.external_cell_id == cell_external_id,
+            )
+            .limit(1)
+        )
+        return (await db.scalars(stmt)).first()
+    return None
+
+
+async def _mark_pickup_opened(
+    db: AsyncSession,
+    *,
+    rental: Rental,
+    cell: LockerCell | None,
     event_id: str,
-) -> bool:
-    stmt = select(RentalEvent).where(RentalEvent.rental_id == rental_id)
-    rows = (await db.scalars(stmt)).all()
-    for ev in rows:
-        payload = ev.payload_json or {}
-        if payload.get("eventId") == event_id and ev.event_type == event_type_key:
-            return True
-    return False
+    event_type: str,
+    now: datetime,
+) -> str:
+    if rental.status != RentalStatus.PICKUP_READY:
+        return "ignored_pickup_open_status"
+
+    prev = rental.status
+    rental.status = RentalStatus.PICKUP_OPENED
+    if cell is not None:
+        cell.status = LockerCellStatus.OPENED
+        cell.last_opened_at = now
+        cell.last_event_at = now
+    db.add(
+        RentalEvent(
+            rental_id=rental.id,
+            event_type="pickup_cell_opened",
+            from_status=prev,
+            to_status=RentalStatus.PICKUP_OPENED,
+            source=RentalEventSource.LOCKER_WEBHOOK,
+            payload_json={"eventId": event_id, "eventType": event_type},
+        )
+    )
+    return "pickup_opened"
+
+
+async def _mark_pickup_completed(
+    db: AsyncSession,
+    *,
+    rental: Rental,
+    cell: LockerCell | None,
+    unit: InventoryUnit | None,
+    event_id: str,
+    event_type: str,
+    now: datetime,
+) -> str:
+    if rental.status not in (RentalStatus.PICKUP_READY, RentalStatus.PICKUP_OPENED):
+        return "ignored_pickup_complete_status"
+
+    prev_rental_status = rental.status
+    prev_unit_status = unit.status if unit is not None else None
+    prev_cell_id = unit.locker_cell_id if unit is not None else None
+
+    rental.status = RentalStatus.ACTIVE
+    rental.starts_at = rental.starts_at or now
+
+    if unit is not None:
+        unit.status = InventoryStatus.RENTED
+        unit.locker_cell_id = None
+
+    if cell is not None:
+        cell.status = LockerCellStatus.VACANT
+        cell.last_closed_at = now
+        cell.last_event_at = now
+
+    if unit is not None:
+        add_inventory_movement(
+            db,
+            unit=unit,
+            from_locker_id=rental.pickup_locker_id,
+            to_locker_id=None,
+            from_cell_id=prev_cell_id,
+            to_cell_id=None,
+            from_status=prev_unit_status,
+            to_status=InventoryStatus.RENTED,
+            reason="pickup_completed",
+        )
+
+    db.add(
+        RentalEvent(
+            rental_id=rental.id,
+            event_type="pickup_completed",
+            from_status=prev_rental_status,
+            to_status=RentalStatus.ACTIVE,
+            source=RentalEventSource.LOCKER_WEBHOOK,
+            payload_json={"eventId": event_id, "eventType": event_type},
+        )
+    )
+    return "pickup_completed"
+
+
+async def _resolve_return_request(
+    db: AsyncSession,
+    *,
+    rental: Rental | None,
+    locker: LockerLocation | None,
+    cell: LockerCell | None,
+) -> ReturnRequest | None:
+    request = None
+    if rental is not None:
+        request = await get_active_return_request_for_rental(db, rental.id)
+        if request is not None:
+            return request
+    if locker is not None and cell is not None:
+        return await get_active_return_request_by_cell(db, locker_id=locker.id, cell_id=cell.id)
+    return None
 
 
 async def process_esi_webhook_payload(
     db: AsyncSession,
     *,
-    event_type: str,
-    event_id: str,
-    rental_id: UUID | None,
+    payload: dict,
 ) -> None:
-    from fastapi import HTTPException
+    raw_event_type = str(payload.get("eventType") or "").strip()
+    event_type = normalize_event_type(raw_event_type)
+    event_id = str(payload.get("eventId") or "").strip()
+    if not raw_event_type or not event_id:
+        raise ValueError("INVALID_ESI_PAYLOAD")
 
-    if not rental_id:
-        raise HTTPException(status_code=400, detail="INVALID_ESI_PAYLOAD")
-
-    rental = (
-        await db.execute(select(Rental).where(Rental.id == rental_id))
-    ).scalar_one_or_none()
-    if rental is None:
-        raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
+    existing = (
+        await db.scalars(select(EsiEventLog).where(EsiEventLog.provider_event_id == event_id).limit(1))
+    ).first()
+    if existing is not None:
+        return
 
     now = datetime.now(timezone.utc)
+    log = EsiEventLog(
+        provider_event_id=event_id,
+        event_type=event_type,
+        locker_external_id=_extract_locker_external_id(payload),
+        cell_external_id=_extract_cell_external_id(payload),
+        payload_json=payload,
+    )
+    db.add(log)
+    await db.flush()
 
-    if event_type == "pickup_cell_opened":
-        key = "pickup_cell_opened"
-        if await _esi_event_seen(db, rental.id, key, event_id):
-            return
-        if rental.status != RentalStatus.PICKUP_READY:
-            raise HTTPException(status_code=409, detail="INVALID_RENTAL_STATUS")
-        prev = rental.status
-        rental.status = RentalStatus.PICKUP_OPENED
-        db.add(
-            RentalEvent(
-                rental_id=rental.id,
-                event_type=key,
-                from_status=prev,
-                to_status=RentalStatus.PICKUP_OPENED,
-                source=RentalEventSource.LOCKER_WEBHOOK,
-                payload_json={"eventId": event_id, "eventType": event_type},
-            )
+    result = "ignored"
+    rental: Rental | None = None
+    unit: InventoryUnit | None = None
+    locker = await _find_locker(db, log.locker_external_id)
+    cell = await _find_cell(db, locker=locker, cell_external_id=log.cell_external_id)
+
+    rental_id = _parse_optional_uuid(payload.get("rentalId"))
+    if rental_id is not None:
+        rental = await db.get(Rental, rental_id)
+
+    if rental is not None:
+        unit = await db.get(InventoryUnit, rental.inventory_unit_id)
+        if cell is None and unit is not None and unit.locker_cell_id is not None:
+            candidate = await db.get(LockerCell, unit.locker_cell_id)
+            if candidate is not None and (
+                log.cell_external_id in (None, "", candidate.external_cell_id, str(candidate.id))
+            ):
+                cell = candidate
+        if locker is None and cell is not None:
+            locker = await db.get(LockerLocation, cell.locker_id)
+
+    if cell is not None and event_type in OPEN_EVENTS:
+        cell.status = LockerCellStatus.OPENED
+        cell.last_opened_at = now
+        cell.last_event_at = now
+    elif cell is not None and event_type in OCCUPIED_EVENTS:
+        cell.status = LockerCellStatus.OCCUPIED
+        cell.last_closed_at = now
+        cell.last_event_at = now
+    elif cell is not None and event_type in VACANT_EVENTS:
+        cell.status = LockerCellStatus.VACANT
+        cell.last_closed_at = now
+        cell.last_event_at = now
+    elif cell is not None and event_type in CLOSE_EVENTS:
+        cell.last_closed_at = now
+        cell.last_event_at = now
+
+    if locker is not None:
+        locker.last_online_at = now
+        if locker.status == LockerStatus.OFFLINE:
+            locker.status = LockerStatus.ONLINE
+
+    if rental is not None and event_type in OPEN_EVENTS and rental.status == RentalStatus.PICKUP_READY:
+        result = await _mark_pickup_opened(
+            db,
+            rental=rental,
+            cell=cell,
+            event_id=event_id,
+            event_type=raw_event_type,
+            now=now,
         )
-        await db.commit()
-        return
-
-    if event_type == "pickup_cell_closed":
-        key = "pickup_cell_closed"
-        if await _esi_event_seen(db, rental.id, key, event_id):
-            return
-        if rental.status not in (RentalStatus.PICKUP_OPENED, RentalStatus.PICKUP_READY):
-            raise HTTPException(status_code=409, detail="INVALID_RENTAL_STATUS")
-        prev = rental.status
-        rental.status = RentalStatus.ACTIVE
-        rental.starts_at = now
-        unit = (
-            await db.execute(select(InventoryUnit).where(InventoryUnit.id == rental.inventory_unit_id))
-        ).scalar_one_or_none()
-        if unit is not None:
-            unit.status = InventoryStatus.RENTED
-        db.add(
-            RentalEvent(
-                rental_id=rental.id,
-                event_type=key,
-                from_status=prev,
-                to_status=RentalStatus.ACTIVE,
-                source=RentalEventSource.LOCKER_WEBHOOK,
-                payload_json={"eventId": event_id, "eventType": event_type},
-            )
+    elif rental is not None and event_type in (VACANT_EVENTS | CLOSE_EVENTS) and rental.status in (
+        RentalStatus.PICKUP_READY,
+        RentalStatus.PICKUP_OPENED,
+    ):
+        result = await _mark_pickup_completed(
+            db,
+            rental=rental,
+            cell=cell,
+            unit=unit,
+            event_id=event_id,
+            event_type=raw_event_type,
+            now=now,
         )
-        await db.commit()
-        return
+    else:
+        return_request = await _resolve_return_request(db, rental=rental, locker=locker, cell=cell)
+        if return_request is not None and event_type in OCCUPIED_EVENTS | CLOSE_EVENTS:
+            if return_request.status in (
+                ReturnRequestStatus.CREATED,
+                ReturnRequestStatus.LOCKER_OPENED,
+                ReturnRequestStatus.AWAITING_CLOSE,
+            ):
+                rental, unit = await complete_return_request(
+                    db,
+                    request=return_request,
+                    provider_event_id=event_id,
+                    source=RentalEventSource.LOCKER_WEBHOOK,
+                )
+                log.matched_return_request_id = return_request.id
+                result = "return_completed"
+        elif cell is not None:
+            result = "unexpected_cell_event"
 
-    if event_type == "pickup_complete":
-        key = "pickup_complete"
-        if await _esi_event_seen(db, rental.id, key, event_id):
-            return
-        if rental.status not in (RentalStatus.PICKUP_READY, RentalStatus.PICKUP_OPENED):
-            raise HTTPException(status_code=409, detail="INVALID_RENTAL_STATUS")
-        prev = rental.status
-        rental.status = RentalStatus.ACTIVE
-        rental.starts_at = now
-        unit = (
-            await db.execute(select(InventoryUnit).where(InventoryUnit.id == rental.inventory_unit_id))
-        ).scalar_one_or_none()
-        if unit is not None:
-            unit.status = InventoryStatus.RENTED
-        db.add(
-            RentalEvent(
-                rental_id=rental.id,
-                event_type=key,
-                from_status=prev,
-                to_status=RentalStatus.ACTIVE,
-                source=RentalEventSource.LOCKER_WEBHOOK,
-                payload_json={"eventId": event_id, "eventType": event_type},
-            )
-        )
-        await db.commit()
-        return
-
-    if event_type == "return_cell_closed":
-        key = "return_cell_closed"
-        if await _esi_event_seen(db, rental.id, key, event_id):
-            return
-        if rental.status != RentalStatus.RETURN_IN_PROGRESS:
-            raise HTTPException(status_code=409, detail="INVALID_RENTAL_STATUS")
-        prev = rental.status
-        rental.status = RentalStatus.COMPLETED
-        rental.actual_end_at = now
-        rental.completed_at = now
-        unit = (
-            await db.execute(select(InventoryUnit).where(InventoryUnit.id == rental.inventory_unit_id))
-        ).scalar_one_or_none()
-        if unit is not None:
-            unit.status = InventoryStatus.AVAILABLE
-        db.add(
-            RentalEvent(
-                rental_id=rental.id,
-                event_type=key,
-                from_status=prev,
-                to_status=RentalStatus.COMPLETED,
-                source=RentalEventSource.LOCKER_WEBHOOK,
-                payload_json={"eventId": event_id, "eventType": event_type},
-            )
-        )
-        await db.commit()
-        return
-
-    logger.info("Ignored unknown ESI eventType=%s", event_type)
+    if rental is not None:
+        log.matched_rental_id = rental.id
+    log.processing_result = result
+    log.processed_at = now
+    await db.commit()

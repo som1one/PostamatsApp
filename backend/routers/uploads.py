@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from backend.core.exceptions import ClientError
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
@@ -13,6 +13,11 @@ from backend.models.admin_user import AdminUser
 from backend.models.media_file import MediaFile
 from backend.schemas.uploads_schemas import PRESIGN_KIND_VALUES, PresignUploadRequest
 from backend.utils.auth_utils import get_current_client_user
+from backend.utils.local_storage import (
+    build_local_upload_token,
+    store_local_upload,
+    verify_local_upload_token,
+)
 from backend.utils.storage_presign import presign_put_object
 from backend.utils.uploads_utils import (
     PRESIGN_KIND_TO_MEDIA,
@@ -26,6 +31,50 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 CLIENT_PRESIGN_KIND_VALUES = PRESIGN_KIND_VALUES.difference({"product_cover", "product_gallery"})
+
+
+@router.put("/files/{file_id}", name="put_media_upload")
+async def put_media_upload(
+    request: Request,
+    file_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    media = await db.get(MediaFile, file_id)
+    if media is None:
+        raise HTTPException(status_code=404, detail="MEDIA_FILE_NOT_FOUND")
+    if media.storage_provider != "filesystem":
+        raise HTTPException(status_code=409, detail="UNSUPPORTED_UPLOAD_PROVIDER")
+
+    token = request.headers.get("X-Upload-Token")
+    try:
+        payload = verify_local_upload_token(token)
+    except ClientError as exc:
+        raise HTTPException(status_code=500, detail=str(exc) or "STORAGE_PERSIST_FAILED") from exc
+    if payload is None:
+        raise HTTPException(status_code=401, detail="INVALID_UPLOAD_TOKEN")
+
+    if payload.get("fileId") != str(media.id):
+        raise HTTPException(status_code=403, detail="INVALID_UPLOAD_TOKEN")
+    if payload.get("fileKey") != media.file_key or payload.get("mimeType") != media.mime_type:
+        raise HTTPException(status_code=403, detail="INVALID_UPLOAD_TOKEN")
+
+    content_type = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
+    if content_type != media.mime_type:
+        raise HTTPException(status_code=400, detail="INVALID_MIME_TYPE")
+
+    body = await request.body()
+    if not body:
+        raise HTTPException(status_code=400, detail="EMPTY_UPLOAD")
+
+    try:
+        store_local_upload(media.file_key, body)
+    except ClientError as exc:
+        raise HTTPException(status_code=500, detail=str(exc) or "STORAGE_PERSIST_FAILED") from exc
+    except Exception as exc:
+        logger.exception("local upload failed for %s", media.file_key)
+        raise HTTPException(status_code=500, detail="STORAGE_PERSIST_FAILED") from exc
+
+    return {"data": {"stored": True, "fileId": str(media.id)}}
 
 
 @router.post("/presign")
@@ -79,12 +128,23 @@ async def presign_upload(
     try:
         await db.flush()
         expires_in = settings.UPLOAD_PRESIGN_EXPIRES
-        upload_url = presign_put_object(
-            bucket=bucket,
-            file_key=file_key,
-            content_type=mime,
-            expires_in=expires_in,
-        )
+        if settings.STORAGE_PROVIDER == "filesystem":
+            upload_url = str(request.url_for("put_media_upload", file_id=str(media.id)))
+            upload_token = build_local_upload_token(
+                file_id=media.id,
+                file_key=file_key,
+                mime_type=mime,
+                expires_in=expires_in,
+            )
+            upload_headers = {"Content-Type": mime, "X-Upload-Token": upload_token}
+        else:
+            upload_url = presign_put_object(
+                bucket=bucket,
+                file_key=file_key,
+                content_type=mime,
+                expires_in=expires_in,
+            )
+            upload_headers = {"Content-Type": mime}
         await db.commit()
         await db.refresh(media)
     except HTTPException:
@@ -92,7 +152,7 @@ async def presign_upload(
         raise
     except ClientError as exc:
         await db.rollback()
-        logger.exception("S3 presign failed")
+        logger.exception("upload presign failed")
         raise HTTPException(status_code=500, detail=str(exc) or "STORAGE_PRESIGN_FAILED") from None
     except Exception:
         await db.rollback()
@@ -105,7 +165,7 @@ async def presign_upload(
             "fileKey": media.file_key,
             "uploadUrl": upload_url,
             "method": "PUT",
-            "headers": {"Content-Type": mime},
+            "headers": upload_headers,
             "expiresIn": settings.UPLOAD_PRESIGN_EXPIRES,
         }
     }

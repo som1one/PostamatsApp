@@ -1,0 +1,42 @@
+@media (max-width: 400px) {
+  .page-title,
+  .hero-service h1 {
+    font-size: 27px;
+  }
+
+  .hero-service-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .brand {
+    min-width: 0;
+  }
+
+  .brand-mark {
+    width: 30px;
+    height: 30px;
+  }
+
+  .brand-copy strong {
+    font-size: 13px;
+  }
+
+  .brand-copy small {
+    font-size: 9px;
+  }
+
+  .header-mobile-auth {
+    min-height: 36px;
+    padding-inline: 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .footer-grid > .footer-section:last-child {
+    grid-column: 1 / -1;
+  }
+}

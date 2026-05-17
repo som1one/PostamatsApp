@@ -11,6 +11,7 @@ from backend.core.settings import settings
 from backend.models.media_file import MediaFile
 from backend.routers.admin.auth import get_current_admin
 from backend.schemas.uploads_schemas import PRESIGN_KIND_VALUES, PresignUploadRequest
+from backend.utils.local_storage import build_local_upload_token
 from backend.utils.storage_presign import presign_put_object
 from backend.utils.uploads_utils import (
     MIME_BY_KIND,
@@ -74,12 +75,23 @@ async def presign_admin_upload(
     try:
         await db.flush()
         expires_in = settings.UPLOAD_PRESIGN_EXPIRES
-        upload_url = presign_put_object(
-            bucket=bucket,
-            file_key=file_key,
-            content_type=mime,
-            expires_in=expires_in,
-        )
+        if settings.STORAGE_PROVIDER == "filesystem":
+            upload_url = str(request.url_for("put_media_upload", file_id=str(media.id)))
+            upload_token = build_local_upload_token(
+                file_id=media.id,
+                file_key=file_key,
+                mime_type=mime,
+                expires_in=expires_in,
+            )
+            upload_headers = {"Content-Type": mime, "X-Upload-Token": upload_token}
+        else:
+            upload_url = presign_put_object(
+                bucket=bucket,
+                file_key=file_key,
+                content_type=mime,
+                expires_in=expires_in,
+            )
+            upload_headers = {"Content-Type": mime}
         await db.commit()
         await db.refresh(media)
     except HTTPException:
@@ -87,7 +99,7 @@ async def presign_admin_upload(
         raise
     except ClientError as exc:
         await db.rollback()
-        logger.exception("admin S3 presign failed")
+        logger.exception("admin upload presign failed")
         raise HTTPException(status_code=500, detail=str(exc) or "STORAGE_PRESIGN_FAILED") from None
     except Exception:
         await db.rollback()
@@ -100,7 +112,7 @@ async def presign_admin_upload(
             "fileKey": media.file_key,
             "uploadUrl": upload_url,
             "method": "PUT",
-            "headers": {"Content-Type": mime},
+            "headers": upload_headers,
             "expiresIn": settings.UPLOAD_PRESIGN_EXPIRES,
         }
     }

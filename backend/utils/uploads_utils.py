@@ -58,6 +58,8 @@ def is_public_media_kind(media_kind: MediaFileKind) -> bool:
 
 
 def bucket_for_media_kind(media_kind: MediaFileKind) -> str:
+    if settings.STORAGE_PROVIDER == "filesystem":
+        return "filesystem-public" if is_public_media_kind(media_kind) else "filesystem-private"
     if is_public_media_kind(media_kind):
         return settings.S3_PUBLIC_BUCKET
     return settings.S3_PRIVATE_BUCKET

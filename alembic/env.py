@@ -27,6 +27,7 @@ from backend.models import auth_verification_session  # noqa: F401
 from backend.models import city  # noqa: F401
 from backend.models import condition_report  # noqa: F401
 from backend.models import condition_report_photo  # noqa: F401
+from backend.models import esi_event_log  # noqa: F401
 from backend.models import inventory_movement  # noqa: F401
 from backend.models import inventory_unit  # noqa: F401
 from backend.models import locker_cell  # noqa: F401
@@ -40,6 +41,7 @@ from backend.models import product_category  # noqa: F401
 from backend.models import product_image  # noqa: F401
 from backend.models import rental  # noqa: F401
 from backend.models import rental_event  # noqa: F401
+from backend.models import return_request  # noqa: F401
 from backend.models import reservation  # noqa: F401
 from backend.models import user  # noqa: F401
 from backend.models import verification_request  # noqa: F401

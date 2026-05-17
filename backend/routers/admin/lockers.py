@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
 from backend.models.city import City
-from backend.models.enums import InventoryStatus
+from backend.models.enums import InventoryStatus, LockerCellStatus, ReturnRequestStatus
+from backend.models.esi_event_log import EsiEventLog
 from backend.models.inventory_movement import InventoryMovement
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
@@ -16,8 +17,10 @@ from backend.models.product import Product
 from backend.models.reservation import Reservation
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
+from backend.models.return_request import ReturnRequest
 from backend.routers.admin.auth import get_current_admin
 from backend.schemas.admin_panel_schemas import (
+    AdminAssignInventoryUnitPayload,
     AdminCreateLockerCellPayload,
     AdminCreateLockerPayload,
     AdminOpenCellPayload,
@@ -30,7 +33,9 @@ from backend.utils.esi_client import (
     EsiOpenError,
     admin_trigger_open_cell,
     discover_external_lockers,
+    sync_cell_state,
 )
+from backend.utils.inventory_tracking import add_inventory_movement
 from backend.utils.lockers_utils import (
     aggregate_available_inventory_by_product,
     build_locker_product_summaries,
@@ -146,6 +151,15 @@ def _serialize_rental_event_row(ev: RentalEvent) -> dict:
         "source": ev.source.value,
         "createdAt": ev.created_at.isoformat(),
         "payload": ev.payload_json,
+    }
+
+
+def _serialize_incident_row(*, kind: str, title: str, details: str, payload: dict | None = None) -> dict:
+    return {
+        "kind": kind,
+        "title": title,
+        "details": details,
+        "payload": payload or {},
     }
 
 
@@ -430,6 +444,158 @@ async def admin_update_locker_cell(
     return {"data": {"cell": _serialize_cell(cell, unit, product)}}
 
 
+@router.post("/{locker_id}/cells/{cell_id}/assign-unit")
+async def admin_assign_inventory_unit(
+    request: Request,
+    locker_id: UUID,
+    cell_id: UUID,
+    payload: AdminAssignInventoryUnitPayload = Body(...),
+    db: AsyncSession = Depends(get_db),
+):
+    admin, _ = await get_current_admin(request, db)
+
+    locker = await db.get(LockerLocation, locker_id)
+    cell = await db.get(LockerCell, cell_id)
+    if locker is None or cell is None or cell.locker_id != locker_id:
+        raise HTTPException(status_code=404, detail="CELL_NOT_FOUND")
+
+    unit = await db.get(InventoryUnit, payload.inventoryUnitId)
+    if unit is None:
+        raise HTTPException(status_code=404, detail="INVENTORY_UNIT_NOT_FOUND")
+    if unit.status != InventoryStatus.AVAILABLE:
+        raise HTTPException(status_code=409, detail="INVENTORY_UNIT_NOT_AVAILABLE")
+
+    current_unit = (
+        await db.execute(select(InventoryUnit).where(InventoryUnit.locker_cell_id == cell.id))
+    ).scalar_one_or_none()
+    if current_unit is not None and current_unit.id != unit.id:
+        raise HTTPException(status_code=409, detail="CELL_ALREADY_OCCUPIED")
+    if unit.locker_cell_id == cell.id:
+        product = await db.get(Product, unit.product_id)
+        return {"data": {"cell": _serialize_cell(cell, unit, product)}}
+
+    prev_cell = await db.get(LockerCell, unit.locker_cell_id) if unit.locker_cell_id else None
+    prev_locker_id = prev_cell.locker_id if prev_cell is not None else None
+    prev_status = unit.status
+
+    try:
+        await sync_cell_state(
+            db,
+            locker_id=locker_id,
+            cell_id=cell_id,
+            state="occupied",
+            pin=None,
+        )
+        if prev_cell is not None and prev_cell.id != cell.id:
+            await sync_cell_state(
+                db,
+                locker_id=prev_cell.locker_id,
+                cell_id=prev_cell.id,
+                state="vacant",
+                pin=None,
+            )
+            prev_cell.status = LockerCellStatus.VACANT
+
+        unit.locker_cell_id = cell.id
+        cell.status = LockerCellStatus.OCCUPIED
+        add_inventory_movement(
+            db,
+            unit=unit,
+            from_locker_id=prev_locker_id,
+            to_locker_id=locker_id,
+            from_cell_id=prev_cell.id if prev_cell is not None else None,
+            to_cell_id=cell.id,
+            from_status=prev_status,
+            to_status=InventoryStatus.AVAILABLE,
+            reason="admin_assign_cell",
+            performed_by_admin_id=admin.id,
+        )
+        record_admin_audit(
+            db,
+            admin_account_id=admin.id,
+            action="locker.cell.assign_unit",
+            request=request,
+            resource_type="locker_cell",
+            resource_id=cell.id,
+            payload={"inventoryUnitId": str(unit.id)},
+        )
+        await db.commit()
+    except EsiOpenError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="CELL_ASSIGN_FAILED") from exc
+
+    product = await db.get(Product, unit.product_id)
+    return {"data": {"cell": _serialize_cell(cell, unit, product)}}
+
+
+@router.delete("/{locker_id}/cells/{cell_id}/assignment")
+async def admin_unassign_inventory_unit(
+    request: Request,
+    locker_id: UUID,
+    cell_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    admin, _ = await get_current_admin(request, db)
+
+    locker = await db.get(LockerLocation, locker_id)
+    cell = await db.get(LockerCell, cell_id)
+    if locker is None or cell is None or cell.locker_id != locker_id:
+        raise HTTPException(status_code=404, detail="CELL_NOT_FOUND")
+
+    unit = (
+        await db.execute(select(InventoryUnit).where(InventoryUnit.locker_cell_id == cell.id))
+    ).scalar_one_or_none()
+    if unit is None:
+        raise HTTPException(status_code=404, detail="CELL_ASSIGNMENT_NOT_FOUND")
+    if unit.status != InventoryStatus.AVAILABLE:
+        raise HTTPException(status_code=409, detail="INVENTORY_UNIT_NOT_AVAILABLE")
+
+    prev_status = unit.status
+    try:
+        await sync_cell_state(
+            db,
+            locker_id=locker_id,
+            cell_id=cell_id,
+            state="vacant",
+            pin=None,
+        )
+        unit.locker_cell_id = None
+        cell.status = LockerCellStatus.VACANT
+        add_inventory_movement(
+            db,
+            unit=unit,
+            from_locker_id=locker_id,
+            to_locker_id=None,
+            from_cell_id=cell.id,
+            to_cell_id=None,
+            from_status=prev_status,
+            to_status=InventoryStatus.AVAILABLE,
+            reason="admin_unassign_cell",
+            performed_by_admin_id=admin.id,
+        )
+        record_admin_audit(
+            db,
+            admin_account_id=admin.id,
+            action="locker.cell.unassign_unit",
+            request=request,
+            resource_type="locker_cell",
+            resource_id=cell.id,
+            payload={"inventoryUnitId": str(unit.id)},
+        )
+        await db.commit()
+    except EsiOpenError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="CELL_UNASSIGN_FAILED") from exc
+
+    return {"data": {"cell": _serialize_cell(cell, None, None)}}
+
+
 @router.get("/{locker_id}")
 async def get_admin_locker(
     request: Request,
@@ -483,6 +649,83 @@ async def get_admin_locker(
     plans = await fetch_min_price_plans_by_product(db, list(product_counts.keys()))
     product_summaries = build_locker_product_summaries(product_counts, products, plans)
 
+    assignable_units_stmt = (
+        select(InventoryUnit)
+        .where(InventoryUnit.status == InventoryStatus.AVAILABLE)
+        .order_by(InventoryUnit.created_at.desc())
+        .limit(200)
+    )
+    assignable_units = (await db.scalars(assignable_units_stmt)).all()
+    assignable_product_ids = list({u.product_id for u in assignable_units})
+    assignable_products = await load_products_by_ids(db, assignable_product_ids)
+
+    incidents: list[dict] = []
+    for cell in cells:
+        unit = units_by_cell.get(cell.id)
+        if cell.status == LockerCellStatus.OCCUPIED and unit is None:
+            incidents.append(
+                _serialize_incident_row(
+                    kind="local-mismatch",
+                    title="Ячейка помечена занятой без юнита",
+                    details=f"Cell {cell.label or cell.external_cell_id or cell.id}",
+                    payload={"cellId": str(cell.id)},
+                )
+            )
+        if cell.status == LockerCellStatus.VACANT and unit is not None and unit.status == InventoryStatus.AVAILABLE:
+            incidents.append(
+                _serialize_incident_row(
+                    kind="local-mismatch",
+                    title="Юнит привязан к пустой ячейке",
+                    details=f"Unit {unit.id} still linked to vacant cell",
+                    payload={"cellId": str(cell.id), "inventoryUnitId": str(unit.id)},
+                )
+            )
+
+    active_returns_stmt = (
+        select(ReturnRequest)
+        .where(ReturnRequest.locker_id == locker_id)
+        .order_by(ReturnRequest.created_at.desc())
+        .limit(20)
+    )
+    active_returns = (await db.scalars(active_returns_stmt)).all()
+    for request_row in active_returns:
+        if request_row.status == ReturnRequestStatus.FAILED:
+            incidents.append(
+                _serialize_incident_row(
+                    kind="return-failed",
+                    title="Возврат ушёл в инцидент",
+                    details=request_row.failure_reason or "Return request failed",
+                    payload={
+                        "returnRequestId": str(request_row.id),
+                        "rentalId": str(request_row.rental_id),
+                        "cellId": str(request_row.cell_id),
+                    },
+                )
+            )
+
+    event_logs_stmt = (
+        select(EsiEventLog)
+        .where(
+            EsiEventLog.locker_external_id == locker.external_locker_id,
+            EsiEventLog.processing_result.in_(("unexpected_cell_event", "ignored_pickup_complete_status")),
+        )
+        .order_by(EsiEventLog.created_at.desc())
+        .limit(20)
+    )
+    event_logs = (await db.scalars(event_logs_stmt)).all() if locker.external_locker_id else []
+    for item in event_logs:
+        incidents.append(
+            _serialize_incident_row(
+                kind="esi-event",
+                title="Неожиданное событие ESI",
+                details=f"{item.event_type} ({item.processing_result})",
+                payload={
+                    "eventId": item.provider_event_id,
+                    "cellExternalId": item.cell_external_id,
+                },
+            )
+        )
+
     events_stmt = (
         select(RentalEvent)
         .join(Rental, RentalEvent.rental_id == Rental.id)
@@ -510,6 +753,20 @@ async def get_admin_locker(
             "locker": locker_payload,
             "cells": cells_payload,
             "productSummaries": product_summaries,
+            "assignableUnits": [
+                {
+                    "id": str(unit.id),
+                    "status": unit.status.value,
+                    "serialNumber": unit.serial_number,
+                    "productId": str(unit.product_id),
+                    "productName": assignable_products.get(unit.product_id).name
+                    if assignable_products.get(unit.product_id)
+                    else "",
+                    "lockerCellId": str(unit.locker_cell_id) if unit.locker_cell_id else None,
+                }
+                for unit in assignable_units
+            ],
+            "incidents": incidents[:30],
             "recentEvents": [_serialize_rental_event_row(ev) for ev in events],
         }
     }

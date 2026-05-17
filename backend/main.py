@@ -40,6 +40,10 @@ from backend.utils.featured_product import (
     start_featured_product_scheduler,
     stop_featured_product_scheduler,
 )
+from backend.utils.esi_reconcile import (
+    start_esi_reconcile_scheduler,
+    stop_esi_reconcile_scheduler,
+)
 from backend.utils.reservation_expiry import (
     start_reservation_expiry_scheduler,
     stop_reservation_expiry_scheduler,
@@ -47,6 +51,10 @@ from backend.utils.reservation_expiry import (
 from backend.utils.rental_pickup_expiry import (
     start_rental_pickup_expiry_scheduler,
     stop_rental_pickup_expiry_scheduler,
+)
+from backend.utils.rental_overdue import (
+    start_rental_overdue_scheduler,
+    stop_rental_overdue_scheduler,
 )
 
 
@@ -57,6 +65,10 @@ reservation_expiry_worker: threading.Thread | None = None
 reservation_expiry_stop_event: threading.Event | None = None
 rental_pickup_expiry_worker: threading.Thread | None = None
 rental_pickup_expiry_stop_event: threading.Event | None = None
+rental_overdue_worker_handle: threading.Thread | None = None
+rental_overdue_stop_event: threading.Event | None = None
+esi_reconcile_worker: threading.Thread | None = None
+esi_reconcile_stop_event: threading.Event | None = None
 
 app.add_middleware(
     CORSMiddleware,
@@ -101,18 +113,24 @@ async def startup_event():
     global featured_product_worker, featured_product_stop_event
     global reservation_expiry_worker, reservation_expiry_stop_event
     global rental_pickup_expiry_worker, rental_pickup_expiry_stop_event
+    global rental_overdue_worker_handle, rental_overdue_stop_event
+    global esi_reconcile_worker, esi_reconcile_stop_event
     await init_db()
     await init_redis()
     loop = asyncio.get_running_loop()
     featured_product_worker, featured_product_stop_event = start_featured_product_scheduler(loop)
     reservation_expiry_worker, reservation_expiry_stop_event = start_reservation_expiry_scheduler(loop)
     rental_pickup_expiry_worker, rental_pickup_expiry_stop_event = start_rental_pickup_expiry_scheduler(loop)
+    rental_overdue_worker_handle, rental_overdue_stop_event = start_rental_overdue_scheduler(loop)
+    esi_reconcile_worker, esi_reconcile_stop_event = start_esi_reconcile_scheduler(loop)
 
 @app.on_event("shutdown")
 async def shutdown_event():
     global featured_product_worker, featured_product_stop_event
     global reservation_expiry_worker, reservation_expiry_stop_event
     global rental_pickup_expiry_worker, rental_pickup_expiry_stop_event
+    global rental_overdue_worker_handle, rental_overdue_stop_event
+    global esi_reconcile_worker, esi_reconcile_stop_event
     await stop_featured_product_scheduler(featured_product_worker, featured_product_stop_event)
     featured_product_worker = None
     featured_product_stop_event = None
@@ -122,6 +140,12 @@ async def shutdown_event():
     await stop_rental_pickup_expiry_scheduler(rental_pickup_expiry_worker, rental_pickup_expiry_stop_event)
     rental_pickup_expiry_worker = None
     rental_pickup_expiry_stop_event = None
+    await stop_rental_overdue_scheduler(rental_overdue_worker_handle, rental_overdue_stop_event)
+    rental_overdue_worker_handle = None
+    rental_overdue_stop_event = None
+    await stop_esi_reconcile_scheduler(esi_reconcile_worker, esi_reconcile_stop_event)
+    esi_reconcile_worker = None
+    esi_reconcile_stop_event = None
     await close_redis()
     await close_db()
 
