@@ -39,8 +39,9 @@ def generate_pickup_pin() -> str:
     return f"{secrets.randbelow(10000):04d}"
 
 
-# Сколько минут даётся пользователю на получение товара после создания аренды
-PICKUP_WINDOW_MINUTES = 30
+# Сколько минут даётся пользователю на получение товара после оплаты/подтверждения аренды.
+# По требованию: 3 часа.
+PICKUP_WINDOW_MINUTES = 180
 
 
 def calculate_pickup_expires_at(now: datetime) -> datetime:

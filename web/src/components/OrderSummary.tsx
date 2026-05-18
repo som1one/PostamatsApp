@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LockKeyhole, MapPinned, PackageCheck } from "lucide-react";
 import type { PricePlan, PricingQuote, ProductDetail } from "@/shared/api/types";
-import { formatMoney } from "@/shared/format";
+import { formatDate, formatMoney } from "@/shared/format";
 
 export function OrderSummary({
   product,
@@ -58,8 +58,8 @@ export function OrderSummary({
           <strong>{plan?.name || "Не выбран"}</strong>
         </div>
         <div className="summary-line summary-line-start">
-          <span className="muted">Старт</span>
-          <strong>{startDateTime || "Не выбран"}</strong>
+          <span className="muted">Дата получения</span>
+          <strong>{startDateTime ? formatDate(startDateTime) : "Не выбрана"}</strong>
         </div>
         {!isCompact ? (
           <div className="summary-line summary-line-preauth">

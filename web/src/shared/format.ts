@@ -28,6 +28,29 @@ export function formatDateTime(value?: string | null) {
   }).format(date);
 }
 
+export function formatDate(value?: string | null) {
+  if (!value) {
+    return "—";
+  }
+  // Поддерживаем формат YYYY-MM-DD без времени, чтобы не словить смещение по таймзоне.
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  let date: Date;
+  if (dateOnlyMatch) {
+    const [, year, month, day] = dateOnlyMatch;
+    date = new Date(Number(year), Number(month) - 1, Number(day));
+  } else {
+    date = new Date(value);
+  }
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
 export function statusLabel(status?: string | null) {
   const key = status || "unknown";
   const labels: Record<string, string> = {

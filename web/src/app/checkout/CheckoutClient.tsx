@@ -24,7 +24,7 @@ import type {
   ReservationSummary,
 } from "@/shared/api/types";
 import { writePendingCheckout } from "@/shared/checkout/pending";
-import { formatDateTime, formatMoney, pluralizeRu } from "@/shared/format";
+import { formatDate, formatMoney, pluralizeRu } from "@/shared/format";
 
 export function CheckoutClient() {
   return (
@@ -125,7 +125,6 @@ function CheckoutContent() {
           lockerId,
           durationType,
           durationValue,
-          pickupWindowMinutes: 120,
           sourceReservationId: sourceReservationId || undefined,
         });
         currentReservation = await fetchReservation(created.id);
@@ -311,8 +310,8 @@ function CheckoutContent() {
               <strong>{durationLabel}</strong>
             </div>
             <div className="meta-line">
-              <span>Старт</span>
-              <strong>{startAt ? formatDateTime(startAt) : "Как можно скорее"}</strong>
+              <span>Дата получения</span>
+              <strong>{startAt ? formatDate(startAt) : "Как можно скорее"}</strong>
             </div>
           </div>
 

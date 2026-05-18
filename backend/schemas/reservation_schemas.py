@@ -11,7 +11,9 @@ class ReservationQuotePayload(BaseModel):
 
 
 class CreateReservationPayload(ReservationQuotePayload):
-    pickupWindowMinutes: int = Field(..., ge=1, description="Pickup window in minutes")
+    # Окно жизни брони от создания до оплаты (в минутах). По умолчанию 120.
+    # Поле оставлено для обратной совместимости; фронт его больше не передаёт.
+    pickupWindowMinutes: int = Field(120, ge=1, description="Pickup window in minutes")
     sourceReservationId: UUID | None = Field(
         None,
         description="Existing reservation UUID when user is rescheduling their own booking",

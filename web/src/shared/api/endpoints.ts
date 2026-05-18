@@ -298,7 +298,6 @@ export async function createReservation(payload: {
   lockerId: string;
   durationType: string;
   durationValue: number;
-  pickupWindowMinutes: number;
   sourceReservationId?: string;
 }) {
   const data = await requestWithAuth<{ reservation: ReservationSummary }>(

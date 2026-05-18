@@ -43,18 +43,12 @@ function formatDateOption(value: string, index: number) {
   return { title, caption };
 }
 
-const slots = ["09:00", "10:30", "12:00", "13:30", "15:00", "16:30", "18:00", "20:00"];
-
 export function DateTimeSelector({
   date,
-  time,
   onDateChange,
-  onTimeChange,
 }: {
   date: string;
-  time: string;
   onDateChange: (date: string) => void;
-  onTimeChange: (time: string) => void;
 }) {
   const today = useMemo(() => toInputDate(new Date()), []);
   const maxDate = useMemo(() => {
@@ -76,20 +70,6 @@ export function DateTimeSelector({
 
     return items;
   }, [maxDate, today]);
-  const disabledSlots = useMemo(() => {
-    if (safeDate !== today) {
-      return new Set<string>();
-    }
-    const now = new Date();
-    return new Set(
-      slots.filter((slot) => {
-        const [hours, minutes] = slot.split(":").map(Number);
-        const slotDate = new Date();
-        slotDate.setHours(hours, minutes, 0, 0);
-        return slotDate.getTime() <= now.getTime() + 60 * 60 * 1000;
-      }),
-    );
-  }, [safeDate, today]);
 
   useEffect(() => {
     if (date !== safeDate) {
@@ -97,16 +77,10 @@ export function DateTimeSelector({
     }
   }, [date, onDateChange, safeDate]);
 
-  useEffect(() => {
-    if (time && disabledSlots.has(time)) {
-      onTimeChange("");
-    }
-  }, [disabledSlots, onTimeChange, time]);
-
   return (
     <div className="date-time-selector">
       <div className="field date-field">
-        <span>Дата начала</span>
+        <span>Дата получения</span>
         <div className="date-chip-grid">
           {dateOptions.map((option) => (
             <button
@@ -115,7 +89,6 @@ export function DateTimeSelector({
               type="button"
               onClick={() => {
                 onDateChange(option.value);
-                onTimeChange("");
               }}
             >
               <strong>{option.title}</strong>
@@ -123,29 +96,6 @@ export function DateTimeSelector({
             </button>
           ))}
         </div>
-      </div>
-
-      <div className="field time-field">
-        <span>Время получения</span>
-        <div className="time-grid">
-          {slots.map((slot) => {
-            const disabled = disabledSlots.has(slot);
-            return (
-              <button
-                className={`time-slot ${time === slot ? "is-selected" : ""}`}
-                key={slot}
-                type="button"
-                disabled={disabled}
-                onClick={() => onTimeChange(slot)}
-              >
-                {slot}
-              </button>
-            );
-          })}
-        </div>
-        {disabledSlots.size === slots.length ? (
-          <span className="muted small">На сегодня свободных слотов нет, выберите другую дату.</span>
-        ) : null}
       </div>
     </div>
   );

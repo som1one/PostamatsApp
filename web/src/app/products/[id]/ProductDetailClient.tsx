@@ -69,7 +69,6 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
   const [lockerId, setLockerId] = useState("");
   const [planId, setPlanId] = useState("");
   const [date, setDate] = useState(todayInputValue);
-  const [time, setTime] = useState("");
   const [pricing, setPricing] = useState<PricingQuote | null>(null);
   const [loading, setLoading] = useState(true);
   const [pricingLoading, setPricingLoading] = useState(false);
@@ -148,12 +147,12 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
       ),
     );
   }, [product]);
-  const startDateTime = date && time ? `${date} ${time}` : "";
+  const startDateTime = date || "";
   const checkoutHref =
-    product && selectedPlan && lockerId && date && time
-      ? `/checkout?productId=${product.id}&lockerId=${lockerId}&durationType=${selectedPlan.durationType}&durationValue=${selectedPlan.durationValue}&startAt=${encodeURIComponent(`${date}T${time}:00`)}${rescheduleReservationId ? `&reservationId=${encodeURIComponent(rescheduleReservationId)}` : ""}`
+    product && selectedPlan && lockerId && date
+      ? `/checkout?productId=${product.id}&lockerId=${lockerId}&durationType=${selectedPlan.durationType}&durationValue=${selectedPlan.durationValue}&startAt=${encodeURIComponent(date)}${rescheduleReservationId ? `&reservationId=${encodeURIComponent(rescheduleReservationId)}` : ""}`
       : "/catalog";
-  const canCheckout = Boolean(product && selectedPlan && lockerId && date && time);
+  const canCheckout = Boolean(product && selectedPlan && lockerId && date);
 
   useCitySync(cities, cityId, setCityId);
 
@@ -364,19 +363,17 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
               <section className="surface detail-panel rental-step-panel rental-step-panel-time">
                 <div className="card-row">
                   <div>
-                    <p className="eyebrow">Время</p>
+                    <p className="eyebrow">Дата</p>
                     <h2 className="section-title">Когда хотите забрать</h2>
                   </div>
                   <CalendarClock size={22} />
                 </div>
                 <DateTimeSelector
                   date={date}
-                  time={time}
                   onDateChange={setDate}
-                  onTimeChange={setTime}
                 />
                 <p className="muted small">
-                  Время начала аренды влияет на оформление и появится в вашей броне после подтверждения.
+                  После оплаты у вас будет 3 часа, чтобы забрать товар из постамата.
                 </p>
               </section>
 
