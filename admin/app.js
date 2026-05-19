@@ -4117,7 +4117,21 @@ function renderInventoryProductList() {
       `;
     })
     .join("");
-  inventoryPlaceSubmit.disabled = !state.inventory.selectedProductId;
+  updateInventoryPlaceSubmitLabel();
+}
+
+function updateInventoryPlaceSubmitLabel() {
+  if (!inventoryPlaceSubmit) return;
+  const selected = (state.inventory.products || []).find(
+    (p) => p.id === state.inventory.selectedProductId,
+  );
+  if (selected) {
+    inventoryPlaceSubmit.disabled = false;
+    inventoryPlaceSubmit.textContent = `Положить «${selected.name}» в ячейку`;
+  } else {
+    inventoryPlaceSubmit.disabled = true;
+    inventoryPlaceSubmit.textContent = "Положить в ячейку";
+  }
 }
 
 function inventoryOpenPlaceModal(cellId) {
@@ -4132,7 +4146,7 @@ function inventoryOpenPlaceModal(cellId) {
   if (inventoryPlaceCellInfo) {
     inventoryPlaceCellInfo.textContent = `Ячейка: ${cell.label || cell.externalCellId || "—"}`;
   }
-  inventoryPlaceSubmit.disabled = true;
+  updateInventoryPlaceSubmitLabel();
   modalBackdrop.classList.remove("hidden");
   hideAllModals();
   inventoryPlaceModal.classList.remove("hidden");
@@ -4177,6 +4191,10 @@ async function inventoryPlaceSelectedProduct() {
     showToast("error", "Выберите товар");
     return;
   }
+  const selectedProduct = (state.inventory.products || []).find(
+    (p) => p.id === productId,
+  );
+  const productLabel = selectedProduct?.name || "Товар";
   state.inventory.isPlacing = true;
   inventoryPlaceSubmit.disabled = true;
   try {
@@ -4191,7 +4209,7 @@ async function inventoryPlaceSelectedProduct() {
         }),
       },
     );
-    showToast("success", "Товар разложен в ячейку.");
+    showToast("success", `«${productLabel}» разложен в ячейку.`);
     closeModal();
     await Promise.all([loadInventoryCells(), loadInventoryLockers()]);
   } catch (error) {
