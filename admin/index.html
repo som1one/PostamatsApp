@@ -6,7 +6,7 @@
     <!-- Базовый URL API: только корень (http://host:8000), без /admin в конце -->
     <meta name="postamats-api-origin" content="" />
     <title>Postamats Admin</title>
-    <link rel="stylesheet" href="./styles.css?v=12" />
+    <link rel="stylesheet" href="./styles.css?v=13" />
   </head>
   <body>
     <div class="admin-shell">
@@ -52,12 +52,26 @@
 
       <div id="app-shell" class="app-shell hidden">
         <header class="app-header">
-          <div class="app-brand">
-            <span class="app-brand-mark"></span>
-            <span class="app-brand-text">Postamats Admin</span>
+          <div class="app-header-top">
+            <div class="app-brand">
+              <span class="app-brand-mark"></span>
+              <span class="app-brand-text">Postamats Admin</span>
+            </div>
+            <button
+              id="nav-toggle"
+              class="nav-toggle"
+              type="button"
+              aria-label="Открыть меню"
+              aria-expanded="false"
+              aria-controls="app-nav"
+            >
+              <span class="nav-toggle-bar"></span>
+              <span class="nav-toggle-bar"></span>
+              <span class="nav-toggle-bar"></span>
+            </button>
           </div>
 
-          <nav class="app-nav" aria-label="Разделы админки">
+          <nav id="app-nav" class="app-nav" aria-label="Разделы админки">
             <button class="nav-link is-active" type="button" data-section="home">Главная</button>
             <button class="nav-link" type="button" data-section="rentals">Аренды</button>
             <button class="nav-link" type="button" data-section="users">Пользователи</button>
@@ -664,6 +678,6 @@
 
     <div id="toast-stack" class="toast-stack" aria-live="assertive" aria-atomic="true"></div>
 
-    <script src="./app.js?v=15" defer></script>
+    <script src="./app.js?v=16" defer></script>
   </body>
 </html>

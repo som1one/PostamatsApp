@@ -233,6 +233,40 @@ select {
   gap: 18px;
   padding: 18px 20px;
   border-radius: 24px;
+}.app-header-top {
+  display: contents;
+}.nav-toggle {
+  display: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease;
+}.nav-toggle-bar {
+  display: block;
+  width: 20px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--text);
+  transition: transform 200ms ease, opacity 200ms ease;
+}.nav-toggle.is-open {
+  background: rgba(204, 103, 68, 0.12);
+  border-color: rgba(204, 103, 68, 0.28);
+}.nav-toggle.is-open .nav-toggle-bar:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}.nav-toggle.is-open .nav-toggle-bar:nth-child(2) {
+  opacity: 0;
+}.nav-toggle.is-open .nav-toggle-bar:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
 }.app-brand {
   display: flex;
   align-items: center;

@@ -3806,6 +3806,48 @@ modalBackdrop.addEventListener("click", (event) => {
   }
 });
 
+const navToggle = document.getElementById("nav-toggle");
+const appNav = document.getElementById("app-nav");
+const appTools = document.querySelector(".app-tools");
+const mobileNavQuery = window.matchMedia("(max-width: 760px)");
+
+function setMobileNavOpen(isOpen) {
+  if (!navToggle || !appNav) return;
+  navToggle.classList.toggle("is-open", isOpen);
+  navToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  navToggle.setAttribute("aria-label", isOpen ? "Закрыть меню" : "Открыть меню");
+  appNav.classList.toggle("is-open", isOpen);
+  if (appTools) {
+    appTools.classList.toggle("is-open", isOpen);
+  }
+}
+
+if (navToggle) {
+  navToggle.addEventListener("click", () => {
+    const willOpen = !navToggle.classList.contains("is-open");
+    setMobileNavOpen(willOpen);
+  });
+}
+
+navLinks.forEach((link) => {
+  link.addEventListener("click", () => {
+    if (mobileNavQuery.matches) {
+      setMobileNavOpen(false);
+    }
+  });
+});
+
+const handleNavMediaChange = (event) => {
+  if (!event.matches) {
+    setMobileNavOpen(false);
+  }
+};
+if (typeof mobileNavQuery.addEventListener === "function") {
+  mobileNavQuery.addEventListener("change", handleNavMediaChange);
+} else if (typeof mobileNavQuery.addListener === "function") {
+  mobileNavQuery.addListener(handleNavMediaChange);
+}
+
 (async function init() {
   const hasSession = await restoreSession();
   if (hasSession) {

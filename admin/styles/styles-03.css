@@ -125,8 +125,9 @@
   }
 }@media (max-width: 760px) {
   .admin-shell {
-    padding-inline: 16px;
-    padding-top: 18px;
+    padding-inline: 12px;
+    padding-top: 14px;
+    padding-bottom: 24px;
   }
 
   .stage {
@@ -150,44 +151,293 @@
   }
 
   .modal-backdrop {
-    padding: 14px;
+    padding: 12px;
     place-items: start center;
   }
 
   .modal-card {
-    max-height: calc(100vh - 28px);
+    width: 100%;
+    max-height: calc(100vh - 24px);
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .modal-card-wide {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+  }
+
+  .modal-form {
+    gap: 14px;
   }
 
   #locker-modal {
     margin: 0;
   }
 
-  .app-nav {
-    justify-content: flex-start;
+  /* Header: brand row + burger */
+  .app-header {
+    padding: 12px 14px;
+    gap: 12px;
   }
 
+  .app-header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .app-brand-text {
+    font-size: 1rem;
+  }
+
+  .nav-toggle {
+    display: inline-flex;
+  }
+
+  /* Collapsible nav */
+  .app-nav {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 6px 0 4px;
+    border-top: 1px solid var(--line);
+  }
+
+  .app-nav.is-open {
+    display: flex;
+  }
+
+  .nav-link {
+    width: 100%;
+    text-align: left;
+    padding: 12px 14px;
+    border-radius: 14px;
+  }
+
+  /* App tools row */
+  .app-tools {
+    display: none;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+
+  .app-tools.is-open {
+    display: flex;
+  }
+
+  .admin-badge {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 14px;
+  }
+
+  .admin-badge strong {
+    font-size: 0.9rem;
+  }
+
+  .app-main {
+    margin-top: 16px;
+    gap: 18px;
+  }
+
+  /* Section heads */
   .section-top,
   .surface-head,
   .metric-row,
   .modal-head,
-  .modal-actions,
-  .app-tools {
+  .modal-actions {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
   }
 
+  .section-top h2 {
+    font-size: clamp(1.6rem, 6vw, 2.2rem);
+  }
+
+  .section-top-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Toolbars and filters stack */
+  .users-toolbar {
+    padding: 14px 14px;
+  }
+
+  .users-toolbar-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .users-search-field,
+  .users-filter-field {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .users-toolbar-actions,
+  .users-toolbar-actions .primary-button {
+    width: 100%;
+  }
+
+  .users-toolbar-actions {
+    padding-bottom: 0;
+  }
+
+  .users-search-hint {
+    font-size: 0.82rem;
+  }
+
+  .rentals-overdue-field {
+    align-self: flex-start;
+  }
+
+  /* Surfaces */
+  .surface {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .table-surface {
+    padding: 8px;
+  }
+
+  /* Locker discovery */
   .locker-discovery-toolbar,
   .locker-candidate-top {
     flex-direction: column;
     align-items: stretch;
   }
 
+  .locker-discovery-button {
+    width: 100%;
+  }
+
+  /* Charts */
   .growth-chart {
-    gap: 8px;
+    gap: 6px;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-auto-rows: auto;
   }
 
   .chart-bar-shell {
-    height: 140px;
+    height: 120px;
+  }
+
+  .chart-value,
+  .chart-label {
+    font-size: 0.7rem;
+  }
+
+  /* Forms inside modals */
+  .field input,
+  .field select {
+    padding: 14px 14px;
+    border-radius: 14px;
+    font-size: 16px; /* prevent iOS zoom */
+  }
+
+  .modal-actions {
+    gap: 10px;
+  }
+
+  .modal-actions .ghost-button,
+  .modal-actions .primary-button,
+  .modal-actions .modal-submit {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Tables: make horizontal scroll friendlier */
+  .table-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 12px 10px;
+    font-size: 0.86rem;
+  }
+
+  .data-table-compact th,
+  .data-table-compact td {
+    padding: 9px 9px;
+    font-size: 0.82rem;
+  }
+
+  /* Sticky last column on cities table can leak shadow on mobile */
+  .data-table-cities th:last-child,
+  .data-table-cities td:last-child {
+    position: static;
+    box-shadow: none;
+  }
+
+  /* Pagination */
+  .audit-pagination {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px 4px 6px;
+  }
+
+  /* Detail modals: stack lists nicely */
+  .user-detail-grid {
+    gap: 14px;
+  }
+
+  .detail-block {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .detail-list li {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  /* Toast */
+  .toast-stack {
+    width: calc(100vw - 24px);
+    top: 12px;
+  }
+}@media (max-width: 420px) {
+  .admin-shell {
+    padding-inline: 10px;
+  }
+
+  .brand-title {
+    font-size: clamp(2.2rem, 13vw, 3.4rem);
+  }
+
+  .nav-link {
+    padding: 11px 12px;
+    font-size: 0.95rem;
+  }
+
+  .app-brand-text {
+    font-size: 0.95rem;
+  }
+
+  .section-top h2 {
+    font-size: 1.5rem;
+  }
+
+  .metric-value {
+    font-size: 2rem;
+  }
+
+  .surface {
+    padding: 14px;
   }
 }.locker-edit-form .field {
   margin-bottom: 12px;
