@@ -39,6 +39,7 @@ _OPEN_ERR = {
     "ESI_NOT_CONFIGURED": (503, "Интеграция с постаматом не настроена"),
     "ESI_HTTP_ERROR": (502, "Ошибка связи с постаматом"),
     "ESI_OPEN_FAILED": (502, "Постамат отклонил команду открытия"),
+    "ESI_MACHINE_OFFLINE": (503, "Постамат сейчас offline"),
 }
 
 
@@ -696,6 +697,39 @@ async def test_open_cell(
         open_error = str(exc)
 
     if open_error is not None:
+        if open_error == "ESI_MACHINE_OFFLINE":
+            record_admin_audit(
+                db,
+                admin_account_id=admin.id,
+                action="inventory.test_open",
+                request=request,
+                resource_type="locker_cell",
+                resource_id=cell.id,
+                payload={
+                    "lockerId": str(locker.id),
+                    "serial": serial,
+                    "externalCellId": external_cell_id,
+                    "result": "machine_offline",
+                    "esiNote": "503 machine offline",
+                },
+            )
+            await db.commit()
+            return {
+                "data": {
+                    "ok": False,
+                    "result": "machine_offline",
+                    "message": (
+                        f"Постамат {serial} сейчас offline по данным ESI. "
+                        "Открыть ячейку нельзя, пока постамат не выйдет в сеть."
+                    ),
+                    "cellLabel": cell_label,
+                    "serial": serial,
+                    "externalCellId": external_cell_id,
+                    "stateBefore": state_before,
+                    "openBefore": open_before,
+                }
+            }
+
         record_admin_audit(
             db,
             admin_account_id=admin.id,

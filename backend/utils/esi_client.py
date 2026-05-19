@@ -176,6 +176,11 @@ async def _esi_post(path: str, *, payload: dict | None = None, timeout: float | 
         logger.exception("ESI POST failed for %s", path)
         raise EsiOpenError("ESI_HTTP_ERROR") from exc
 
+    if response.status_code == 503:
+        body_text = (response.text or "").lower()
+        if "offline" in body_text:
+            raise EsiOpenError("ESI_MACHINE_OFFLINE")
+
     if response.status_code >= 400:
         logger.warning("ESI POST %s failed: %s %s", path, response.status_code, response.text)
         raise EsiOpenError("ESI_OPEN_FAILED")
