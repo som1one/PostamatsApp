@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -78,6 +78,22 @@ class AdminUpdateLockerCellPayload(BaseModel):
 
 class AdminAssignInventoryUnitPayload(BaseModel):
     inventoryUnitId: UUID = Field(..., description="Concrete inventory unit to place into the cell")
+
+
+class AdminPlaceProductInCellPayload(BaseModel):
+    productId: UUID = Field(..., description="Каталоговый товар для размещения в ячейке")
+    comment: str | None = Field(default=None, max_length=500, description="Комментарий оператора")
+
+
+class AdminTakeForServicePayload(BaseModel):
+    reason: str | None = Field(
+        default=None, max_length=500, description="Причина изъятия на обслуживание"
+    )
+    openCell: bool = Field(default=True, description="Отправить ESI команду открытия ячейки")
+    targetStatus: Literal["maintenance", "damaged"] = Field(
+        default="maintenance",
+        description="Итоговый статус инвентарной единицы после изъятия",
+    )
 
 
 class AdminCreateProductCategoryPayload(BaseModel):

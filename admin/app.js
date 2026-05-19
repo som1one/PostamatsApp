@@ -158,6 +158,21 @@ const state = {
   productDetailIsNew: false,
   auditEvents: [],
   auditMeta: { total: 0, page: 1, limit: 50 },
+  inventory: {
+    lockers: [],
+    selectedLockerId: "",
+    onlyFree: false,
+    cells: [],
+    products: [],
+    productSearch: "",
+    productOnlyActive: true,
+    selectedProductId: "",
+    activeCellId: "",
+    isLoading: false,
+    isPlacing: false,
+    isServicing: false,
+    productSearchTimer: null,
+  },
 };
 
 let verificationPollTimerId = null;
@@ -755,6 +770,18 @@ function closeModal() {
   }
   if (productDetailBody) {
     productDetailBody.innerHTML = "";
+  }
+  const inventoryPlaceModalEl = document.getElementById("inventory-place-modal");
+  const inventoryServiceModalEl = document.getElementById("inventory-service-modal");
+  if (inventoryPlaceModalEl) {
+    inventoryPlaceModalEl.classList.add("hidden");
+  }
+  if (inventoryServiceModalEl) {
+    inventoryServiceModalEl.classList.add("hidden");
+  }
+  if (state.inventory) {
+    state.inventory.activeCellId = "";
+    state.inventory.selectedProductId = "";
   }
 }
 
@@ -1763,7 +1790,7 @@ function renderLockers() {
           <td>${formatNumber(locker.availableUnitCount || 0)}</td>
           <td class="data-table-col-actions">
             <button type="button" class="ghost-button table-inline-button" data-open-locker="${escapeHtml(locker.id)}">
-              Открыть
+              Настроить
             </button>
           </td>
         </tr>
@@ -1835,44 +1862,25 @@ function renderLockerDetailModal() {
       (p) => `
       <tr>
         <td>${escapeHtml(p.name)}</td>
-        <td class="muted-inline">${escapeHtml(p.productId)}</td>
         <td>${p.priceFrom != null ? `${formatNumber(p.priceFrom / 100)} ₽` : "—"}</td>
       </tr>`,
     )
     .join("");
 
-  const assignableUnitOptions = (d.assignableUnits || [])
-    .map((unit) => {
-      const label = `${unit.productName || "Без товара"} · ${unit.serialNumber || unit.id}`;
-      return `<option value="${escapeHtml(unit.id)}">${escapeHtml(label)}</option>`;
-    })
-    .join("");
-
   const cellsRows = (d.cells || [])
     .map((cell) => {
       const inv = cell.inventoryUnit;
-      const invLine = inv
-        ? `${escapeHtml(inv.productName || "")} · ${escapeHtml(inv.status)}${
-            inv.serialNumber ? ` · ${escapeHtml(inv.serialNumber)}` : ""
-          }`
-        : "—";
+      const productLine = inv
+        ? escapeHtml(inv.productName || "—")
+        : '<span class="muted-inline">Свободно</span>';
       return `
         <tr>
-          <td>${escapeHtml(cell.label || "—")}</td>
-          <td>${escapeHtml(cell.externalCellId || "—")}</td>
+          <td>${escapeHtml(cell.label || cell.externalCellId || "—")}</td>
           <td>${escapeHtml(cell.size || "—")}</td>
           <td>${renderStatusPill(cell.status)}</td>
-          <td class="muted-inline">${invLine}</td>
-          <td>${cell.lastOpenedAt ? formatDateTime(cell.lastOpenedAt) : "—"}</td>
-          <td class="data-table-col-actions locker-cell-actions">
-            <select id="cell-status-${escapeHtml(cell.id)}" class="cell-inline-select" aria-label="Статус ячейки">
-              ${lockerCellStatusOptions(cell.status)}
-            </select>
-            <input id="cell-unit-${escapeHtml(cell.id)}" class="cell-inline-input" list="locker-assignable-units" placeholder="UUID юнита" value="${escapeHtml(inv?.id || "")}" />
-            <button type="button" class="ghost-button table-inline-button" data-locker-action="assign-unit" data-cell-id="${escapeHtml(cell.id)}">Привязать</button>
-            <button type="button" class="ghost-button table-inline-button" data-locker-action="unassign-unit" data-cell-id="${escapeHtml(cell.id)}">Снять</button>
-            <button type="button" class="ghost-button table-inline-button" data-locker-action="save-cell" data-cell-id="${escapeHtml(cell.id)}">Сохранить</button>
-            <button type="button" class="table-danger-button table-inline-button" data-locker-action="open-cell" data-cell-id="${escapeHtml(cell.id)}">Открыть</button>
+          <td>${productLine}</td>
+          <td class="data-table-col-actions">
+            <button type="button" class="table-danger-button table-inline-button" data-locker-action="open-cell" data-cell-id="${escapeHtml(cell.id)}">Открыть ячейку</button>
           </td>
         </tr>`;
     })
@@ -1904,7 +1912,6 @@ function renderLockerDetailModal() {
 
   lockerDetailBody.innerHTML = `
     <div class="user-detail-grid">
-      <datalist id="locker-assignable-units">${assignableUnitOptions}</datalist>
       <div class="detail-block">
         <h4 class="detail-block-title">Параметры точки</h4>
         <form id="locker-edit-form" class="locker-edit-form">
@@ -1919,12 +1926,15 @@ function renderLockerDetailModal() {
               <option value="degraded"${L.status === "degraded" ? " selected" : ""}>degraded</option>
             </select>
           </label>
-          <label class="field"><span>Партнёр</span><input id="locker-edit-partner" type="text" value="${escapeHtml(L.partnerName || "")}" /></label>
-          <label class="field"><span>Внешний ID</span><input id="locker-edit-external-id" type="text" value="${escapeHtml(L.externalLockerId || "")}" /></label>
-          <label class="field"><span>Провайдер</span><input id="locker-edit-provider" type="text" value="${escapeHtml(L.externalProvider || "")}" /></label>
-          <label class="field"><span>Широта</span><input id="locker-edit-lat" type="text" value="${L.lat != null ? escapeHtml(String(L.lat)) : ""}" /></label>
-          <label class="field"><span>Долгота</span><input id="locker-edit-lon" type="text" value="${L.lon != null ? escapeHtml(String(L.lon)) : ""}" /></label>
-          <label class="field"><span>Часы работы (JSON)</span><textarea id="locker-edit-hours" rows="4">${escapeHtml(whText)}</textarea></label>
+          <details class="locker-advanced">
+            <summary>Расширенные настройки</summary>
+            <label class="field"><span>Партнёр</span><input id="locker-edit-partner" type="text" value="${escapeHtml(L.partnerName || "")}" /></label>
+            <label class="field"><span>Внешний ID</span><input id="locker-edit-external-id" type="text" value="${escapeHtml(L.externalLockerId || "")}" /></label>
+            <label class="field"><span>Провайдер</span><input id="locker-edit-provider" type="text" value="${escapeHtml(L.externalProvider || "")}" /></label>
+            <label class="field"><span>Широта</span><input id="locker-edit-lat" type="text" value="${L.lat != null ? escapeHtml(String(L.lat)) : ""}" /></label>
+            <label class="field"><span>Долгота</span><input id="locker-edit-lon" type="text" value="${L.lon != null ? escapeHtml(String(L.lon)) : ""}" /></label>
+            <label class="field"><span>Часы работы (JSON)</span><textarea id="locker-edit-hours" rows="4">${escapeHtml(whText)}</textarea></label>
+          </details>
           <div class="user-detail-action-row">
             <button type="button" class="primary-button" data-locker-action="save-locker">Сохранить изменения</button>
             <button type="button" class="table-danger-button" data-locker-action="delete-locker">
@@ -1934,34 +1944,37 @@ function renderLockerDetailModal() {
         </form>
       </div>
       <div class="detail-block">
+        <h4 class="detail-block-title">Ячейки</h4>
+        <p class="muted-inline">Размещение товаров и обслуживание — в разделе «Размещение товаров».</p>
+        <div class="table-scroll">
+          <table class="data-table data-table-compact">
+            <thead><tr><th>Ячейка</th><th>Размер</th><th>Статус</th><th>Товар</th><th class="data-table-col-actions">Действия</th></tr></thead>
+            <tbody>${
+              cellsRows || `<tr><td colspan="5" class="muted-inline">Ячеек пока нет — добавьте ниже</td></tr>`
+            }</tbody>
+          </table>
+        </div>
+        <details class="locker-advanced">
+          <summary>Добавить ячейку</summary>
+          <div class="locker-add-cell-row">
+            <input id="locker-new-cell-label" type="text" placeholder="Метка" />
+            <input id="locker-new-cell-ext" type="text" placeholder="Внешний ID" />
+            <input id="locker-new-cell-size" type="text" placeholder="Размер" />
+            <label class="checkbox-field locker-inline-check"><input id="locker-new-cell-return" type="checkbox" checked /><span>Приём возврата</span></label>
+            <button type="button" class="primary-button" data-locker-action="add-cell">Добавить</button>
+          </div>
+        </details>
+      </div>
+      <div class="detail-block">
         <h4 class="detail-block-title">Доступные товары</h4>
         <div class="table-scroll">
           <table class="data-table data-table-compact">
-            <thead><tr><th>Товар</th><th>ID</th><th>Цена от</th></tr></thead>
+            <thead><tr><th>Товар</th><th>Цена от</th></tr></thead>
             <tbody>${
               productsRows ||
-              `<tr><td colspan="3" class="muted-inline">Нет доступных позиций по инвентарю</td></tr>`
+              `<tr><td colspan="2" class="muted-inline">Нет доступных позиций по инвентарю</td></tr>`
             }</tbody>
           </table>
-        </div>
-      </div>
-      <div class="detail-block">
-        <h4 class="detail-block-title">Ячейки</h4>
-        <div class="table-scroll">
-          <table class="data-table data-table-compact">
-            <thead><tr><th>Метка</th><th>Внешн. ID</th><th>Размер</th><th>Статус</th><th>Инвентарь</th><th>Посл. откр.</th><th class="data-table-col-actions">Действия</th></tr></thead>
-            <tbody>${
-              cellsRows || `<tr><td colspan="7" class="muted-inline">Ячеек пока нет — добавьте ниже</td></tr>`
-            }</tbody>
-          </table>
-        </div>
-        <p class="detail-subtitle">Добавить ячейку</p>
-        <div class="locker-add-cell-row">
-          <input id="locker-new-cell-label" type="text" placeholder="Метка" />
-          <input id="locker-new-cell-ext" type="text" placeholder="Внешний ID" />
-          <input id="locker-new-cell-size" type="text" placeholder="Размер" />
-          <label class="checkbox-field locker-inline-check"><input id="locker-new-cell-return" type="checkbox" checked /><span>Приём возврата</span></label>
-          <button type="button" class="primary-button" data-locker-action="add-cell">Добавить</button>
         </div>
       </div>
       <div class="detail-block">
@@ -3789,6 +3802,9 @@ navLinks.forEach((link) => {
       state.auditMeta.page = 1;
       loadAuditPage();
     }
+    if (link.dataset.section === "inventory") {
+      bootstrapInventorySection();
+    }
   });
 });
 
@@ -3846,6 +3862,447 @@ if (typeof mobileNavQuery.addEventListener === "function") {
   mobileNavQuery.addEventListener("change", handleNavMediaChange);
 } else if (typeof mobileNavQuery.addListener === "function") {
   mobileNavQuery.addListener(handleNavMediaChange);
+}
+
+// =====================
+// Раздел «Размещение товаров»
+// =====================
+
+const inventoryLockerSelect = document.getElementById("inventory-locker-select");
+const inventoryOnlyFreeCheckbox = document.getElementById("inventory-only-free");
+const inventoryRefreshButton = document.getElementById("inventory-refresh-button");
+const inventoryCellsGrid = document.getElementById("inventory-cells-grid");
+const inventoryEmpty = document.getElementById("inventory-empty");
+const inventorySummary = document.getElementById("inventory-summary");
+const inventoryPlaceModal = document.getElementById("inventory-place-modal");
+const inventoryPlaceCellInfo = document.getElementById("inventory-place-cell-info");
+const inventoryProductSearchInput = document.getElementById("inventory-product-search");
+const inventoryProductOnlyActive = document.getElementById("inventory-product-only-active");
+const inventoryProductList = document.getElementById("inventory-product-list");
+const inventoryProductEmpty = document.getElementById("inventory-product-empty");
+const inventoryPlaceComment = document.getElementById("inventory-place-comment");
+const inventoryPlaceSubmit = document.getElementById("inventory-place-submit");
+const inventoryServiceModal = document.getElementById("inventory-service-modal");
+const inventoryServiceCellInfo = document.getElementById("inventory-service-cell-info");
+const inventoryServiceTarget = document.getElementById("inventory-service-target");
+const inventoryServiceOpen = document.getElementById("inventory-service-open");
+const inventoryServiceReason = document.getElementById("inventory-service-reason");
+const inventoryServiceSubmit = document.getElementById("inventory-service-submit");
+
+function inventoryFormatLockerLabel(locker) {
+  if (!locker) return "";
+  const city = locker.cityName ? `${locker.cityName}, ` : "";
+  return `${city}${locker.name} · ${locker.address}`;
+}
+
+function renderInventoryLockerOptions() {
+  if (!inventoryLockerSelect) return;
+  const previous = state.inventory.selectedLockerId;
+  const items = state.inventory.lockers || [];
+  inventoryLockerSelect.innerHTML = `<option value="">Выберите постамат</option>${items
+    .map((locker) => {
+      const free = Number(locker.freeCells || 0);
+      const total = Number(locker.totalCells || 0);
+      const cellsLabel = total ? ` (${free}/${total} свободно)` : "";
+      return `<option value="${escapeHtml(locker.id)}">${escapeHtml(
+        inventoryFormatLockerLabel(locker),
+      )}${escapeHtml(cellsLabel)}</option>`;
+    })
+    .join("")}`;
+  if (previous && items.some((l) => l.id === previous)) {
+    inventoryLockerSelect.value = previous;
+  } else {
+    inventoryLockerSelect.value = "";
+    state.inventory.selectedLockerId = "";
+  }
+}
+
+function renderInventoryCells() {
+  if (!inventoryCellsGrid || !inventoryEmpty) return;
+  const cells = state.inventory.cells || [];
+  const onlyFree = Boolean(state.inventory.onlyFree);
+  const filtered = onlyFree
+    ? cells.filter((c) => c.status === "vacant" && !c.currentUnit)
+    : cells;
+
+  if (!state.inventory.selectedLockerId) {
+    inventoryCellsGrid.innerHTML = "";
+    inventoryEmpty.textContent = "Выберите постамат, чтобы увидеть ячейки.";
+    inventoryEmpty.classList.remove("hidden");
+    return;
+  }
+
+  if (!filtered.length) {
+    inventoryCellsGrid.innerHTML = "";
+    inventoryEmpty.textContent = onlyFree
+      ? "Свободных ячеек не нашлось. Снимите фильтр, чтобы увидеть все."
+      : "В этом постамате пока нет ячеек. Добавьте их в разделе «Постаматы».";
+    inventoryEmpty.classList.remove("hidden");
+    return;
+  }
+
+  inventoryEmpty.classList.add("hidden");
+  inventoryCellsGrid.innerHTML = filtered
+    .map((cell) => {
+      const occupied = Boolean(cell.currentUnit);
+      const cellLabel = cell.label || cell.externalCellId || "—";
+      const sizeLabel = cell.size ? `Размер: ${escapeHtml(cell.size)}` : "Размер не указан";
+      const cover = cell.currentUnit?.coverUrl
+        ? `<img class="cell-card__cover" src="${escapeHtml(
+            cell.currentUnit.coverUrl,
+          )}" alt="" loading="lazy" />`
+        : `<div class="cell-card__cover cell-card__cover--placeholder">${
+            occupied ? "Без обложки" : "Свободно"
+          }</div>`;
+      const productName = occupied
+        ? `<p class="cell-card__product-name">${escapeHtml(
+            cell.currentUnit.productName || "Без названия",
+          )}</p>`
+        : `<p class="cell-card__product-name muted-inline">Свободная ячейка</p>`;
+      const unitMeta = occupied
+        ? `<p class="muted-inline cell-card__meta">${escapeHtml(
+            cell.currentUnit.serialNumber || "Без серийного номера",
+          )}</p>`
+        : "";
+      const action = occupied
+        ? `<button type="button" class="table-danger-button cell-card__action" data-inventory-action="open-service" data-cell-id="${escapeHtml(
+            cell.id,
+          )}">Забрать на обслуживание</button>`
+        : `<button type="button" class="primary-button cell-card__action" data-inventory-action="open-place" data-cell-id="${escapeHtml(
+            cell.id,
+          )}">Положить товар</button>`;
+      const statusPill = renderStatusPill(cell.status);
+      return `
+        <article class="cell-card cell-card--${occupied ? "occupied" : "free"}">
+          <header class="cell-card__head">
+            <div>
+              <p class="cell-card__label">Ячейка ${escapeHtml(cellLabel)}</p>
+              <p class="muted-inline cell-card__meta">${escapeHtml(sizeLabel)}</p>
+            </div>
+            ${statusPill}
+          </header>
+          ${cover}
+          ${productName}
+          ${unitMeta}
+          ${action}
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function updateInventorySummary() {
+  if (!inventorySummary) return;
+  const locker = (state.inventory.lockers || []).find(
+    (l) => l.id === state.inventory.selectedLockerId,
+  );
+  if (!locker) {
+    inventorySummary.textContent = "Выберите постамат";
+    return;
+  }
+  const free = Number(locker.freeCells || 0);
+  const total = Number(locker.totalCells || 0);
+  inventorySummary.textContent = `${free}/${total} ячеек свободны`;
+}
+
+async function loadInventoryLockers() {
+  try {
+    const payload = await authorizedRequest("/api/admin/inventory/lockers");
+    state.inventory.lockers = payload.data?.lockers || [];
+    renderInventoryLockerOptions();
+    updateInventorySummary();
+  } catch (error) {
+    console.error(error);
+    showToast("error", error.message || "Не удалось загрузить постаматы");
+  }
+}
+
+async function loadInventoryCells() {
+  if (!state.inventory.selectedLockerId) {
+    state.inventory.cells = [];
+    renderInventoryCells();
+    return;
+  }
+  state.inventory.isLoading = true;
+  try {
+    const payload = await authorizedRequest(
+      `/api/admin/inventory/lockers/${encodeURIComponent(
+        state.inventory.selectedLockerId,
+      )}/cells`,
+    );
+    state.inventory.cells = payload.data?.cells || [];
+    renderInventoryCells();
+    updateInventorySummary();
+  } catch (error) {
+    console.error(error);
+    showToast("error", error.message || "Не удалось загрузить ячейки");
+  } finally {
+    state.inventory.isLoading = false;
+  }
+}
+
+async function bootstrapInventorySection() {
+  if (!state.inventory.lockers.length) {
+    await loadInventoryLockers();
+  } else {
+    renderInventoryLockerOptions();
+  }
+  if (state.inventory.selectedLockerId) {
+    await loadInventoryCells();
+  } else {
+    renderInventoryCells();
+  }
+}
+
+async function loadInventoryProducts() {
+  try {
+    const params = new URLSearchParams();
+    if (state.inventory.productSearch) {
+      params.set("q", state.inventory.productSearch);
+    }
+    params.set("onlyActive", state.inventory.productOnlyActive ? "true" : "false");
+    params.set("limit", "50");
+    const payload = await authorizedRequest(
+      `/api/admin/inventory/products?${params.toString()}`,
+    );
+    state.inventory.products = payload.data?.products || [];
+    renderInventoryProductList();
+  } catch (error) {
+    console.error(error);
+    showToast("error", error.message || "Не удалось загрузить товары");
+  }
+}
+
+function renderInventoryProductList() {
+  if (!inventoryProductList || !inventoryProductEmpty) return;
+  const products = state.inventory.products || [];
+  if (!products.length) {
+    inventoryProductList.innerHTML = "";
+    inventoryProductEmpty.classList.remove("hidden");
+    inventoryPlaceSubmit.disabled = true;
+    return;
+  }
+  inventoryProductEmpty.classList.add("hidden");
+  inventoryProductList.innerHTML = products
+    .map((product) => {
+      const isSelected = product.id === state.inventory.selectedProductId;
+      const cover = product.coverUrl
+        ? `<img class="inventory-product-card__cover" src="${escapeHtml(
+            product.coverUrl,
+          )}" alt="" loading="lazy" />`
+        : `<div class="inventory-product-card__cover inventory-product-card__cover--placeholder">Без фото</div>`;
+      const free = Number(product.availableUnits || 0);
+      const total = Number(product.totalUnits || 0);
+      const stockLine =
+        free > 0
+          ? `Готовых юнитов: ${free}`
+          : total > 0
+            ? `Все ${total} юнитов уже разложены — создадим новый`
+            : "Юнитов ещё нет — создадим новый";
+      return `
+        <button
+          type="button"
+          class="inventory-product-card${isSelected ? " is-selected" : ""}"
+          data-inventory-product-id="${escapeHtml(product.id)}"
+          ${product.isActive ? "" : 'data-inactive="1"'}
+        >
+          ${cover}
+          <div class="inventory-product-card__body">
+            <p class="inventory-product-card__name">${escapeHtml(product.name)}</p>
+            <p class="muted-inline">${escapeHtml(product.categoryName || "Без категории")}</p>
+            <p class="muted-inline">${escapeHtml(stockLine)}</p>
+            ${product.isActive ? "" : '<p class="muted-inline">Не активен в каталоге</p>'}
+          </div>
+        </button>
+      `;
+    })
+    .join("");
+  inventoryPlaceSubmit.disabled = !state.inventory.selectedProductId;
+}
+
+function inventoryOpenPlaceModal(cellId) {
+  const cell = (state.inventory.cells || []).find((c) => c.id === cellId);
+  if (!cell) return;
+  state.inventory.activeCellId = cellId;
+  state.inventory.selectedProductId = "";
+  state.inventory.productSearch = "";
+  if (inventoryProductSearchInput) inventoryProductSearchInput.value = "";
+  if (inventoryPlaceComment) inventoryPlaceComment.value = "";
+  if (inventoryProductOnlyActive) inventoryProductOnlyActive.checked = state.inventory.productOnlyActive;
+  if (inventoryPlaceCellInfo) {
+    inventoryPlaceCellInfo.textContent = `Ячейка: ${cell.label || cell.externalCellId || "—"}`;
+  }
+  inventoryPlaceSubmit.disabled = true;
+  modalBackdrop.classList.remove("hidden");
+  hideAllModals();
+  inventoryPlaceModal.classList.remove("hidden");
+  loadInventoryProducts();
+}
+
+function inventoryOpenServiceModal(cellId) {
+  const cell = (state.inventory.cells || []).find((c) => c.id === cellId);
+  if (!cell || !cell.currentUnit) return;
+  state.inventory.activeCellId = cellId;
+  if (inventoryServiceCellInfo) {
+    inventoryServiceCellInfo.textContent = `Ячейка ${cell.label || cell.externalCellId || "—"} · ${
+      cell.currentUnit.productName || "Без названия"
+    }`;
+  }
+  if (inventoryServiceTarget) inventoryServiceTarget.value = "maintenance";
+  if (inventoryServiceOpen) inventoryServiceOpen.checked = true;
+  if (inventoryServiceReason) inventoryServiceReason.value = "";
+  modalBackdrop.classList.remove("hidden");
+  hideAllModals();
+  inventoryServiceModal.classList.remove("hidden");
+}
+
+function hideAllModals() {
+  cityModal.classList.add("hidden");
+  lockerModal.classList.add("hidden");
+  if (userDetailModal) userDetailModal.classList.add("hidden");
+  if (lockerDetailModal) lockerDetailModal.classList.add("hidden");
+  if (cityDetailModal) cityDetailModal.classList.add("hidden");
+  if (rentalDetailModal) rentalDetailModal.classList.add("hidden");
+  if (productDetailModal) productDetailModal.classList.add("hidden");
+  if (productCategoryModal) productCategoryModal.classList.add("hidden");
+  if (inventoryPlaceModal) inventoryPlaceModal.classList.add("hidden");
+  if (inventoryServiceModal) inventoryServiceModal.classList.add("hidden");
+}
+
+async function inventoryPlaceSelectedProduct() {
+  if (state.inventory.isPlacing) return;
+  const cellId = state.inventory.activeCellId;
+  const productId = state.inventory.selectedProductId;
+  if (!cellId || !productId) {
+    showToast("error", "Выберите товар");
+    return;
+  }
+  state.inventory.isPlacing = true;
+  inventoryPlaceSubmit.disabled = true;
+  try {
+    await authorizedRequest(
+      `/api/admin/inventory/cells/${encodeURIComponent(cellId)}/place`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId,
+          comment: (inventoryPlaceComment?.value || "").trim() || null,
+        }),
+      },
+    );
+    showToast("success", "Товар разложен в ячейку.");
+    closeModal();
+    await Promise.all([loadInventoryCells(), loadInventoryLockers()]);
+  } catch (error) {
+    console.error(error);
+    showToast("error", error.message || "Не удалось положить товар");
+  } finally {
+    state.inventory.isPlacing = false;
+    inventoryPlaceSubmit.disabled = !state.inventory.selectedProductId;
+  }
+}
+
+async function inventoryTakeForService() {
+  if (state.inventory.isServicing) return;
+  const cellId = state.inventory.activeCellId;
+  if (!cellId) {
+    return;
+  }
+  state.inventory.isServicing = true;
+  inventoryServiceSubmit.disabled = true;
+  try {
+    const body = {
+      reason: (inventoryServiceReason?.value || "").trim() || null,
+      openCell: Boolean(inventoryServiceOpen?.checked),
+      targetStatus: inventoryServiceTarget?.value === "damaged" ? "damaged" : "maintenance",
+    };
+    await authorizedRequest(
+      `/api/admin/inventory/cells/${encodeURIComponent(cellId)}/take-for-service`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    showToast("success", "Товар изъят на обслуживание.");
+    closeModal();
+    await Promise.all([loadInventoryCells(), loadInventoryLockers()]);
+  } catch (error) {
+    console.error(error);
+    showToast("error", error.message || "Не удалось изъять товар");
+  } finally {
+    state.inventory.isServicing = false;
+    inventoryServiceSubmit.disabled = false;
+  }
+}
+
+if (inventoryLockerSelect) {
+  inventoryLockerSelect.addEventListener("change", () => {
+    state.inventory.selectedLockerId = inventoryLockerSelect.value || "";
+    loadInventoryCells();
+    updateInventorySummary();
+  });
+}
+if (inventoryOnlyFreeCheckbox) {
+  inventoryOnlyFreeCheckbox.addEventListener("change", () => {
+    state.inventory.onlyFree = Boolean(inventoryOnlyFreeCheckbox.checked);
+    renderInventoryCells();
+  });
+}
+if (inventoryRefreshButton) {
+  inventoryRefreshButton.addEventListener("click", () => {
+    loadInventoryLockers().then(() => loadInventoryCells());
+  });
+}
+if (inventoryCellsGrid) {
+  inventoryCellsGrid.addEventListener("click", (event) => {
+    const root = clickTargetElement(event);
+    if (!root) return;
+    const btn = root.closest("[data-inventory-action]");
+    if (!btn) return;
+    const action = btn.getAttribute("data-inventory-action");
+    const cellId = btn.getAttribute("data-cell-id");
+    if (!cellId) return;
+    if (action === "open-place") {
+      inventoryOpenPlaceModal(cellId);
+    } else if (action === "open-service") {
+      inventoryOpenServiceModal(cellId);
+    }
+  });
+}
+if (inventoryProductList) {
+  inventoryProductList.addEventListener("click", (event) => {
+    const root = clickTargetElement(event);
+    if (!root) return;
+    const card = root.closest("[data-inventory-product-id]");
+    if (!card) return;
+    state.inventory.selectedProductId = card.getAttribute("data-inventory-product-id") || "";
+    renderInventoryProductList();
+  });
+}
+if (inventoryProductSearchInput) {
+  inventoryProductSearchInput.addEventListener("input", () => {
+    if (state.inventory.productSearchTimer) {
+      window.clearTimeout(state.inventory.productSearchTimer);
+    }
+    state.inventory.productSearchTimer = window.setTimeout(() => {
+      state.inventory.productSearch = inventoryProductSearchInput.value.trim();
+      loadInventoryProducts();
+    }, 250);
+  });
+}
+if (inventoryProductOnlyActive) {
+  inventoryProductOnlyActive.addEventListener("change", () => {
+    state.inventory.productOnlyActive = Boolean(inventoryProductOnlyActive.checked);
+    loadInventoryProducts();
+  });
+}
+if (inventoryPlaceSubmit) {
+  inventoryPlaceSubmit.addEventListener("click", inventoryPlaceSelectedProduct);
+}
+if (inventoryServiceSubmit) {
+  inventoryServiceSubmit.addEventListener("click", inventoryTakeForService);
 }
 
 (async function init() {

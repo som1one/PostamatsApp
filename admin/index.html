@@ -6,7 +6,7 @@
     <!-- Базовый URL API: только корень (http://host:8000), без /admin в конце -->
     <meta name="postamats-api-origin" content="" />
     <title>Postamats Admin</title>
-    <link rel="stylesheet" href="./styles.css?v=13" />
+    <link rel="stylesheet" href="./styles.css?v=14" />
   </head>
   <body>
     <div class="admin-shell">
@@ -76,6 +76,7 @@
             <button class="nav-link" type="button" data-section="rentals">Аренды</button>
             <button class="nav-link" type="button" data-section="users">Пользователи</button>
             <button class="nav-link" type="button" data-section="verification">Верификация</button>
+            <button class="nav-link" type="button" data-section="inventory">Размещение товаров</button>
             <button class="nav-link" type="button" data-section="lockers">Постаматы</button>
             <button class="nav-link" type="button" data-section="cities">Города</button>
             <button class="nav-link" type="button" data-section="catalog">Каталог</button>
@@ -306,6 +307,44 @@
                 </table>
               </div>
               <div id="verification-empty" class="empty-state hidden">Очередь пуста.</div>
+            </article>
+          </section>
+
+          <section class="section-panel hidden" data-section-panel="inventory">
+            <div class="section-top">
+              <div>
+                <p class="section-kicker">Размещение товаров</p>
+                <h2>Положить товар в ячейку</h2>
+              </div>
+              <p id="inventory-summary" class="section-meta">Выберите постамат</p>
+            </div>
+
+            <div class="users-toolbar surface">
+              <div class="users-toolbar-inner">
+                <label class="field users-filter-field">
+                  <span>Постамат</span>
+                  <select id="inventory-locker-select" aria-label="Выбор постамата">
+                    <option value="">Выберите постамат</option>
+                  </select>
+                </label>
+                <label class="checkbox-field rentals-overdue-field">
+                  <input id="inventory-only-free" type="checkbox" />
+                  <span>Только свободные ячейки</span>
+                </label>
+                <div class="users-toolbar-actions">
+                  <button type="button" class="ghost-button" id="inventory-refresh-button">Обновить</button>
+                </div>
+              </div>
+              <p class="users-search-hint">
+                Выберите постамат, нажмите «Положить товар» в свободной ячейке и выберите товар из каталога. Чтобы изъять товар на обслуживание, нажмите «Забрать на обслуживание» в занятой ячейке.
+              </p>
+            </div>
+
+            <article class="surface inventory-surface">
+              <div id="inventory-cells-grid" class="cells-grid"></div>
+              <div id="inventory-empty" class="empty-state hidden">
+                Выберите постамат, чтобы увидеть ячейки.
+              </div>
             </article>
           </section>
 
@@ -674,10 +713,92 @@
           </div>
         </form>
       </section>
+
+      <section
+        id="inventory-place-modal"
+        class="modal-card modal-card-wide hidden"
+        aria-labelledby="inventory-place-modal-title"
+      >
+        <div class="modal-head">
+          <div>
+            <p class="section-kicker">Размещение</p>
+            <h3 id="inventory-place-modal-title">Положить товар в ячейку</h3>
+          </div>
+          <button class="modal-close" type="button" data-close-modal>&times;</button>
+        </div>
+        <div class="user-detail-scroll">
+          <p id="inventory-place-cell-info" class="muted-inline"></p>
+          <div class="users-toolbar-inner inventory-picker-toolbar">
+            <label class="field users-search-field">
+              <span>Поиск товара</span>
+              <input
+                id="inventory-product-search"
+                type="search"
+                autocomplete="off"
+                placeholder="Название или slug"
+              />
+            </label>
+            <label class="checkbox-field">
+              <input id="inventory-product-only-active" type="checkbox" checked />
+              <span>Только активные</span>
+            </label>
+          </div>
+          <div id="inventory-product-list" class="inventory-product-list"></div>
+          <div id="inventory-product-empty" class="empty-state hidden">Товары не найдены.</div>
+          <label class="field">
+            <span>Комментарий (необязательно)</span>
+            <input id="inventory-place-comment" type="text" placeholder="Например, новая партия" maxlength="500" />
+          </label>
+          <div class="modal-actions">
+            <button class="ghost-button" type="button" data-close-modal>Отмена</button>
+            <button class="primary-button modal-submit" type="button" id="inventory-place-submit" disabled>
+              Положить в ячейку
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="inventory-service-modal"
+        class="modal-card hidden"
+        aria-labelledby="inventory-service-modal-title"
+      >
+        <div class="modal-head">
+          <div>
+            <p class="section-kicker">Обслуживание</p>
+            <h3 id="inventory-service-modal-title">Забрать товар на обслуживание</h3>
+          </div>
+          <button class="modal-close" type="button" data-close-modal>&times;</button>
+        </div>
+        <div class="modal-form">
+          <p id="inventory-service-cell-info" class="muted-inline"></p>
+          <label class="field">
+            <span>Что с товаром</span>
+            <select id="inventory-service-target">
+              <option value="maintenance">На обслуживание</option>
+              <option value="damaged">Повреждён</option>
+            </select>
+          </label>
+          <label class="checkbox-field">
+            <input id="inventory-service-open" type="checkbox" checked />
+            <span>Открыть ячейку через ESI</span>
+          </label>
+          <label class="field">
+            <span>Причина (необязательно)</span>
+            <input id="inventory-service-reason" type="text" placeholder="Например, заменить батарею" maxlength="500" />
+          </label>
+          <div class="modal-actions">
+            <button class="ghost-button" type="button" data-close-modal>Отмена</button>
+            <button class="primary-button modal-submit" type="button" id="inventory-service-submit">
+              Изъять товар
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
 
     <div id="toast-stack" class="toast-stack" aria-live="assertive" aria-atomic="true"></div>
 
-    <script src="./app.js?v=16" defer></script>
+    <script src="./app.js?v=17" defer></script>
   </body>
 </html>

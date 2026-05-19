@@ -410,6 +410,23 @@
     width: calc(100vw - 24px);
     top: 12px;
   }
+
+  /* Inventory placement */
+  .cells-grid,
+  .inventory-product-list {
+    grid-template-columns: 1fr;
+  }
+
+  .cell-card,
+  .inventory-product-card {
+    padding: 12px;
+  }
+
+  .inventory-picker-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
 }@media (max-width: 420px) {
   .admin-shell {
     padding-inline: 10px;

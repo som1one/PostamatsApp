@@ -19,6 +19,7 @@ from backend.routers.admin.audit import router as admin_audit_router
 from backend.routers.admin.auth import router as admin_auth_router
 from backend.routers.admin.cities import router as admin_cities_router
 from backend.routers.admin.dashboard import router as admin_dashboard_router
+from backend.routers.admin.inventory import router as admin_inventory_router
 from backend.routers.admin.lockers import router as admin_lockers_router
 from backend.routers.admin.product_categories import router as admin_product_categories_router
 from backend.routers.admin.product_filters import router as admin_product_filters_router
@@ -94,6 +95,7 @@ app.include_router(admin_users_router)
 app.include_router(admin_verification_queue_router)
 app.include_router(admin_cities_router)
 app.include_router(admin_lockers_router)
+app.include_router(admin_inventory_router)
 app.include_router(admin_rentals_router)
 app.include_router(admin_audit_router)
 app.include_router(admin_product_categories_router)
