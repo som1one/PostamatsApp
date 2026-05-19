@@ -3946,47 +3946,36 @@ function renderInventoryCells() {
     .map((cell) => {
       const occupied = Boolean(cell.currentUnit);
       const cellLabel = cell.label || cell.externalCellId || "—";
-      const sizeLabel = cell.size ? `Размер: ${escapeHtml(cell.size)}` : "Размер не указан";
+      const sizeLabel = cell.size || "—";
       const cover = cell.currentUnit?.coverUrl
-        ? `<img class="cell-card__cover" src="${escapeHtml(
+        ? `<img class="inventory-row-cover" src="${escapeHtml(
             cell.currentUnit.coverUrl,
           )}" alt="" loading="lazy" />`
-        : `<div class="cell-card__cover cell-card__cover--placeholder">${
-            occupied ? "Без обложки" : "Свободно"
-          }</div>`;
-      const productName = occupied
-        ? `<p class="cell-card__product-name">${escapeHtml(
-            cell.currentUnit.productName || "Без названия",
-          )}</p>`
-        : `<p class="cell-card__product-name muted-inline">Свободная ячейка</p>`;
-      const unitMeta = occupied
-        ? `<p class="muted-inline cell-card__meta">${escapeHtml(
-            cell.currentUnit.serialNumber || "Без серийного номера",
-          )}</p>`
         : "";
+      const productName = occupied
+        ? `<div class="inventory-row-product">${cover}<span>${escapeHtml(
+            cell.currentUnit.productName || "Без названия",
+          )}</span></div>`
+        : `<span class="muted-inline">Свободно</span>`;
+      const serial = occupied
+        ? escapeHtml(cell.currentUnit.serialNumber || "—")
+        : "—";
       const action = occupied
-        ? `<button type="button" class="table-danger-button cell-card__action" data-inventory-action="open-service" data-cell-id="${escapeHtml(
+        ? `<button type="button" class="table-danger-button table-inline-button" data-inventory-action="open-service" data-cell-id="${escapeHtml(
             cell.id,
-          )}">Забрать на обслуживание</button>`
-        : `<button type="button" class="primary-button cell-card__action" data-inventory-action="open-place" data-cell-id="${escapeHtml(
+          )}">На обслуживание</button>`
+        : `<button type="button" class="primary-button table-inline-button" data-inventory-action="open-place" data-cell-id="${escapeHtml(
             cell.id,
           )}">Положить товар</button>`;
-      const statusPill = renderStatusPill(cell.status);
       return `
-        <article class="cell-card cell-card--${occupied ? "occupied" : "free"}">
-          <header class="cell-card__head">
-            <div>
-              <p class="cell-card__label">Ячейка ${escapeHtml(cellLabel)}</p>
-              <p class="muted-inline cell-card__meta">${escapeHtml(sizeLabel)}</p>
-            </div>
-            ${statusPill}
-          </header>
-          ${cover}
-          ${productName}
-          ${unitMeta}
-          ${action}
-        </article>
-      `;
+        <tr class="inventory-row inventory-row--${occupied ? "occupied" : "free"}">
+          <td><strong>${escapeHtml(cellLabel)}</strong></td>
+          <td>${escapeHtml(sizeLabel)}</td>
+          <td>${renderStatusPill(cell.status)}</td>
+          <td>${productName}</td>
+          <td class="muted-inline">${serial}</td>
+          <td class="data-table-col-actions">${action}</td>
+        </tr>`;
     })
     .join("");
 }

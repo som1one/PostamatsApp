@@ -412,14 +412,21 @@
   }
 
   /* Inventory placement */
-  .cells-grid,
   .inventory-product-list {
     grid-template-columns: 1fr;
   }
 
-  .cell-card,
   .inventory-product-card {
     padding: 12px;
+  }
+
+  .inventory-row-product {
+    gap: 8px;
+  }
+
+  .inventory-row-cover {
+    width: 32px;
+    height: 32px;
   }
 
   .inventory-picker-toolbar {
