@@ -326,6 +326,147 @@ class AdminInventoryPlacementTests(unittest.IsolatedAsyncioTestCase):
                 )
             self.assertEqual(getattr(ctx.exception, "status_code", None), 404)
 
+    async def test_test_open_rejects_cell_without_external_id(self):
+        async with TestSessionLocal() as db:
+            cell = await db.get(LockerCell, self.cell_id)
+            cell.external_cell_id = None
+            await db.commit()
+
+        async with TestSessionLocal() as db:
+            with self.assertRaises(Exception) as ctx:
+                await inventory_router.test_open_cell(_make_request(), self.cell_id, db)
+            self.assertEqual(getattr(ctx.exception, "status_code", None), 400)
+
+    async def test_test_open_reports_machine_offline(self):
+        async def fake_snapshot(serial: str):
+            return {"online": False, "cells": {"A1": {"state": "vacant", "open": False}}}
+
+        with patch(
+            "backend.routers.admin.inventory.fetch_machine_snapshot",
+            side_effect=fake_snapshot,
+        ):
+            async with TestSessionLocal() as db:
+                response = await inventory_router.test_open_cell(
+                    _make_request(), self.cell_id, db
+                )
+        data = response["data"]
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["result"], "machine_offline")
+
+        async with TestSessionLocal() as db:
+            audits = (
+                await db.scalars(
+                    select(AdminAuditEvent).where(
+                        AdminAuditEvent.action == "inventory.test_open"
+                    )
+                )
+            ).all()
+            self.assertEqual(len(audits), 1)
+            self.assertEqual(audits[0].payload_json.get("result"), "machine_offline")
+
+    async def test_test_open_reports_opened_when_cell_becomes_open(self):
+        snapshots = [
+            {"online": True, "cells": {"A1": {"state": "vacant", "open": False}}},
+            {"online": True, "cells": {"A1": {"state": "vacant", "open": False}}},
+            {"online": True, "cells": {"A1": {"state": "vacant", "open": True}}},
+        ]
+        call_count = {"value": 0}
+
+        async def fake_snapshot(serial: str):
+            idx = min(call_count["value"], len(snapshots) - 1)
+            call_count["value"] += 1
+            return snapshots[idx]
+
+        async def fast_sleep(_seconds):
+            return None
+
+        async def fake_open(db, *, locker_id, cell_id):
+            return None
+
+        with patch(
+            "backend.routers.admin.inventory.fetch_machine_snapshot",
+            side_effect=fake_snapshot,
+        ), patch(
+            "backend.routers.admin.inventory.admin_trigger_open_cell",
+            side_effect=fake_open,
+        ), patch(
+            "backend.routers.admin.inventory.asyncio.sleep",
+            side_effect=fast_sleep,
+        ):
+            async with TestSessionLocal() as db:
+                response = await inventory_router.test_open_cell(
+                    _make_request(), self.cell_id, db
+                )
+        data = response["data"]
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["result"], "opened")
+        self.assertTrue(data["openAfter"])
+        self.assertGreaterEqual(data["pollAttempts"], 1)
+
+    async def test_test_open_reports_not_opened_when_cell_stays_closed(self):
+        async def fake_snapshot(serial: str):
+            return {"online": True, "cells": {"A1": {"state": "vacant", "open": False}}}
+
+        async def fast_sleep(_seconds):
+            return None
+
+        async def fake_open(db, *, locker_id, cell_id):
+            return None
+
+        with patch(
+            "backend.routers.admin.inventory.fetch_machine_snapshot",
+            side_effect=fake_snapshot,
+        ), patch(
+            "backend.routers.admin.inventory.admin_trigger_open_cell",
+            side_effect=fake_open,
+        ), patch(
+            "backend.routers.admin.inventory.asyncio.sleep",
+            side_effect=fast_sleep,
+        ):
+            async with TestSessionLocal() as db:
+                response = await inventory_router.test_open_cell(
+                    _make_request(), self.cell_id, db
+                )
+        data = response["data"]
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["result"], "not_opened")
+        self.assertFalse(data["openAfter"])
+
+    async def test_test_open_reports_open_failed(self):
+        from backend.utils.esi_client import EsiOpenError
+
+        async def fake_snapshot(serial: str):
+            return {"online": True, "cells": {"A1": {"state": "vacant", "open": False}}}
+
+        async def fake_open(db, *, locker_id, cell_id):
+            raise EsiOpenError("ESI_OPEN_FAILED")
+
+        with patch(
+            "backend.routers.admin.inventory.fetch_machine_snapshot",
+            side_effect=fake_snapshot,
+        ), patch(
+            "backend.routers.admin.inventory.admin_trigger_open_cell",
+            side_effect=fake_open,
+        ):
+            async with TestSessionLocal() as db:
+                response = await inventory_router.test_open_cell(
+                    _make_request(), self.cell_id, db
+                )
+        data = response["data"]
+        self.assertFalse(data["ok"])
+        self.assertEqual(data["result"], "open_failed")
+
+        async with TestSessionLocal() as db:
+            audit = (
+                await db.scalars(
+                    select(AdminAuditEvent).where(
+                        AdminAuditEvent.action == "inventory.test_open"
+                    )
+                )
+            ).all()[-1]
+            self.assertEqual(audit.payload_json.get("result"), "open_failed")
+            self.assertEqual(audit.payload_json.get("esiError"), "ESI_OPEN_FAILED")
+
 
 if __name__ == "__main__":
     unittest.main()

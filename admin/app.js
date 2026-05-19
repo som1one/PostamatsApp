@@ -3965,6 +3965,11 @@ function renderInventoryCells() {
         : `<button type="button" class="primary-button cell-card__action" data-inventory-action="open-place" data-cell-id="${escapeHtml(
             cell.id,
           )}">Положить</button>`;
+      const testButton = cell.externalCellId
+        ? `<button type="button" class="ghost-button cell-card__test" data-inventory-action="test-open" data-cell-id="${escapeHtml(
+            cell.id,
+          )}" title="Проверить, открывается ли ячейка">Тест</button>`
+        : "";
       const statusPill = renderStatusPill(cell.status);
       return `
         <article class="cell-card cell-card--${occupied ? "occupied" : "free"}">
@@ -3976,7 +3981,10 @@ function renderInventoryCells() {
             </div>
             ${productName}
           </div>
-          ${action}
+          <div class="cell-card__buttons">
+            ${testButton}
+            ${action}
+          </div>
         </article>
       `;
     })
@@ -4229,6 +4237,45 @@ async function inventoryTakeForService() {
   }
 }
 
+async function inventoryTestOpenCell(cellId, button) {
+  if (!cellId) return;
+  const safeId = encodeURIComponent(cellId);
+  if (button) {
+    button.disabled = true;
+    button.dataset.originalText = button.textContent || "";
+    button.textContent = "...";
+  }
+  try {
+    const response = await authorizedRequest(
+      `/api/admin/inventory/cells/${safeId}/test-open`,
+      { method: "POST" },
+    );
+    const data = response?.data || {};
+    if (data.ok) {
+      showToast(
+        "success",
+        data.message ||
+          `Ячейка ${data.cellLabel || ""} открылась за ${data.durationMs || 0} мс.`,
+      );
+    } else {
+      showToast(
+        "error",
+        data.message ||
+          "Открытие не подтверждено. Подробности в аудите.",
+      );
+    }
+    await loadInventoryCells();
+  } catch (error) {
+    console.error(error);
+    showToast("error", error.message || "Не удалось протестировать открытие");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = button.dataset.originalText || "Тест";
+    }
+  }
+}
+
 if (inventoryLockerSelect) {
   inventoryLockerSelect.addEventListener("change", () => {
     state.inventory.selectedLockerId = inventoryLockerSelect.value || "";
@@ -4260,6 +4307,8 @@ if (inventoryCellsGrid) {
       inventoryOpenPlaceModal(cellId);
     } else if (action === "open-service") {
       inventoryOpenServiceModal(cellId);
+    } else if (action === "test-open") {
+      inventoryTestOpenCell(cellId, btn);
     }
   });
 }

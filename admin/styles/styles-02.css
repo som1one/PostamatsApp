@@ -388,6 +388,15 @@
   border-radius: 999px;
   width: auto;
   min-width: 0;
+}.cell-card__buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}.cell-card__test {
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  border-radius: 999px;
 }.inventory-surface {
   padding: 14px;
 }.inventory-picker-toolbar {

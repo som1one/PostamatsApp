@@ -1,5 +1,8 @@
 from uuid import UUID
 
+import asyncio
+import time
+
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,8 +22,10 @@ from backend.schemas.admin_panel_schemas import (
 )
 from backend.utils.admin_audit import record_admin_audit
 from backend.utils.esi_client import (
+    EsiDiscoveryError,
     EsiOpenError,
     admin_trigger_open_cell,
+    fetch_machine_snapshot,
     sync_cell_state,
 )
 from backend.utils.inventory_tracking import add_inventory_movement
@@ -584,5 +589,227 @@ async def take_cell_for_service(
                 "productId": str(unit.product_id),
             },
             "esiNote": open_failed_reason,
+        }
+    }
+
+
+def _read_cell_snapshot(machine: dict | None, external_cell_id: str) -> dict | None:
+    if not isinstance(machine, dict):
+        return None
+    cells = machine.get("cells")
+    if not isinstance(cells, dict):
+        return None
+    raw = cells.get(external_cell_id)
+    if isinstance(raw, dict):
+        return raw
+    # ESI sometimes keys cells by integer-like strings; try a loose match.
+    for key, value in cells.items():
+        if str(key) == str(external_cell_id) and isinstance(value, dict):
+            return value
+    return None
+
+
+@router.post("/cells/{cell_id}/test-open")
+async def test_open_cell(
+    request: Request,
+    cell_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Тест открытия ячейки: отправляет ESI команду открытия и проверяет
+    через `/machine/{serial}`, действительно ли ячейка открылась.
+    Не меняет инвентарь и статусы — только аудит-запись.
+    """
+    admin, _ = await get_current_admin(request, db)
+
+    cell = await db.get(LockerCell, cell_id)
+    if cell is None:
+        raise HTTPException(status_code=404, detail="Ячейка не найдена")
+    locker = await db.get(LockerLocation, cell.locker_id)
+    if locker is None:
+        raise HTTPException(status_code=404, detail="Постамат не найден")
+
+    serial = (locker.external_locker_id or "").strip()
+    external_cell_id = (cell.external_cell_id or "").strip()
+    if not serial or not external_cell_id:
+        raise HTTPException(
+            status_code=400,
+            detail="У постамата или ячейки не указан внешний ID — открытие невозможно",
+        )
+
+    cell_label = cell.label or external_cell_id
+
+    # 1) read state before
+    before_machine: dict | None = None
+    before_cell: dict | None = None
+    before_error: str | None = None
+    try:
+        before_machine = await fetch_machine_snapshot(serial)
+        before_cell = _read_cell_snapshot(before_machine, external_cell_id)
+    except EsiDiscoveryError as exc:
+        before_error = str(exc)
+
+    online_before = bool(before_machine.get("online")) if isinstance(before_machine, dict) else None
+    open_before = bool(before_cell.get("open")) if isinstance(before_cell, dict) else None
+    state_before = (
+        str(before_cell.get("state") or "").strip().lower() if isinstance(before_cell, dict) else None
+    )
+
+    if online_before is False:
+        record_admin_audit(
+            db,
+            admin_account_id=admin.id,
+            action="inventory.test_open",
+            request=request,
+            resource_type="locker_cell",
+            resource_id=cell.id,
+            payload={
+                "lockerId": str(locker.id),
+                "serial": serial,
+                "externalCellId": external_cell_id,
+                "result": "machine_offline",
+            },
+        )
+        await db.commit()
+        return {
+            "data": {
+                "ok": False,
+                "result": "machine_offline",
+                "message": (
+                    f"Постамат {serial} сейчас offline по данным ESI. "
+                    "Открыть ячейку нельзя, пока постамат не выйдет в сеть."
+                ),
+                "cellLabel": cell_label,
+                "serial": serial,
+                "externalCellId": external_cell_id,
+                "stateBefore": state_before,
+                "openBefore": open_before,
+            }
+        }
+
+    # 2) send open command
+    open_started_at = time.monotonic()
+    open_error: str | None = None
+    try:
+        await admin_trigger_open_cell(db, locker_id=locker.id, cell_id=cell.id)
+    except EsiOpenError as exc:
+        open_error = str(exc)
+
+    if open_error is not None:
+        record_admin_audit(
+            db,
+            admin_account_id=admin.id,
+            action="inventory.test_open",
+            request=request,
+            resource_type="locker_cell",
+            resource_id=cell.id,
+            payload={
+                "lockerId": str(locker.id),
+                "serial": serial,
+                "externalCellId": external_cell_id,
+                "result": "open_failed",
+                "esiError": open_error,
+            },
+        )
+        await db.commit()
+        return {
+            "data": {
+                "ok": False,
+                "result": "open_failed",
+                "message": (
+                    f"ESI отклонил команду открытия ячейки {cell_label}: {open_error}."
+                ),
+                "cellLabel": cell_label,
+                "serial": serial,
+                "externalCellId": external_cell_id,
+                "stateBefore": state_before,
+                "openBefore": open_before,
+            }
+        }
+
+    # 3) poll for open=true (max ~6s, every 600ms)
+    poll_attempts = 0
+    poll_max = 10
+    poll_interval = 0.6
+    open_after: bool | None = None
+    state_after: str | None = state_before
+    online_after: bool | None = True
+    last_after_machine: dict | None = before_machine
+    while poll_attempts < poll_max:
+        poll_attempts += 1
+        await asyncio.sleep(poll_interval)
+        try:
+            machine = await fetch_machine_snapshot(serial)
+        except EsiDiscoveryError:
+            continue
+        if not isinstance(machine, dict):
+            continue
+        last_after_machine = machine
+        online_after = bool(machine.get("online", True))
+        cell_after = _read_cell_snapshot(machine, external_cell_id)
+        if isinstance(cell_after, dict):
+            open_after = bool(cell_after.get("open"))
+            state_after = str(cell_after.get("state") or "").strip().lower() or None
+            if open_after:
+                break
+    duration_ms = int((time.monotonic() - open_started_at) * 1000)
+
+    if open_after is True:
+        result = "opened"
+        message = f"Ячейка {cell_label} физически открылась за {duration_ms} мс."
+        ok = True
+    elif open_after is False:
+        result = "not_opened"
+        message = (
+            f"Команда открытия принята, но ESI всё ещё показывает ячейку {cell_label} закрытой "
+            f"через {duration_ms} мс. Возможно, проблема с замком или связью с постаматом."
+        )
+        ok = False
+    else:
+        result = "no_state"
+        message = (
+            f"ESI не вернул информацию о ячейке {cell_label} после команды открытия. "
+            "Проверьте внешний ID ячейки."
+        )
+        ok = False
+
+    record_admin_audit(
+        db,
+        admin_account_id=admin.id,
+        action="inventory.test_open",
+        request=request,
+        resource_type="locker_cell",
+        resource_id=cell.id,
+        payload={
+            "lockerId": str(locker.id),
+            "serial": serial,
+            "externalCellId": external_cell_id,
+            "result": result,
+            "durationMs": duration_ms,
+            "stateBefore": state_before,
+            "openBefore": open_before,
+            "stateAfter": state_after,
+            "openAfter": open_after,
+            "pollAttempts": poll_attempts,
+            "discoveryError": before_error,
+        },
+    )
+    await db.commit()
+
+    return {
+        "data": {
+            "ok": ok,
+            "result": result,
+            "message": message,
+            "cellLabel": cell_label,
+            "serial": serial,
+            "externalCellId": external_cell_id,
+            "stateBefore": state_before,
+            "openBefore": open_before,
+            "stateAfter": state_after,
+            "openAfter": open_after,
+            "onlineAfter": online_after,
+            "durationMs": duration_ms,
+            "pollAttempts": poll_attempts,
         }
     }
