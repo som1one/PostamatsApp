@@ -3968,13 +3968,13 @@ function renderInventoryCells() {
       const statusPill = renderStatusPill(cell.status);
       return `
         <article class="cell-card cell-card--${occupied ? "occupied" : "free"}">
-          <div class="cell-card__top">
-            ${cover}
-            <div class="cell-card__info">
-              <p class="cell-card__label">№ ${escapeHtml(cellLabel)}</p>
-              ${productName}
-              <div class="cell-card__status">${statusPill}</div>
+          ${cover}
+          <div class="cell-card__info">
+            <div class="cell-card__line">
+              <span class="cell-card__label">№ ${escapeHtml(cellLabel)}</span>
+              ${statusPill}
             </div>
+            ${productName}
           </div>
           ${action}
         </article>

@@ -413,7 +413,7 @@
 
   /* Inventory placement */
   .cells-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: 1fr;
     gap: 8px;
   }
 
@@ -422,8 +422,13 @@
   }
 
   .cell-card__thumb {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .cell-card__action {
+    padding: 6px 12px;
+    font-size: 0.78rem;
   }
 
   .inventory-product-list {
