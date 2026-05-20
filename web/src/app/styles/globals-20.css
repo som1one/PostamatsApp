@@ -141,9 +141,13 @@
   gap: 10px;
 }.detail-actions > :only-child {
   grid-column: 1 / -1;
+}.detail-actions .detail-actions-hint {
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
 }.detail-actions .button {
   width: 100%;
   justify-content: center;
+  min-height: 44px;
 }.order-detail-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

@@ -613,7 +613,7 @@ function OrderDetailContent({ id }: { id: string }) {
             {!isReservation &&
               ["pickup_ready", "pickup_opened"].includes(order.data.status) ? (
               <>
-                <p className="muted" style={{ marginTop: 0 }}>
+                <p className="muted detail-actions-hint">
                   Подойдите к постамату и нажмите «Открыть ячейку». Когда заберёте
                   товар, нажмите «Я забрал» — аренда начнётся.
                 </p>
@@ -683,7 +683,7 @@ function OrderDetailContent({ id }: { id: string }) {
             {/* Confirm return — once locker is opened we wait for the user to confirm */}
             {!isReservation && order.data.status === "return_in_progress" ? (
               <>
-                <p className="muted" style={{ marginTop: 0 }}>
+                <p className="muted detail-actions-hint">
                   Положите товар в открытую ячейку и закройте дверцу. Затем нажмите
                   «Я вернул товар», чтобы завершить аренду.
                 </p>
