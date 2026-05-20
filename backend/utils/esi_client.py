@@ -139,13 +139,32 @@ def _external_cell_key(cell: LockerCell) -> str | None:
 
 def _cell_status_from_esi_state(state: str | None) -> LockerCellStatus | None:
     normalized = (state or "").strip().lower()
-    if normalized == "vacant":
+    # Поддерживаем и провайдерские, и наши внутренние имена — на случай
+    # вызова из dev-stub, где состояние записывается напрямую.
+    if normalized in ("vacant", "unassigned"):
         return LockerCellStatus.VACANT
-    if normalized == "occupied":
+    if normalized in ("occupied", "assigned"):
         return LockerCellStatus.OCCUPIED
     if normalized == "blocked":
         return LockerCellStatus.FAULT
     return None
+
+
+def _esi_state_payload(state: str | None) -> str:
+    """Переводит наш внутренний state в значение, ожидаемое ESI API.
+
+    Провайдер принимает только `unassigned | assigned | blocked`. Внутри
+    кода исторически фигурируют `vacant | occupied | blocked` — оставлены
+    как алиасы, чтобы не ломать вызывающий код.
+    """
+    normalized = (state or "").strip().lower()
+    if normalized in ("vacant", "unassigned", ""):
+        return "unassigned"
+    if normalized in ("occupied", "assigned"):
+        return "assigned"
+    if normalized == "blocked":
+        return "blocked"
+    return normalized
 
 
 async def _load_provider_cell(
@@ -246,7 +265,7 @@ async def sync_cell_state(
 
     await _esi_post(
         f"/set-cell/{serial}/{external_cell_id}",
-        payload={"state": state, "pin": pin or ""},
+        payload={"state": _esi_state_payload(state), "pin": pin or ""},
     )
 
 
@@ -545,7 +564,7 @@ async def esi_trigger_return_cell_open(
     try:
         await _esi_post(
             f"/set-cell/{serial}/{external_cell_id}",
-            payload={"state": "vacant", "pin": pin},
+            payload={"state": _esi_state_payload("vacant"), "pin": pin},
         )
         await _esi_post(f"/open-cell/{serial}/{external_cell_id}")
     except EsiOpenError as exc:
