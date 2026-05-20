@@ -65,7 +65,14 @@ async def reconcile_esi_and_returns() -> None:
                     source=RentalEventSource.SYSTEM,
                 )
 
-        lockers_stmt = select(LockerLocation).where(LockerLocation.external_locker_id.is_not(None))
+        # Берём только постаматы реального ESI-провайдера. Сидовые/тестовые
+        # точки (`seed`, `manual` и т.п.) не зарегистрированы у ESI, и для
+        # них `GET /machine/{serial}` будет всегда отвечать 404 — это шумит
+        # в логах и впустую тратит таймауты.
+        lockers_stmt = select(LockerLocation).where(
+            LockerLocation.external_locker_id.is_not(None),
+            LockerLocation.external_provider == "esi",
+        )
         lockers = list((await db.scalars(lockers_stmt)).all())
         if not lockers:
             await db.commit()
