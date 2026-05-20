@@ -809,6 +809,11 @@ async def confirm_return(
         await db.commit()
     except Exception as exc:
         await db.rollback()
+        # Логируем полный traceback, иначе наружу видно только generic 500
+        # и невозможно понять, что именно упало в complete_return_request.
+        import logging
+
+        logging.getLogger(__name__).exception("confirm-return failed")
         raise HTTPException(status_code=500, detail="CONFIRM_RETURN_FAILED") from exc
 
     if completed_rental is None:

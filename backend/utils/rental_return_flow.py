@@ -75,12 +75,21 @@ async def start_rental_return(
         if pickup_locker is not None and pickup_locker.city_id != locker.city_id:
             raise ReturnRequestError("RETURN_LOCKER_DIFFERENT_CITY")
 
+    # Берём только реально пустую ячейку: статус VACANT и в ней не висит
+    # никакой `InventoryUnit`. Иначе при `complete_return_request` мы
+    # упрёмся в UNIQUE(locker_cell_id) и завалим транзакцию.
+    occupied_cell_ids_subq = (
+        select(InventoryUnit.locker_cell_id)
+        .where(InventoryUnit.locker_cell_id.is_not(None))
+        .subquery()
+    )
     stmt = (
         select(LockerCell)
         .where(
             LockerCell.locker_id == return_locker_id,
             LockerCell.supports_return.is_(True),
             LockerCell.status == LockerCellStatus.VACANT,
+            LockerCell.id.not_in(select(occupied_cell_ids_subq)),
         )
         .order_by(LockerCell.label.asc().nulls_last(), LockerCell.created_at.asc())
         .limit(1)
