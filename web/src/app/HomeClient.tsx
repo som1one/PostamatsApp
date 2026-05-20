@@ -142,7 +142,7 @@ export function HomeClient() {
     setError("");
 
     Promise.all([
-      fetchProducts({ cityId: selectedCityId, availableOnly: true, limit: 9 }),
+      fetchProducts({ cityId: selectedCityId, availableOnly: true, limit: 100 }),
       fetchLockers(selectedCityId),
     ])
       .then(([productItems, lockerItems]) => {
@@ -174,6 +174,15 @@ export function HomeClient() {
   }, [selectedCityId]);
 
   const totalLockerCount = allLockers.length || lockers.length;
+  const totalProductCount = products.length;
+  const uniqueCategoryCount = useMemo(() => {
+    const ids = new Set(
+      products
+        .map((product) => product.categoryId)
+        .filter((id): id is string => Boolean(id)),
+    );
+    return ids.size;
+  }, [products]);
   const heroHighlights = [
     {
       icon: MapPinned,
@@ -202,8 +211,14 @@ export function HomeClient() {
       label: pluralizeRu(totalLockerCount, ["постамат", "постамата", "постаматов"]),
       value: totalLockerCount,
     },
-    { label: "Шагов в сценарии", value: "4" },
-    { label: "Карточек в подборке", value: previewProducts.length || "—" },
+    {
+      label: pluralizeRu(uniqueCategoryCount, ["категория", "категории", "категорий"]),
+      value: uniqueCategoryCount || "—",
+    },
+    {
+      label: pluralizeRu(totalProductCount, ["товар", "товара", "товаров"]),
+      value: totalProductCount || "—",
+    },
   ];
 
   const workflowCards = [
