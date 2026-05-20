@@ -61,13 +61,18 @@ export function RentalDurationSelector({
             type="button"
             onClick={() => onSelect(plan.id)}
           >
-            {discount !== null ? (
-              <span className="tariff-card-discount" aria-label={`Скидка ${discount} процентов`}>
-                −{discount}%
-              </span>
-            ) : null}
             <div className="tariff-card-row">
-              <span className="tariff-card-label">{durationLabel(plan)}</span>
+              <span className="tariff-card-label-group">
+                <span className="tariff-card-label">{durationLabel(plan)}</span>
+                {discount !== null ? (
+                  <span
+                    className="tariff-card-discount"
+                    aria-label={`Скидка ${discount} процентов`}
+                  >
+                    −{discount}%
+                  </span>
+                ) : null}
+              </span>
               <strong className="tariff-card-price">{formatMoney(plan.baseAmount, plan.currency)}</strong>
             </div>
             <small className="tariff-card-meta">
