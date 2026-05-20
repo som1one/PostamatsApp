@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -23,14 +24,13 @@ import { StatusPill } from "@/components/StatusPill";
 import { Surface } from "@/components/Surface";
 import {
   cancelReservation,
-  createPaymentPreauth,
+  confirmReservation,
   fetchMyReservations,
   fetchReservation,
   fetchRentals,
-  requestRentalReturn,
 } from "@/shared/api/endpoints";
+import { ApiError } from "@/shared/api/client";
 import type { RentalListItem, UpcomingReservation } from "@/shared/api/types";
-import { writePendingCheckout } from "@/shared/checkout/pending";
 import { buildRescheduleProductHref } from "@/shared/checkout/reschedule";
 import { formatCountRu, formatDateTime } from "@/shared/format";
 import { resolvePublicAssetUrl } from "@/shared/media";
@@ -177,10 +177,6 @@ function RentalsContent() {
   const [showRefundDialog, setShowRefundDialog] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
 
-  // Return confirm dialog
-  const [returnConfirmId, setReturnConfirmId] = useState<string | null>(null);
-  const confirmResolveRef = useRef<((ok: boolean) => void) | null>(null);
-
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -223,23 +219,27 @@ function RentalsContent() {
     setBusy(reservation.id, true);
     setItemError(reservation.id, "");
     try {
-      const returnUrl = `${window.location.origin}/payment/return`;
-      const response = await createPaymentPreauth({
-        reservationId: reservation.id,
-        returnUrl,
-      });
-      writePendingCheckout({
-        reservationId: reservation.id,
-        paymentId: response.payment.id,
-        createdAt: new Date().toISOString(),
-      });
-      if (response.confirmation?.confirmationUrl) {
-        window.location.href = response.confirmation.confirmationUrl;
-      } else {
-        router.push("/payment/return");
-      }
+      // Юкасса временно отключена: подтверждаем бронь без платежа и сразу
+      // открываем карточку аренды.
+      const rental = await confirmReservation(reservation.id);
+      router.push(`/profile/orders/${rental.id}`);
     } catch (err) {
-      setItemError(reservation.id, err instanceof Error ? err.message : "Не удалось создать платёж");
+      let msg = "Не удалось оформить аренду";
+      if (err instanceof ApiError) {
+        if (err.code === "LOCKER_OFFLINE") {
+          msg =
+            "Постамат сейчас офлайн. Попробуйте чуть позже — в ночные часы устройство может уходить в режим обслуживания.";
+        } else if (err.code === "LOCKER_NOT_CONFIGURED") {
+          msg = "Постамат пока не привязан к серверу. Обратитесь в поддержку.";
+        } else if (err.code === "ESI_RESERVE_FAILED" || err.code === "ESI_HTTP_ERROR") {
+          msg = "Не удалось зарезервировать ячейку. Попробуйте ещё раз через минуту.";
+        } else if (err.message) {
+          msg = err.message;
+        }
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
+      setItemError(reservation.id, msg);
       setBusy(reservation.id, false);
     }
   }
@@ -301,35 +301,7 @@ function RentalsContent() {
     }
   }
 
-  // ── Return rental ────────────────────────────────────────────
-  function askReturnConfirm(rentalId: string): Promise<boolean> {
-    return new Promise((resolve) => {
-      confirmResolveRef.current = resolve;
-      setReturnConfirmId(rentalId);
-    });
-  }
-
-  function handleConfirmReturn(ok: boolean) {
-    setReturnConfirmId(null);
-    confirmResolveRef.current?.(ok);
-    confirmResolveRef.current = null;
-  }
-
-  async function handleReturn(rentalId: string, e: React.MouseEvent) {
-    e.stopPropagation();
-    const confirmed = await askReturnConfirm(rentalId);
-    if (!confirmed) return;
-    setBusy(rentalId, true);
-    setItemError(rentalId, "");
-    try {
-      await requestRentalReturn(rentalId);
-      await load();
-    } catch (err) {
-      setItemError(rentalId, err instanceof Error ? err.message : "Не удалось начать возврат");
-    } finally {
-      setBusy(rentalId, false);
-    }
-  }
+  // ── Return rental: full picker is on the order detail page ──
 
   const hasOrders = reservations.length > 0 || rentals.length > 0;
 
@@ -515,15 +487,13 @@ function RentalsContent() {
                         ) : null}
                         {canReturn ? (
                           <div className="card-actions" onClick={(e) => e.stopPropagation()}>
-                            <button
+                            <Link
+                              href={`/profile/orders/${rental.id}`}
                               className="button button-secondary button-sm"
-                              type="button"
-                              disabled={busy}
-                              onClick={(e) => handleReturn(rental.id, e)}
                             >
                               <RotateCcw size={15} />
-                              {busy ? "Открываем ячейку…" : "Оформить возврат"}
-                            </button>
+                              Оформить возврат
+                            </Link>
                           </div>
                         ) : null}
                       </div>
@@ -578,37 +548,6 @@ function RentalsContent() {
                   Назад
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Return confirmation dialog */}
-      {returnConfirmId !== null ? (
-        <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal-box">
-            <div className="modal-icon">
-              <RotateCcw size={26} />
-            </div>
-            <h2 className="modal-title">Начать возврат?</h2>
-            <p className="modal-text">
-              Убедитесь, что вы уже находитесь у постамата. После подтверждения ячейка откроется физически — положите предмет и закройте дверцу.
-            </p>
-            <div className="modal-actions">
-              <button
-                className="button button-secondary"
-                type="button"
-                onClick={() => handleConfirmReturn(false)}
-              >
-                Отмена
-              </button>
-              <button
-                className="button button-primary"
-                type="button"
-                onClick={() => handleConfirmReturn(true)}
-              >
-                Да, я у постамата
-              </button>
             </div>
           </div>
         </div>

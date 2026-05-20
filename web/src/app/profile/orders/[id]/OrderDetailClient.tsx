@@ -26,6 +26,8 @@ import { YandexMap } from "@/components/YandexMap";
 import { ApiError } from "@/shared/api/client";
 import {
   cancelReservation,
+  confirmRentalPickup,
+  confirmRentalReturn,
   fetchAllLockers,
   fetchMyReservations,
   fetchReservation,
@@ -281,6 +283,46 @@ function OrderDetailContent({ id }: { id: string }) {
         }
       } else {
         setError(err instanceof Error ? err.message : "Не удалось открыть ячейку");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleConfirmPickup(rentalId: string) {
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      await confirmRentalPickup(rentalId);
+      setMessage("Спасибо! Аренда началась.");
+      await load();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "RENTAL_NOT_PICKUP_READY") {
+        setError("Сначала нажмите «Открыть ячейку».");
+      } else {
+        setError(err instanceof Error ? err.message : "Не удалось подтвердить получение");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleConfirmReturnDone(rentalId: string) {
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      await confirmRentalReturn(rentalId);
+      setMessage("Возврат принят. Спасибо!");
+      await load();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "RENTAL_NOT_RETURNING") {
+        setError("Сначала оформите возврат и подождите, пока ячейка откроется.");
+      } else if (err instanceof ApiError && err.code === "RETURN_REQUEST_NOT_FOUND") {
+        setError("Активная заявка на возврат не найдена. Оформите возврат заново.");
+      } else {
+        setError(err instanceof Error ? err.message : "Не удалось подтвердить возврат");
       }
     } finally {
       setBusy(false);
@@ -572,7 +614,8 @@ function OrderDetailContent({ id }: { id: string }) {
               ["pickup_ready", "pickup_opened"].includes(order.data.status) ? (
               <>
                 <p className="muted" style={{ marginTop: 0 }}>
-                  Подойдите к постамату и нажмите «Открыть ячейку», когда будете готовы забрать товар.
+                  Подойдите к постамату и нажмите «Открыть ячейку». Когда заберёте
+                  товар, нажмите «Я забрал» — аренда начнётся.
                 </p>
                 <button
                   className="button button-primary"
@@ -582,6 +625,15 @@ function OrderDetailContent({ id }: { id: string }) {
                 >
                   <Key size={18} />
                   Открыть ячейку
+                </button>
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => handleConfirmPickup(order.data.id)}
+                >
+                  <PackageCheck size={18} />
+                  Я забрал
                 </button>
               </>
             ) : null}
@@ -626,6 +678,25 @@ function OrderDetailContent({ id }: { id: string }) {
                 <RotateCcw size={18} />
                 Оформить возврат
               </button>
+            ) : null}
+
+            {/* Confirm return — once locker is opened we wait for the user to confirm */}
+            {!isReservation && order.data.status === "return_in_progress" ? (
+              <>
+                <p className="muted" style={{ marginTop: 0 }}>
+                  Положите товар в открытую ячейку и закройте дверцу. Затем нажмите
+                  «Я вернул товар», чтобы завершить аренду.
+                </p>
+                <button
+                  className="button button-primary"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => handleConfirmReturnDone(order.data.id)}
+                >
+                  <CheckCircle2 size={18} />
+                  Я вернул товар
+                </button>
+              </>
             ) : null}
 
             {/* Cancelled due to pickup expired */}

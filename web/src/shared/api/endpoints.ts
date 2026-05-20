@@ -418,3 +418,17 @@ export async function openRentalCell(rentalId: string) {
     { method: "POST" },
   );
 }
+
+export async function confirmRentalPickup(rentalId: string) {
+  return requestWithAuth<{ rental: { id: string; status: string } }>(
+    `/me/rentals/${rentalId}/confirm-pickup`,
+    { method: "POST" },
+  );
+}
+
+export async function confirmRentalReturn(rentalId: string) {
+  return requestWithAuth<{ rental: { id: string; status: string } }>(
+    `/me/rentals/${rentalId}/confirm-return`,
+    { method: "POST" },
+  );
+}

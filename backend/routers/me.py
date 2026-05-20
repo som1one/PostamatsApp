@@ -9,10 +9,12 @@ from backend.core.database import get_db
 from backend.models.enums import (
     DocumentType,
     InventoryStatus,
+    LockerCellStatus,
     PaymentStatus,
     RentalEventSource,
     RentalStatus,
     ReservationStatus,
+    ReturnRequestStatus,
     VerificationStatus,
 )
 from backend.models.payment import Payment
@@ -23,9 +25,15 @@ from backend.models.product import Product
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
 from backend.models.reservation import Reservation
+from backend.models.return_request import ReturnRequest
 from backend.models.user import User
 from backend.models.verification_request import VerificationRequest
 from backend.utils.esi_client import EsiOpenError, admin_trigger_open_cell
+from backend.utils.inventory_tracking import add_inventory_movement
+from backend.utils.return_requests import (
+    complete_return_request,
+    get_active_return_request_for_rental,
+)
 from backend.schemas.me_schemas import (
     CreateVerificationRequest,
     DeleteVerificationRequest,
@@ -644,6 +652,173 @@ async def open_pickup_cell(
             "rental": {
                 "id": str(rental.id),
                 "status": rental.status.value,
+            }
+        }
+    }
+
+
+@router.post("/rentals/{rental_id}/confirm-pickup")
+async def confirm_pickup(
+    rental_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Подтверждает, что клиент забрал товар.
+
+    Используется после `open-cell`, когда у нас нет реального ESI-вебхука
+    о закрытии ячейки (dev-режим, флаки железа). Переводит rental из
+    PICKUP_OPENED/PICKUP_READY в ACTIVE и фиксирует, что инвентарь уехал
+    из постамата.
+    """
+    user = await get_current_client_user(request, db)
+
+    rental = await db.get(Rental, rental_id)
+    if rental is None:
+        raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
+    if rental.user_id != user.id:
+        raise HTTPException(status_code=403, detail="RENTAL_FORBIDDEN")
+
+    if rental.status == RentalStatus.ACTIVE:
+        return {
+            "data": {
+                "rental": {
+                    "id": str(rental.id),
+                    "status": rental.status.value,
+                }
+            }
+        }
+    if rental.status not in (RentalStatus.PICKUP_READY, RentalStatus.PICKUP_OPENED):
+        raise HTTPException(status_code=409, detail="RENTAL_NOT_PICKUP_READY")
+
+    now = datetime.now(timezone.utc)
+    unit = await db.get(InventoryUnit, rental.inventory_unit_id)
+    cell = (
+        await db.get(LockerCell, unit.locker_cell_id)
+        if unit is not None and unit.locker_cell_id is not None
+        else None
+    )
+
+    prev_rental_status = rental.status
+    prev_unit_status = unit.status if unit is not None else None
+    prev_cell_id = unit.locker_cell_id if unit is not None else None
+
+    rental.status = RentalStatus.ACTIVE
+    rental.starts_at = rental.starts_at or now
+
+    if unit is not None:
+        unit.status = InventoryStatus.RENTED
+        unit.locker_cell_id = None
+
+    if cell is not None:
+        cell.status = LockerCellStatus.VACANT
+        cell.last_closed_at = now
+        cell.last_event_at = now
+
+    if unit is not None:
+        add_inventory_movement(
+            db,
+            unit=unit,
+            from_locker_id=rental.pickup_locker_id,
+            to_locker_id=None,
+            from_cell_id=prev_cell_id,
+            to_cell_id=None,
+            from_status=prev_unit_status,
+            to_status=InventoryStatus.RENTED,
+            reason="pickup_confirmed_by_user",
+        )
+
+    db.add(
+        RentalEvent(
+            rental_id=rental.id,
+            event_type="pickup_completed",
+            from_status=prev_rental_status,
+            to_status=RentalStatus.ACTIVE,
+            source=RentalEventSource.USER,
+            payload_json={"trigger": "client_confirm_pickup"},
+        )
+    )
+
+    try:
+        await db.commit()
+        await db.refresh(rental)
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="CONFIRM_PICKUP_FAILED") from exc
+
+    return {
+        "data": {
+            "rental": {
+                "id": str(rental.id),
+                "status": rental.status.value,
+            }
+        }
+    }
+
+
+@router.post("/rentals/{rental_id}/confirm-return")
+async def confirm_return(
+    rental_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Подтверждает, что клиент уже положил товар в выбранный постамат.
+
+    Используется после `return-request`, когда у нас нет реального ESI
+    вебхука `return_cell_closed`. Переводит rental в COMPLETED и
+    return-request в COMPLETED через ту же утилиту, что и автоматический
+    обработчик железа.
+    """
+    user = await get_current_client_user(request, db)
+
+    rental = await db.get(Rental, rental_id)
+    if rental is None:
+        raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
+    if rental.user_id != user.id:
+        raise HTTPException(status_code=403, detail="RENTAL_FORBIDDEN")
+
+    if rental.status == RentalStatus.COMPLETED:
+        return {
+            "data": {
+                "rental": {
+                    "id": str(rental.id),
+                    "status": rental.status.value,
+                }
+            }
+        }
+    if rental.status != RentalStatus.RETURN_IN_PROGRESS:
+        raise HTTPException(status_code=409, detail="RENTAL_NOT_RETURNING")
+
+    return_request = await get_active_return_request_for_rental(db, rental.id)
+    if return_request is None:
+        raise HTTPException(status_code=409, detail="RETURN_REQUEST_NOT_FOUND")
+
+    if return_request.status not in (
+        ReturnRequestStatus.CREATED,
+        ReturnRequestStatus.LOCKER_OPENED,
+        ReturnRequestStatus.AWAITING_CLOSE,
+    ):
+        raise HTTPException(status_code=409, detail="RETURN_REQUEST_NOT_ACTIVE")
+
+    try:
+        completed_rental, _unit = await complete_return_request(
+            db,
+            request=return_request,
+            provider_event_id=None,
+            source=RentalEventSource.USER,
+        )
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="CONFIRM_RETURN_FAILED") from exc
+
+    if completed_rental is None:
+        raise HTTPException(status_code=500, detail="CONFIRM_RETURN_FAILED")
+
+    return {
+        "data": {
+            "rental": {
+                "id": str(completed_rental.id),
+                "status": completed_rental.status.value,
             }
         }
     }
