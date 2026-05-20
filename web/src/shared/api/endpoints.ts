@@ -118,6 +118,11 @@ export async function fetchCities() {
   return payload.cities;
 }
 
+export async function fetchPublicStats() {
+  const payload = await requestJson<{ stats: { users: number } }>("/public/stats");
+  return payload.stats;
+}
+
 export async function fetchLockers(cityId?: string) {
   const params = new URLSearchParams();
   if (cityId) {
@@ -344,7 +349,7 @@ export async function authorizePaymentDevStub(paymentId: string) {
   return data.payment;
 }
 
-export async function confirmReservation(reservationId: string, paymentId: string) {
+export async function confirmReservation(reservationId: string, paymentId?: string) {
   const data = await requestWithAuth<{
     rental: {
       id: string;
@@ -355,7 +360,7 @@ export async function confirmReservation(reservationId: string, paymentId: strin
     };
   }>(`/reservations/${reservationId}/confirm`, {
     method: "POST",
-    body: { paymentId },
+    body: paymentId ? { paymentId } : {},
   });
   return data.rental;
 }
@@ -405,4 +410,11 @@ export async function requestRentalReturn(rentalId: string, lockerId?: string) {
     method: "POST",
     body: lockerId ? { lockerId } : {},
   });
+}
+
+export async function openRentalCell(rentalId: string) {
+  return requestWithAuth<{ rental: { id: string; status: string } }>(
+    `/me/rentals/${rentalId}/open-cell`,
+    { method: "POST" },
+  );
 }

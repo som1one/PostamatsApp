@@ -36,6 +36,7 @@ from backend.routers.uploads import router as uploads_router
 from backend.routers.products import router as products_router
 from backend.routers.reservation import router as reservation_router
 from backend.routers.payments import router as payments_router, yookassa_webhook_router
+from backend.routers.public_stats import router as public_stats_router
 from backend.routers.webhooks_esi import router as webhooks_esi_router
 from backend.utils.featured_product import (
     start_featured_product_scheduler,
@@ -88,6 +89,7 @@ app.include_router(products_router)
 app.include_router(reservation_router)
 app.include_router(payments_router)
 app.include_router(yookassa_webhook_router)
+app.include_router(public_stats_router)
 app.include_router(webhooks_esi_router)
 app.include_router(admin_auth_router)
 app.include_router(admin_dashboard_router)

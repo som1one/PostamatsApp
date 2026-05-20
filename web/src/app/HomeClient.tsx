@@ -22,6 +22,7 @@ import {
   fetchCities,
   fetchLockers,
   fetchProducts,
+  fetchPublicStats,
 } from "@/shared/api/endpoints";
 import type { City, Locker, ProductListItem } from "@/shared/api/types";
 import { formatCountRu, pluralizeRu } from "@/shared/format";
@@ -48,6 +49,7 @@ export function HomeClient() {
   const [selectedCityId, setSelectedCityId] = useState("");
   const [selectedLockerId, setSelectedLockerId] = useState("");
   const [previewCategoryId, setPreviewCategoryId] = useState("");
+  const [userCount, setUserCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -130,6 +132,24 @@ export function HomeClient() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    fetchPublicStats()
+      .then((stats) => {
+        if (active) {
+          setUserCount(stats.users);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setUserCount(null);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!selectedCityId) {
       setProducts([]);
       setLockers([]);
@@ -175,14 +195,6 @@ export function HomeClient() {
 
   const totalLockerCount = allLockers.length || lockers.length;
   const totalProductCount = products.length;
-  const uniqueCategoryCount = useMemo(() => {
-    const ids = new Set(
-      products
-        .map((product) => product.categoryId)
-        .filter((id): id is string => Boolean(id)),
-    );
-    return ids.size;
-  }, [products]);
   const heroHighlights = [
     {
       icon: MapPinned,
@@ -212,8 +224,8 @@ export function HomeClient() {
       value: totalLockerCount,
     },
     {
-      label: pluralizeRu(uniqueCategoryCount, ["категория", "категории", "категорий"]),
-      value: uniqueCategoryCount || "—",
+      label: pluralizeRu(userCount ?? 0, ["пользователь", "пользователя", "пользователей"]),
+      value: userCount ?? "—",
     },
     {
       label: pluralizeRu(totalProductCount, ["товар", "товара", "товаров"]),
