@@ -216,6 +216,59 @@
   font-style: normal;
   font-weight: 900;
   white-space: nowrap;
+}.product-locker-map {
+  margin-bottom: 12px;
+}.product-locker-map .map-shell {
+  min-height: 260px;
+}.product-locker-map .map-canvas {
+  min-height: 260px;
+  border-radius: 14px;
+  overflow: hidden;
+}.usage-guide-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}.usage-guide-step {
+  display: grid;
+  grid-template-columns: 28px 28px 1fr;
+  align-items: start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-muted);
+}.usage-guide-step-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 900;
+  font-size: 13px;
+}.usage-guide-step-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(221, 54, 45, 0.12);
+  color: var(--primary);
+}.usage-guide-step-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}.usage-guide-step-body strong {
+  font-size: 14px;
+  font-weight: 850;
+}.usage-guide-step-body span {
+  font-size: 13px;
+  line-height: 1.4;
 }.date-time-selector {
   display: grid;
   gap: 14px;

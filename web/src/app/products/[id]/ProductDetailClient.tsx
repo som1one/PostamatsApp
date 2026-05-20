@@ -15,9 +15,10 @@ import { DateTimeSelector } from "@/components/DateTimeSelector";
 import { EmptyState } from "@/components/EmptyState";
 import { OrderSummary } from "@/components/OrderSummary";
 import { PageChrome } from "@/components/PageChrome";
-import { ProductEquipment, ProductInstructions } from "@/components/ProductInfoBlocks";
+import { ProductEquipment, ProductInstructions, ProductUsageGuide } from "@/components/ProductInfoBlocks";
 import { ProductGallery } from "@/components/ProductGallery";
 import { RentalDurationSelector } from "@/components/RentalDurationSelector";
+import { YandexMap } from "@/components/YandexMap";
 import {
   fetchCities,
   fetchAllLockers,
@@ -135,6 +136,19 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
     () => lockerOptions.find((locker) => locker.lockerId === lockerId),
     [lockerId, lockerOptions],
   );
+  const mapLockers = useMemo<Locker[]>(() => {
+    const allowed = new Set(
+      lockerOptions
+        .filter((option) => option.isAvailable)
+        .map((option) => option.lockerId),
+    );
+    return cityLockers.filter(
+      (locker) =>
+        allowed.has(locker.id) &&
+        typeof locker.lat === "number" &&
+        typeof locker.lon === "number",
+    );
+  }, [cityLockers, lockerOptions]);
   const images = useMemo(() => {
     if (!product) {
       return [];
@@ -385,6 +399,15 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                   </div>
                   <CitySelector cities={cities} value={cityId} onChange={setCityId} />
                 </div>
+                {mapLockers.length ? (
+                  <div className="product-locker-map">
+                    <YandexMap
+                      lockers={mapLockers}
+                      selectedLockerId={lockerId}
+                      onSelectLocker={setLockerId}
+                    />
+                  </div>
+                ) : null}
                 {lockerOptions.length ? (
                   <div className="product-locker-grid">
                     {lockerOptions.map((locker) => {
@@ -427,6 +450,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                 <ProductEquipment product={product} />
               </div>
               <ProductInstructions product={product} />
+              <ProductUsageGuide />
             </aside>
           </div>
         </div>
