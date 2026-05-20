@@ -263,9 +263,14 @@ async def sync_cell_state(
     if not serial or not external_cell_id:
         raise EsiOpenError("ESI_NOT_CONFIGURED")
 
+    esi_state = _esi_state_payload(state)
+    # ESI отвергает запрос с непустым `pin`, если ячейка переводится
+    # в `unassigned` (свободную). Поэтому при освобождении принудительно
+    # стираем pin, что бы ни пришло сверху.
+    esi_pin = "" if esi_state == "unassigned" else (pin or "")
     await _esi_post(
         f"/set-cell/{serial}/{external_cell_id}",
-        payload={"state": _esi_state_payload(state), "pin": pin or ""},
+        payload={"state": esi_state, "pin": esi_pin},
     )
 
 
@@ -562,9 +567,12 @@ async def esi_trigger_return_cell_open(
         raise EsiReturnOpenError("ESI_NOT_CONFIGURED")
 
     try:
+        # Бронируем ячейку под возврат: ESI ожидает `assigned` + pin
+        # (`unassigned` с непустым pin провайдер не принимает). После этого
+        # принудительно открываем дверцу — клиент кладёт товар.
         await _esi_post(
             f"/set-cell/{serial}/{external_cell_id}",
-            payload={"state": _esi_state_payload("vacant"), "pin": pin},
+            payload={"state": _esi_state_payload("occupied"), "pin": pin},
         )
         await _esi_post(f"/open-cell/{serial}/{external_cell_id}")
     except EsiOpenError as exc:
