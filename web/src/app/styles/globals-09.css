@@ -163,6 +163,29 @@
 }.tariff-card small {
   color: var(--primary);
   font-weight: 850;
+}.tariff-card-discount {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 1;
+}.tariff-card.is-selected .tariff-card-discount {
+  background: #fff;
+  color: var(--primary) !important;
+  box-shadow: 0 0 0 1px var(--primary);
 }.equipment-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
