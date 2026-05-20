@@ -10,18 +10,22 @@ from backend.models.enums import (
     DocumentType,
     InventoryStatus,
     PaymentStatus,
+    RentalEventSource,
     RentalStatus,
     ReservationStatus,
     VerificationStatus,
 )
 from backend.models.payment import Payment
 from backend.models.inventory_unit import InventoryUnit
+from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
 from backend.models.product import Product
 from backend.models.rental import Rental
+from backend.models.rental_event import RentalEvent
 from backend.models.reservation import Reservation
 from backend.models.user import User
 from backend.models.verification_request import VerificationRequest
+from backend.utils.esi_client import EsiOpenError, admin_trigger_open_cell
 from backend.schemas.me_schemas import (
     CreateVerificationRequest,
     DeleteVerificationRequest,
@@ -52,6 +56,7 @@ _RETURN_REQUEST_ERRORS: dict[str, tuple[int, str]] = {
     "RETURN_ALREADY_IN_PROGRESS": (409, "RETURN_ALREADY_IN_PROGRESS"),
     "LOCKER_NOT_FOUND": (404, "LOCKER_NOT_FOUND"),
     "LOCKER_OFFLINE": (409, "LOCKER_OFFLINE"),
+    "RETURN_LOCKER_DIFFERENT_CITY": (409, "RETURN_LOCKER_DIFFERENT_CITY"),
     "RETURN_CELL_NOT_AVAILABLE": (409, "RETURN_CELL_NOT_AVAILABLE"),
     "INVENTORY_NOT_FOUND": (500, "RETURN_REQUEST_FAILED"),
     "ESI_OPEN_FAILED": (502, "ESI_OPEN_FAILED"),
@@ -558,3 +563,87 @@ async def request_rental_return(
         raise HTTPException(status_code=mapped[0], detail=mapped[1]) from exc
 
     return {"data": {"return": result}}
+
+
+@router.post("/rentals/{rental_id}/open-cell")
+async def open_pickup_cell(
+    rental_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Открывает ячейку постамата для получения товара клиентом.
+
+    Доступно владельцу аренды в статусах PICKUP_READY/PICKUP_OPENED.
+    Триггерит команду открытия в ESI (или dev-stub) и помечает аренду
+    PICKUP_OPENED. Реальное событие забора (transition в ACTIVE) приходит
+    позднее веб-хуком от постамата.
+    """
+    user = await get_current_client_user(request, db)
+
+    rental = (
+        await db.execute(select(Rental).where(Rental.id == rental_id))
+    ).scalar_one_or_none()
+    if rental is None:
+        raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
+    if rental.user_id != user.id:
+        raise HTTPException(status_code=403, detail="RENTAL_FORBIDDEN")
+
+    if rental.status not in (RentalStatus.PICKUP_READY, RentalStatus.PICKUP_OPENED):
+        raise HTTPException(status_code=409, detail="RENTAL_NOT_PICKUP_READY")
+
+    inventory_unit = await db.get(InventoryUnit, rental.inventory_unit_id)
+    if inventory_unit is None or inventory_unit.locker_cell_id is None:
+        raise HTTPException(status_code=409, detail="INVENTORY_CELL_MISSING")
+
+    cell = await db.get(LockerCell, inventory_unit.locker_cell_id)
+    if cell is None:
+        raise HTTPException(status_code=409, detail="INVENTORY_CELL_MISSING")
+
+    locker_id = rental.pickup_locker_id
+
+    # Командуем постамату открыть ячейку через ESI. Если железо недоступно
+    # (офлайн / нет связи / API ругается), возвращаем понятную ошибку, а не
+    # молча "успех". Статус rental в этом случае не меняется.
+    try:
+        await admin_trigger_open_cell(
+            db, locker_id=locker_id, cell_id=cell.id
+        )
+    except EsiOpenError as exc:
+        code = str(exc) or "ESI_OPEN_FAILED"
+        if code == "ESI_MACHINE_OFFLINE":
+            raise HTTPException(status_code=503, detail="LOCKER_OFFLINE") from exc
+        if code == "ESI_NOT_CONFIGURED":
+            raise HTTPException(status_code=503, detail="LOCKER_NOT_CONFIGURED") from exc
+        if code == "CELL_NOT_OPERABLE":
+            raise HTTPException(status_code=409, detail="CELL_NOT_OPERABLE") from exc
+        raise HTTPException(status_code=502, detail="ESI_OPEN_FAILED") from exc
+
+    now = datetime.now(timezone.utc)
+    if rental.status == RentalStatus.PICKUP_READY:
+        prev_status = rental.status
+        rental.status = RentalStatus.PICKUP_OPENED
+        db.add(
+            RentalEvent(
+                rental_id=rental.id,
+                event_type="pickup_cell_opened",
+                from_status=prev_status,
+                to_status=RentalStatus.PICKUP_OPENED,
+                source=RentalEventSource.USER,
+                payload_json={"trigger": "client_open_cell"},
+            )
+        )
+
+    try:
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="OPEN_CELL_FAILED") from exc
+
+    return {
+        "data": {
+            "rental": {
+                "id": str(rental.id),
+                "status": rental.status.value,
+            }
+        }
+    }

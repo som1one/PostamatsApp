@@ -22,16 +22,20 @@ import { PageHeader } from "@/components/PageHeader";
 import { RequireAuth } from "@/components/RequireAuth";
 import { StatusPill } from "@/components/StatusPill";
 import { Surface } from "@/components/Surface";
+import { YandexMap } from "@/components/YandexMap";
 import { ApiError } from "@/shared/api/client";
 import {
   cancelReservation,
+  fetchAllLockers,
   fetchMyReservations,
   fetchReservation,
   fetchRental,
   fetchRentals,
+  openRentalCell,
   requestRentalReturn,
 } from "@/shared/api/endpoints";
 import type {
+  Locker,
   RentalDetail,
   RentalListItem,
   ReservationSummary,
@@ -101,6 +105,10 @@ function OrderDetailContent({ id }: { id: string }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [returnConfirmId, setReturnConfirmId] = useState<string | null>(null);
   const confirmResolveRef = useRef<((ok: boolean) => void) | null>(null);
+  const [returnLockers, setReturnLockers] = useState<Locker[]>([]);
+  const [returnLockerId, setReturnLockerId] = useState("");
+  const returnLockerIdRef = useRef("");
+  const [returnLockersLoading, setReturnLockersLoading] = useState(false);
   // Dialog for cancelling a paid reservation (payment_authorized)
   const [showRefundDialog, setShowRefundDialog] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
@@ -169,6 +177,10 @@ function OrderDetailContent({ id }: { id: string }) {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    returnLockerIdRef.current = returnLockerId;
+  }, [returnLockerId]);
+
   function askReturnConfirm(rentalId: string): Promise<boolean> {
     return new Promise((resolve) => {
       confirmResolveRef.current = resolve;
@@ -183,17 +195,93 @@ function OrderDetailContent({ id }: { id: string }) {
   }
 
   async function handleReturn(rentalId: string) {
+    const pickupLockerId =
+      order && order.type === "rental" ? order.detail?.pickupLocker.id : "";
+    setReturnLockerId(pickupLockerId || "");
+    setReturnLockers([]);
+    setReturnLockersLoading(true);
+    setMessage("");
+    setError("");
+
+    void fetchAllLockers()
+      .then((items) => {
+        const pickup = items.find((locker) => locker.id === pickupLockerId);
+        const cityId = pickup?.cityId;
+        const sameCity = cityId
+          ? items.filter(
+              (locker) =>
+                locker.cityId === cityId && locker.status === "online",
+            )
+          : pickup
+            ? [pickup]
+            : [];
+        setReturnLockers(sameCity);
+        setReturnLockerId((current) =>
+          sameCity.some((locker) => locker.id === current)
+            ? current
+            : pickup?.id || sameCity[0]?.id || "",
+        );
+      })
+      .catch(() => {
+        setReturnLockers([]);
+      })
+      .finally(() => {
+        setReturnLockersLoading(false);
+      });
+
     const confirmed = await askReturnConfirm(rentalId);
     if (!confirmed) return;
     setBusy(true);
     setMessage("");
     setError("");
     try {
-      const result = await requestRentalReturn(rentalId);
+      const result = await requestRentalReturn(
+        rentalId,
+        returnLockerIdRef.current || undefined,
+      );
       setMessage(result.return.instructions || "Возврат запущен.");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось начать возврат");
+      if (err instanceof ApiError && err.code === "RETURN_LOCKER_DIFFERENT_CITY") {
+        setError("Возврат возможен только в постамат того же города.");
+      } else if (err instanceof ApiError && err.code === "LOCKER_OFFLINE") {
+        setError("Постамат сейчас офлайн. Выберите другую точку.");
+      } else if (err instanceof ApiError && err.code === "RETURN_CELL_NOT_AVAILABLE") {
+        setError("В выбранном постамате нет свободных ячеек. Попробуйте другой.");
+      } else {
+        setError(err instanceof Error ? err.message : "Не удалось начать возврат");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleOpenCell(rentalId: string) {
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      await openRentalCell(rentalId);
+      setMessage("Ячейка открыта. Заберите товар.");
+      await load();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.code === "LOCKER_OFFLINE") {
+          setError(
+            "Постамат сейчас офлайн. Попробуйте чуть позже — в ночные часы устройство может уходить в режим обслуживания.",
+          );
+        } else if (err.code === "LOCKER_NOT_CONFIGURED") {
+          setError("Постамат пока не привязан к серверу. Обратитесь в поддержку.");
+        } else if (err.code === "CELL_NOT_OPERABLE") {
+          setError("Ячейка временно неисправна. Обратитесь в поддержку.");
+        } else if (err.code === "ESI_OPEN_FAILED") {
+          setError("Не удалось открыть ячейку. Попробуйте ещё раз через минуту.");
+        } else {
+          setError(err.message || "Не удалось открыть ячейку");
+        }
+      } else {
+        setError(err instanceof Error ? err.message : "Не удалось открыть ячейку");
+      }
     } finally {
       setBusy(false);
     }
@@ -477,34 +565,27 @@ function OrderDetailContent({ id }: { id: string }) {
             )}
           </div>
 
-          {/* PIN for rental — moved into main panel */}
-          {!isReservation && order.detail?.pickupPin ? (
-            <div className="alert">
-              <Key size={18} style={{ marginRight: 8 }} />
-              <strong>PIN для получения: {order.detail.pickupPin}</strong>
-            </div>
-          ) : null}
-
-          {/* Payment info for rental */}
-          {!isReservation && order.detail?.paymentSummary ? (
-            <div className="meta-list">
-              <div className="meta-line">
-                <span>Преавторизация</span>
-                <strong>
-                  {(order.detail.paymentSummary.preauthAmount / 100).toFixed(0)} ₽
-                </strong>
-              </div>
-              <div className="meta-line">
-                <span>Списано</span>
-                <strong>
-                  {(order.detail.paymentSummary.capturedAmount / 100).toFixed(0)} ₽
-                </strong>
-              </div>
-            </div>
-          ) : null}
-
           {/* Action buttons — inline in main panel */}
           <div className="detail-actions">
+            {/* Open pickup cell */}
+            {!isReservation &&
+              ["pickup_ready", "pickup_opened"].includes(order.data.status) ? (
+              <>
+                <p className="muted" style={{ marginTop: 0 }}>
+                  Подойдите к постамату и нажмите «Открыть ячейку», когда будете готовы забрать товар.
+                </p>
+                <button
+                  className="button button-primary"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => handleOpenCell(order.data.id)}
+                >
+                  <Key size={18} />
+                  Открыть ячейку
+                </button>
+              </>
+            ) : null}
+
             {/* Reschedule button for paid reservation */}
             {isReservation && order.data.status === "payment_authorized" ? (
               <button
@@ -571,15 +652,54 @@ function OrderDetailContent({ id }: { id: string }) {
       {/* Return confirmation modal */}
       {returnConfirmId !== null ? (
         <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal-box">
+          <div className="modal-box modal-box-wide">
             <div className="modal-icon">
               <RotateCcw size={28} />
             </div>
-            <h2 className="modal-title">Начать возврат?</h2>
+            <h2 className="modal-title">Куда вернуть товар?</h2>
             <p className="modal-text">
-              Убедитесь, что вы уже находитесь у постамата. После подтверждения ячейка откроется
-              физически — положите предмет и закройте дверцу.
+              Можно вернуть в любой постамат того же города. После подтверждения ячейка
+              откроется физически — убедитесь, что вы уже у выбранной точки, положите
+              предмет и закройте дверцу.
             </p>
+            <div className="return-locker-picker">
+              <div className="return-locker-list">
+                {returnLockersLoading && !returnLockers.length ? (
+                  <div className="muted small">Загружаем постаматы…</div>
+                ) : null}
+                {!returnLockersLoading && !returnLockers.length ? (
+                  <div className="muted small">
+                    Не удалось загрузить список — будет использован постамат выдачи.
+                  </div>
+                ) : null}
+                {returnLockers.map((locker) => {
+                  const isSelected = returnLockerId === locker.id;
+                  return (
+                    <button
+                      type="button"
+                      key={locker.id}
+                      className={`product-locker-card ${isSelected ? "is-selected" : ""}`}
+                      onClick={() => setReturnLockerId(locker.id)}
+                    >
+                      <div className="product-locker-card-row">
+                        <strong>{locker.name}</strong>
+                        {isSelected ? <em>Выбран</em> : null}
+                      </div>
+                      <span>{locker.address}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {returnLockers.length ? (
+                <div className="return-locker-map">
+                  <YandexMap
+                    lockers={returnLockers}
+                    selectedLockerId={returnLockerId}
+                    onSelectLocker={setReturnLockerId}
+                  />
+                </div>
+              ) : null}
+            </div>
             <div className="modal-actions">
               <button
                 className="button button-secondary"
@@ -591,6 +711,7 @@ function OrderDetailContent({ id }: { id: string }) {
               <button
                 className="button button-primary"
                 type="button"
+                disabled={!returnLockerId}
                 onClick={() => handleConfirmReturn(true)}
               >
                 Да, я у постамата

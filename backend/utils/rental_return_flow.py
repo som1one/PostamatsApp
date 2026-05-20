@@ -63,6 +63,18 @@ async def start_rental_return(
     if locker.status != LockerStatus.ONLINE:
         raise ReturnRequestError("LOCKER_OFFLINE")
 
+    # Возврат разрешаем только в постамат того же города, где был получен товар.
+    # Это защищает от ситуаций, когда пользователь случайно (или намеренно)
+    # выбирает локер в другом городе через прямой API-вызов.
+    if return_locker_id != rental.pickup_locker_id:
+        pickup_locker = (
+            await db.execute(
+                select(LockerLocation).where(LockerLocation.id == rental.pickup_locker_id)
+            )
+        ).scalar_one_or_none()
+        if pickup_locker is not None and pickup_locker.city_id != locker.city_id:
+            raise ReturnRequestError("RETURN_LOCKER_DIFFERENT_CITY")
+
     stmt = (
         select(LockerCell)
         .where(
