@@ -33,8 +33,13 @@ class EsiDiscoveryError(Exception):
 
 
 def _get_esi_headers() -> dict[str, str]:
-    headers = {}
+    headers: dict[str, str] = {}
     if settings.ESI_API_KEY:
+        # Провайдер ESI ожидает токен в заголовке `Authorization: Bearer …`
+        # для маршрутов уровня одной машины (`/machine/{serial}`,
+        # `/set-cell/...`). Заголовок `X-Api-Key` принимался только частью
+        # эндпоинтов (например, `/machines`) и приводил к 404 «serial not
+        # found» там, где машина существует. Используем единообразно Bearer.
         headers["Authorization"] = f"Bearer {settings.ESI_API_KEY}"
     return headers
 
@@ -252,6 +257,23 @@ async def fetch_machine_snapshot(serial: str) -> dict | None:
     return payload if isinstance(payload, dict) else None
 
 
+async def is_machine_online(serial: str) -> bool | None:
+    """Возвращает True/False по полю online из снапшота. Возвращает None,
+    если ESI не знает такой serial (404) — это «не сконфигурирован», а не
+    офлайн. Не бросает исключений: используется для pre-check перед
+    отправкой команды.
+    """
+    if settings.ESI_DEV_STUB:
+        return True
+    try:
+        snapshot = await fetch_machine_snapshot(serial)
+    except EsiDiscoveryError:
+        return None
+    if not isinstance(snapshot, dict):
+        return None
+    return bool(snapshot.get("online"))
+
+
 async def fetch_machines_snapshot() -> list[dict]:
     if settings.ESI_DEV_STUB:
         return []
@@ -412,6 +434,19 @@ async def reserve_pickup_cell(
     if cell.status in (LockerCellStatus.FAULT, LockerCellStatus.DISABLED):
         raise EsiReserveError("CELL_NOT_RESERVABLE")
 
+    # Pre-check: если постамат сейчас оффлайн или ESI ничего о нём не знает,
+    # не пытаемся писать команду (всё равно потеряется или будет 503).
+    if not settings.ESI_DEV_STUB:
+        serial = _external_serial(locker)
+        if not serial:
+            raise EsiReserveError("ESI_NOT_CONFIGURED")
+        online = await is_machine_online(serial)
+        if online is None:
+            # ESI не знает такой serial — постамат не привязан к API.
+            raise EsiReserveError("ESI_NOT_CONFIGURED")
+        if not online:
+            raise EsiReserveError("ESI_MACHINE_OFFLINE")
+
     try:
         await sync_cell_state(
             db,
@@ -424,6 +459,8 @@ async def reserve_pickup_cell(
         code = str(exc)
         if code == "ESI_NOT_CONFIGURED":
             raise EsiReserveError("ESI_NOT_CONFIGURED") from exc
+        if code == "ESI_MACHINE_OFFLINE":
+            raise EsiReserveError("ESI_MACHINE_OFFLINE") from exc
         if code == "ESI_HTTP_ERROR":
             raise EsiReserveError("ESI_HTTP_ERROR") from exc
         raise EsiReserveError("ESI_RESERVE_FAILED") from exc
@@ -459,6 +496,14 @@ async def admin_trigger_open_cell(
     external_cell_id = _external_cell_key(cell)
     if not serial or not external_cell_id:
         raise EsiOpenError("ESI_NOT_CONFIGURED")
+
+    # Pre-check: не пытаемся открывать ячейку, если постамат офлайн или
+    # serial не зарегистрирован в ESI.
+    online = await is_machine_online(serial)
+    if online is None:
+        raise EsiOpenError("ESI_NOT_CONFIGURED")
+    if not online:
+        raise EsiOpenError("ESI_MACHINE_OFFLINE")
 
     await _esi_post(f"/open-cell/{serial}/{external_cell_id}")
     cell.status = LockerCellStatus.OPENED
