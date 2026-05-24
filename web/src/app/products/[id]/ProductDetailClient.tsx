@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Boxes, CalendarClock, MapPinned } from "lucide-react";
+import { ArrowLeft, Boxes, CalendarClock, CalendarRange, MapPinned, Tags } from "lucide-react";
 import {
   CitySelector,
   readSavedCityId,
@@ -17,6 +17,7 @@ import { OrderSummary } from "@/components/OrderSummary";
 import { PageChrome } from "@/components/PageChrome";
 import { ProductEquipment, ProductInstructions, ProductUsageGuide } from "@/components/ProductInfoBlocks";
 import { ProductGallery } from "@/components/ProductGallery";
+import { RentalDateRangePicker } from "@/components/RentalDateRangePicker";
 import { RentalDurationSelector } from "@/components/RentalDurationSelector";
 import { YandexMap } from "@/components/YandexMap";
 import {
@@ -28,6 +29,8 @@ import {
 import type { City, Locker, PricePlan, PricingQuote, ProductDetail } from "@/shared/api/types";
 import { useAuth } from "@/shared/auth/auth-context";
 import { resolvePublicAssetUrl } from "@/shared/media";
+import { daysBetweenInclusive } from "@/shared/rentalPricing";
+import { formatMoney } from "@/shared/format";
 
 type LockerOption = {
   lockerId: string;
@@ -73,14 +76,8 @@ function todayInputValue() {
   return `${year}-${month}-${day}`;
 }
 
-function durationText(plan?: PricePlan | null) {
-  if (!plan) {
-    return "Выберите тариф";
-  }
-  if (plan.name) {
-    return plan.name;
-  }
-  return `${plan.durationValue} ${plan.durationType}`;
+function formatRangeNote(plan: PricePlan): string {
+  return `${formatMoney(plan.baseAmount, plan.currency)}`;
 }
 
 export function ProductDetailClient({ productRef }: { productRef: string }) {
@@ -97,19 +94,66 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
   const [lockerId, setLockerId] = useState("");
   const [planId, setPlanId] = useState("");
   const [date, setDate] = useState(todayInputValue);
+  const [endDate, setEndDate] = useState(todayInputValue);
+  const [rentMode, setRentMode] = useState<"tariff" | "range">("tariff");
   const [pricing, setPricing] = useState<PricingQuote | null>(null);
   const [loading, setLoading] = useState(true);
   const [pricingLoading, setPricingLoading] = useState(false);
   const [error, setError] = useState("");
   const [pricingError, setPricingError] = useState("");
 
-  const selectedPlan = useMemo<PricePlan | null>(
+  const tariffSelectedPlan = useMemo<PricePlan | null>(
     () =>
       product?.pricePlans.find((plan) => plan.id === planId) ??
       product?.pricePlans[0] ??
       null,
     [planId, product],
   );
+
+  const dayPlans = useMemo<PricePlan[]>(() => {
+    if (!product) {
+      return [];
+    }
+    return [...product.pricePlans]
+      .filter((plan) => plan.durationType === "day")
+      .sort((a, b) => a.durationValue - b.durationValue);
+  }, [product]);
+
+  // Базовая цена «1 день без скидки» — точка отсчёта для клиентской оценки
+  // в режиме «Календарь». На бэке множители уже зашиты в существующие
+  // плановые тарифы, но базу мы знаем от 1-дневного.
+  const baseDayPlan = useMemo<PricePlan | null>(
+    () => dayPlans.find((plan) => plan.durationValue === 1) ?? dayPlans[0] ?? null,
+    [dayPlans],
+  );
+
+  const rangeDays = useMemo(
+    () => daysBetweenInclusive(date, endDate),
+    [date, endDate],
+  );
+
+  // В режиме «Календарь» подбираем существующий тариф с durationValue,
+  // ближайшим снизу к выбранному количеству суток. Это страхует от случая,
+  // когда у товара нет точного N-дневного плана: бэк требует точного
+  // совпадения durationType+durationValue, иначе вернёт PRICE_PLAN_NOT_FOUND.
+  const rangeMatchedPlan = useMemo<PricePlan | null>(() => {
+    if (!dayPlans.length || rangeDays <= 0) {
+      return null;
+    }
+    let best: PricePlan | null = null;
+    for (const plan of dayPlans) {
+      if (plan.durationValue <= rangeDays) {
+        if (!best || plan.durationValue > best.durationValue) {
+          best = plan;
+        }
+      }
+    }
+    // Если все тарифы длиннее выбранного диапазона (например, минимальный
+    // тариф 2 дня, а пользователь выбрал 1 день), берём самый короткий.
+    return best ?? dayPlans[0] ?? null;
+  }, [dayPlans, rangeDays]);
+
+  const selectedPlan = rentMode === "range" ? rangeMatchedPlan : tariffSelectedPlan;
   const lockerOptions = useMemo<LockerOption[]>(() => {
     if (!product) {
       return [];
@@ -399,34 +443,86 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
               <section className="surface detail-panel rental-step-panel rental-step-panel-tariff">
                 <div className="card-row">
                   <div>
-                    <p className="eyebrow">Тарифы</p>
-                    <h2 className="section-title">Выберите длительность</h2>
+                    <p className="eyebrow">Срок и стоимость</p>
+                    <h2 className="section-title">
+                      {rentMode === "tariff" ? "Выберите длительность" : "Выберите даты"}
+                    </h2>
                   </div>
-                  <span className="muted">{durationText(selectedPlan)}</span>
+                  <div
+                    className="rental-mode-switch"
+                    role="tablist"
+                    aria-label="Режим выбора срока аренды"
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={rentMode === "tariff"}
+                      className={`rental-mode-switch-button ${rentMode === "tariff" ? "is-active" : ""}`}
+                      onClick={() => setRentMode("tariff")}
+                    >
+                      <Tags size={14} />
+                      Тарифы
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={rentMode === "range"}
+                      className={`rental-mode-switch-button ${rentMode === "range" ? "is-active" : ""}`}
+                      onClick={() => {
+                        setRentMode("range");
+                        // При первом переключении приводим конец к старту,
+                        // чтобы пользователь сам выбрал диапазон.
+                        if (!endDate || endDate < date) {
+                          setEndDate(date);
+                        }
+                      }}
+                    >
+                      <CalendarRange size={14} />
+                      Календарь
+                    </button>
+                  </div>
                 </div>
-                <RentalDurationSelector
-                  plans={product.pricePlans}
-                  selectedPlanId={selectedPlan?.id || ""}
-                  onSelect={setPlanId}
-                />
+                {rentMode === "tariff" ? (
+                  <RentalDurationSelector
+                    plans={product.pricePlans}
+                    selectedPlanId={selectedPlan?.id || ""}
+                    onSelect={setPlanId}
+                  />
+                ) : (
+                  <RentalDateRangePicker
+                    value={{ startDate: date, endDate }}
+                    onChange={(next) => {
+                      setDate(next.startDate);
+                      setEndDate(next.endDate);
+                    }}
+                    baseAmountPerDayMinor={baseDayPlan?.baseAmount ?? 0}
+                    currency={baseDayPlan?.currency || "RUB"}
+                  />
+                )}
+                {rentMode === "range" && rangeMatchedPlan && rangeDays > 0 ? (
+                  <p className="muted small rental-range-hint">
+                    {rangeMatchedPlan.durationValue === rangeDays
+                      ? `Подобран тариф «${rangeMatchedPlan.name}» — ${formatRangeNote(rangeMatchedPlan)}.`
+                      : `Ближайший доступный тариф — «${rangeMatchedPlan.name}» (${rangeMatchedPlan.durationValue} дн., ${formatRangeNote(rangeMatchedPlan)}). При оформлении срок аренды будет ${rangeMatchedPlan.durationValue} дн.`}
+                  </p>
+                ) : null}
               </section>
 
-              <section className="surface detail-panel rental-step-panel rental-step-panel-time">
-                <div className="card-row">
-                  <div>
-                    <p className="eyebrow">Дата</p>
-                    <h2 className="section-title">Когда хотите забрать</h2>
+              {rentMode === "tariff" ? (
+                <section className="surface detail-panel rental-step-panel rental-step-panel-time">
+                  <div className="card-row">
+                    <div>
+                      <p className="eyebrow">Дата</p>
+                      <h2 className="section-title">Когда хотите забрать</h2>
+                    </div>
+                    <CalendarClock size={22} />
                   </div>
-                  <CalendarClock size={22} />
-                </div>
-                <DateTimeSelector
-                  date={date}
-                  onDateChange={setDate}
-                />
-                <p className="muted small">
-                  После оплаты у вас будет 3 часа, чтобы забрать товар из постамата.
-                </p>
-              </section>
+                  <DateTimeSelector date={date} onDateChange={setDate} />
+                  <p className="muted small">
+                    После оплаты у вас будет 3 часа, чтобы забрать товар из постамата.
+                  </p>
+                </section>
+              ) : null}
 
               <section className="surface detail-panel rental-step-panel rental-step-panel-locker">
                 <div className="card-row">
