@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -18,7 +19,24 @@ class CreateReservationPayload(ReservationQuotePayload):
         None,
         description="Existing reservation UUID when user is rescheduling their own booking",
     )
+    # Дата/время, на которое пользователь оформил выдачу. Фронт передаёт
+    # выбранный chip из DateTimeSelector. Если не передано, считаем "сейчас".
+    startAt: datetime | None = Field(
+        None,
+        description="Pickup start datetime (ISO-8601). Until that moment cell can't be opened.",
+    )
 
 
 class ConfirmReservationPayload(BaseModel):
-    paymentId: UUID = Field(..., description="Authorized payment UUID")
+    # Опциональное: при отсутствии PaymentId аренда создаётся без обязательной
+    # привязки к авторизованному платежу (используется в режиме "оплата отключена").
+    paymentId: UUID | None = Field(
+        None, description="Authorized payment UUID (optional)"
+    )
+    # Передаётся фронтом ещё раз при подтверждении, чтобы зафиксировать
+    # выбранную дату выдачи в `Rental.starts_at`. Если pусто — берём время
+    # подтверждения как старт.
+    startAt: datetime | None = Field(
+        None,
+        description="Pickup start datetime (ISO-8601), should match the one passed to /reservations.",
+    )

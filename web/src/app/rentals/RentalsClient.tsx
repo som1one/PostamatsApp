@@ -28,12 +28,14 @@ import {
   fetchMyReservations,
   fetchReservation,
   fetchRentals,
+  requestRentalReturn,
 } from "@/shared/api/endpoints";
 import { ApiError } from "@/shared/api/client";
 import type { RentalListItem, UpcomingReservation } from "@/shared/api/types";
 import { buildRescheduleProductHref } from "@/shared/checkout/reschedule";
 import { formatCountRu, formatDateTime } from "@/shared/format";
 import { resolvePublicAssetUrl } from "@/shared/media";
+import { isTerminalRentalStatus } from "@/shared/rentalStatus";
 
 const DEV_PAYMENT_BYPASS_ENABLED =
   process.env.NEXT_PUBLIC_ENABLE_DEV_PAYMENT_BYPASS === "true";
@@ -107,7 +109,7 @@ function getReservationDeadlineMeta(reservation: UpcomingReservation, nowMs: num
   };
 }
 
-function getRentalDeadlineMeta(rental: RentalListItem, nowMs: number): DeadlineMeta | null {
+export function getRentalDeadlineMeta(rental: RentalListItem, nowMs: number): DeadlineMeta | null {
   if (rental.status === "return_in_progress") {
     return {
       tone: "success",
@@ -115,6 +117,13 @@ function getRentalDeadlineMeta(rental: RentalListItem, nowMs: number): DeadlineM
       text: "Завершите возврат через открытую ячейку постамата.",
       Icon: CheckCircle2,
     };
+  }
+
+  // Терминальные статусы (например, "completed") не рисуют deadline-плашку
+  // вне зависимости от того, прошло ли плановое окончание. См. design.md
+  // секция "Fix Implementation".
+  if (isTerminalRentalStatus(rental.status)) {
+    return null;
   }
 
   if (!rental.plannedEndAt) {
@@ -136,6 +145,23 @@ function getRentalDeadlineMeta(rental: RentalListItem, nowMs: number): DeadlineM
       text: "Стоит оформить возврат как можно скорее.",
       Icon: AlertTriangle,
     };
+  }
+
+  // Если до старта аренды ещё ждать — показываем дату выдачи, а не дедлайн.
+  if (
+    ["pickup_ready", "pickup_opened"].includes(rental.status) &&
+    rental.startsAt
+  ) {
+    const startsMs = new Date(rental.startsAt).getTime();
+    if (!Number.isNaN(startsMs) && startsMs - nowMs > 60 * 60 * 1000) {
+      const wait = formatDurationLabel(startsMs - nowMs);
+      return {
+        tone: "warn",
+        title: `Получение через ${wait}`,
+        text: `Заберите товар после ${formatDateTime(rental.startsAt)}`,
+        Icon: Clock3,
+      };
+    }
   }
 
   if (["pickup_ready", "pickup_opened", "active"].includes(rental.status)) {
@@ -301,7 +327,49 @@ function RentalsContent() {
     }
   }
 
-  // ── Return rental: full picker is on the order detail page ──
+  // ── Return rental: simple action returning to pickup locker ──
+  // For other lockers user goes to the order detail page.
+  async function handleReturnRental(rental: RentalListItem, e: React.MouseEvent) {
+    e.stopPropagation();
+    setBusy(rental.id, true);
+    setItemError(rental.id, "");
+    try {
+      // Без явного lockerId — backend по умолчанию использует postamat выдачи
+      // (см. backend/routers/me.py: return-request endpoint).
+      await requestRentalReturn(rental.id);
+      // Локально переводим карточку в return_in_progress, чтобы карточка обновилась
+      // без полной перезагрузки списка.
+      setRentals((prev) =>
+        prev.map((r) => (r.id === rental.id ? { ...r, status: "return_in_progress" } : r)),
+      );
+      // Подгружаем актуальное состояние — там может быть свежий deadline.
+      void load();
+    } catch (err) {
+      let msg = "Не удалось начать возврат";
+      if (err instanceof ApiError) {
+        if (err.code === "LOCKER_OFFLINE") {
+          msg = "Постамат сейчас офлайн. Откройте детали заказа и выберите другой постамат.";
+        } else if (err.code === "RETURN_CELL_NOT_AVAILABLE") {
+          msg = "В постамате выдачи нет свободных ячеек. Выберите другой через детали заказа.";
+        } else if (err.code === "RETURN_LOCKER_DIFFERENT_CITY") {
+          msg = "Возврат возможен только в постамат того же города.";
+        } else if (err.code === "INVALID_RENTAL_STATUS") {
+          msg = "Возврат уже оформлен или аренда завершена.";
+        } else if (err.code === "LOCKER_OPEN_NOT_CONFIRMED") {
+          msg = "Команда отправлена, но постамат не подтвердил открытие. Подойдите к ячейке и попробуйте ещё раз через минуту.";
+        } else if (err.code === "ESI_OPEN_FAILED") {
+          msg = "Не удалось открыть ячейку. Попробуйте ещё раз через минуту.";
+        } else if (err.message) {
+          msg = err.message;
+        }
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
+      setItemError(rental.id, msg);
+    } finally {
+      setBusy(rental.id, false);
+    }
+  }
 
   const hasOrders = reservations.length > 0 || rentals.length > 0;
 
@@ -487,12 +555,21 @@ function RentalsContent() {
                         ) : null}
                         {canReturn ? (
                           <div className="card-actions" onClick={(e) => e.stopPropagation()}>
-                            <Link
-                              href={`/profile/orders/${rental.id}`}
-                              className="button button-secondary button-sm"
+                            <button
+                              className="button button-primary button-sm"
+                              type="button"
+                              disabled={busy}
+                              onClick={(e) => handleReturnRental(rental, e)}
                             >
                               <RotateCcw size={15} />
-                              Оформить возврат
+                              {busy ? "Открываем ячейку…" : "Вернуть"}
+                            </button>
+                            <Link
+                              href={`/profile/orders/${rental.id}`}
+                              className="button button-ghost button-sm"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              Выбрать другой постамат
                             </Link>
                           </div>
                         ) : null}

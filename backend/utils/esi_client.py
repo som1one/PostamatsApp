@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime, timezone
 from uuid import UUID
@@ -12,6 +13,11 @@ from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
 
 logger = logging.getLogger(__name__)
+
+# How long to wait for the cell to actually report `open: true` after sending
+# the open command, and how often to poll the machine snapshot.
+ESI_OPEN_CONFIRM_TIMEOUT_SECONDS = 5.0
+ESI_OPEN_CONFIRM_POLL_INTERVAL_SECONDS = 0.7
 
 
 class EsiReserveError(Exception):
@@ -130,6 +136,36 @@ def _normalize_external_lockers(raw_items: list[dict], city_name: str | None) ->
 def _external_serial(locker: LockerLocation) -> str | None:
     raw = (locker.external_locker_id or "").strip()
     return raw or None
+
+
+def _locker_uses_real_esi(locker: LockerLocation) -> bool:
+    """True только если постамат реально подключён к провайдеру ESI.
+
+    Сидовые/manual постаматы (`provider != "esi"`) физически не существуют —
+    вызовы команд на ESI всё равно вернут 404. Их обрабатываем локально
+    как при ESI_DEV_STUB: только обновляем БД, без сетевых вызовов.
+    """
+    provider = (locker.external_provider or "").strip().lower()
+    return provider == "esi"
+
+
+def _should_use_stub(locker: LockerLocation) -> bool:
+    """Stub-режим включён глобально или конкретный постамат не на ESI."""
+    if settings.ESI_DEV_STUB:
+        return True
+    if not _locker_uses_real_esi(locker):
+        # Не-ESI постамат на не-stub окружении — это редкий легитимный кейс
+        # (демо-постамат на проде), но он же типичный footgun: оператор завёл
+        # боевой постамат и забыл указать `external_provider="esi"`. Логируем,
+        # чтобы такие случаи были заметны в логах, а не "тихо успешными".
+        logger.warning(
+            "ESI command falls back to stub: locker_id=%s name=%r external_provider=%r",
+            locker.id,
+            locker.name,
+            locker.external_provider,
+        )
+        return True
+    return False
 
 
 def _external_cell_key(cell: LockerCell) -> str | None:
@@ -251,7 +287,7 @@ async def sync_cell_state(
     if locker is None or cell is None or cell.locker_id != locker_id:
         raise EsiOpenError("CELL_NOT_FOUND")
 
-    if settings.ESI_DEV_STUB:
+    if _should_use_stub(locker):
         mapped_status = _cell_status_from_esi_state(state)
         if mapped_status is not None:
             cell.status = mapped_status
@@ -460,7 +496,9 @@ async def reserve_pickup_cell(
 
     # Pre-check: если постамат сейчас оффлайн или ESI ничего о нём не знает,
     # не пытаемся писать команду (всё равно потеряется или будет 503).
-    if not settings.ESI_DEV_STUB:
+    # Сидовые/manual постаматы пропускаем: для них sync_cell_state всё
+    # сделает локально по веткам _should_use_stub.
+    if not _should_use_stub(locker):
         serial = _external_serial(locker)
         if not serial:
             raise EsiReserveError("ESI_NOT_CONFIGURED")
@@ -493,6 +531,39 @@ async def reserve_pickup_cell(
     await db.flush()
 
 
+async def _wait_for_cell_open(
+    serial: str,
+    external_cell_id: str,
+    *,
+    timeout_seconds: float = ESI_OPEN_CONFIRM_TIMEOUT_SECONDS,
+    poll_interval_seconds: float = ESI_OPEN_CONFIRM_POLL_INTERVAL_SECONDS,
+) -> bool:
+    """Polls the machine snapshot until the cell reports `open: true`.
+
+    Returns True if the cell opened within `timeout_seconds`, False otherwise.
+    Snapshot fetch errors are treated as "not yet open" and the loop keeps
+    polling until timeout — so a single transient ESI hiccup doesn't
+    prematurely fail an open that's actually working.
+    """
+    deadline = asyncio.get_event_loop().time() + timeout_seconds
+    while True:
+        try:
+            snapshot = await fetch_machine_snapshot(serial)
+        except EsiDiscoveryError:
+            snapshot = None
+
+        if isinstance(snapshot, dict):
+            cells = snapshot.get("cells")
+            if isinstance(cells, dict):
+                cell_payload = cells.get(str(external_cell_id))
+                if isinstance(cell_payload, dict) and bool(cell_payload.get("open")):
+                    return True
+
+        if asyncio.get_event_loop().time() >= deadline:
+            return False
+        await asyncio.sleep(poll_interval_seconds)
+
+
 async def admin_trigger_open_cell(
     db: AsyncSession,
     *,
@@ -509,7 +580,7 @@ async def admin_trigger_open_cell(
 
     now = datetime.now(timezone.utc)
 
-    if settings.ESI_DEV_STUB:
+    if _should_use_stub(locker):
         cell.status = LockerCellStatus.OPENED
         cell.last_opened_at = now
         cell.last_event_at = now
@@ -530,6 +601,20 @@ async def admin_trigger_open_cell(
         raise EsiOpenError("ESI_MACHINE_OFFLINE")
 
     await _esi_post(f"/open-cell/{serial}/{external_cell_id}")
+
+    # ESI 200 для /open-cell означает только "команда поставлена в очередь".
+    # Чтобы не врать пользователю, дожидаемся подтверждения через снапшот:
+    # cells[id].open должен стать true. Если за таймаут не подтвердилось —
+    # бросаем ошибку, статус rental не двигаем.
+    confirmed = await _wait_for_cell_open(serial, external_cell_id)
+    if not confirmed:
+        logger.warning(
+            "ESI open-cell not confirmed within timeout: serial=%s cell=%s",
+            serial,
+            external_cell_id,
+        )
+        raise EsiOpenError("ESI_OPEN_NOT_CONFIRMED")
+
     cell.status = LockerCellStatus.OPENED
     cell.last_opened_at = now
     cell.last_event_at = now
@@ -554,7 +639,7 @@ async def esi_trigger_return_cell_open(
 
     now = datetime.now(timezone.utc)
 
-    if settings.ESI_DEV_STUB:
+    if _should_use_stub(locker):
         cell.status = LockerCellStatus.OPENED
         cell.last_opened_at = now
         cell.last_event_at = now
@@ -582,6 +667,16 @@ async def esi_trigger_return_cell_open(
         if code == "ESI_HTTP_ERROR":
             raise EsiReturnOpenError("ESI_HTTP_ERROR") from exc
         raise EsiReturnOpenError("ESI_OPEN_FAILED") from exc
+
+    confirmed = await _wait_for_cell_open(serial, external_cell_id)
+    if not confirmed:
+        logger.warning(
+            "ESI return open-cell not confirmed within timeout: serial=%s cell=%s rental=%s",
+            serial,
+            external_cell_id,
+            rental_id,
+        )
+        raise EsiReturnOpenError("ESI_OPEN_NOT_CONFIRMED")
 
     cell.status = LockerCellStatus.OPENED
     cell.last_opened_at = now

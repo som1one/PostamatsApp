@@ -10,20 +10,21 @@ import { PageHeader } from "@/components/PageHeader";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Surface } from "@/components/Surface";
 import {
-  createPaymentPreauth,
+  confirmReservation,
   createReservation,
   fetchMe,
+  fetchMyReservations,
   fetchProduct,
   fetchProductPricing,
   fetchReservation,
 } from "@/shared/api/endpoints";
+import { ApiError } from "@/shared/api/client";
 import type {
   AppUser,
   PricingQuote,
   ProductDetail,
   ReservationSummary,
 } from "@/shared/api/types";
-import { writePendingCheckout } from "@/shared/checkout/pending";
 import { formatDate, formatMoney, pluralizeRu } from "@/shared/format";
 
 export function CheckoutClient() {
@@ -113,49 +114,68 @@ function CheckoutContent() {
     }
 
     setBusy(true);
-    setBusyLabel("Подтверждаем бронь");
+    setBusyLabel("Оформляем аренду");
     setError("");
 
     try {
       let currentReservation = reservation;
 
+      // startAt из URL — это YYYY-MM-DD из DateTimeSelector. Переводим в
+      // ISO-8601 (00:00 локального времени), чтобы backend мог запретить
+      // открытие ячейки до этого момента.
+      const startAtISO = startAt ? new Date(`${startAt}T00:00:00`).toISOString() : undefined;
+
       if (!currentReservation) {
-        const created = await createReservation({
-          productId,
-          lockerId,
-          durationType,
-          durationValue,
-          sourceReservationId: sourceReservationId || undefined,
-        });
-        currentReservation = await fetchReservation(created.id);
+        try {
+          const created = await createReservation({
+            productId,
+            lockerId,
+            durationType,
+            durationValue,
+            sourceReservationId: sourceReservationId || undefined,
+            startAt: startAtISO,
+          });
+          currentReservation = await fetchReservation(created.id);
+        } catch (err) {
+          // У пользователя уже есть активная бронь — переиспользуем её, чтобы
+          // не блокировать кнопку "Оплатить" повторным кликом.
+          if (err instanceof ApiError && err.code === "ACTIVE_RESERVATION_EXISTS") {
+            const existing = await fetchMyReservations();
+            const reusable = existing.find((r) =>
+              ["created", "awaiting_payment", "payment_authorized"].includes(r.status),
+            );
+            if (!reusable) {
+              throw err;
+            }
+            currentReservation = await fetchReservation(reusable.id);
+          } else {
+            throw err;
+          }
+        }
         setReservation(currentReservation);
       }
 
-      setBusyLabel("Открываем оплату");
-
-      const returnUrl =
-        typeof window !== "undefined"
-          ? `${window.location.origin}/payment/return`
-          : undefined;
-      const response = await createPaymentPreauth({
-        reservationId: currentReservation.id,
-        returnUrl,
-      });
-
-      writePendingCheckout({
-        reservationId: currentReservation.id,
-        paymentId: response.payment.id,
-        createdAt: new Date().toISOString(),
-      });
-
-      if (response.confirmation?.confirmationUrl) {
-        window.location.href = response.confirmation.confirmationUrl;
-        return;
-      }
-
-      router.push("/payment/return");
+      // Юкасса временно отключена: подтверждаем бронь без платежа и сразу
+      // переходим в карточку аренды. startAt дублируем, чтобы зафиксировать
+      // выбранную дату в Rental.starts_at.
+      const rental = await confirmReservation(currentReservation.id, undefined, startAtISO);
+      router.push(`/profile/orders/${rental.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось перейти к оплате");
+      if (err instanceof ApiError) {
+        if (err.code === "LOCKER_OFFLINE") {
+          setError(
+            "Постамат сейчас офлайн. Попробуйте чуть позже — в ночные часы устройство может уходить в режим обслуживания.",
+          );
+        } else if (err.code === "LOCKER_NOT_CONFIGURED") {
+          setError("Постамат пока не привязан к серверу. Обратитесь в поддержку.");
+        } else if (err.code === "ESI_RESERVE_FAILED" || err.code === "ESI_HTTP_ERROR") {
+          setError("Не удалось зарезервировать ячейку. Попробуйте ещё раз через минуту.");
+        } else {
+          setError(err.message || "Не удалось оформить аренду");
+        }
+      } else {
+        setError(err instanceof Error ? err.message : "Не удалось оформить аренду");
+      }
     } finally {
       setBusy(false);
       setBusyLabel("");

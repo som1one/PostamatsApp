@@ -3,8 +3,10 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from sqlalchemy import inspect, text
 
 from alembic import context
+from alembic.script import ScriptDirectory
 from dotenv import load_dotenv
 
 # this is the Alembic Config object, which provides
@@ -96,6 +98,28 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        inspector = inspect(connection)
+        existing_tables = {name for name in inspector.get_table_names() if name != "alembic_version"}
+
+        if not existing_tables:
+            # Fresh database bootstrap: create the current schema directly from metadata
+            # and stamp the version table so later upgrades remain consistent.
+            Base.metadata.create_all(connection)
+
+            version_table = "alembic_version"
+            connection.execute(text(f'CREATE TABLE IF NOT EXISTS "{version_table}" (version_num VARCHAR(32) NOT NULL)'))
+            connection.execute(text(f'DELETE FROM "{version_table}"'))
+
+            script = ScriptDirectory.from_config(config)
+            current_head = script.get_current_head()
+            if current_head is not None:
+                connection.execute(
+                    text(f'INSERT INTO "{version_table}" (version_num) VALUES (:version_num)'),
+                    {"version_num": current_head},
+                )
+            connection.commit()
+            return
+
         context.configure(
             connection=connection, target_metadata=target_metadata
         )

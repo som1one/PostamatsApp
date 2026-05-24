@@ -43,12 +43,16 @@ AUTH_SESSION_INACTIVE = "AUTH_SESSION_INACTIVE"
 AUTH_SESSION_EXPIRED = "AUTH_SESSION_EXPIRED"
 AUTH_TOO_MANY_ATTEMPTS = "AUTH_TOO_MANY_ATTEMPTS"
 AUTH_CODE_INVALID = "AUTH_CODE_INVALID"
+AUTH_RESEND_TOO_SOON = "AUTH_RESEND_TOO_SOON"
 AUTH_UNAUTHORIZED = "AUTH_UNAUTHORIZED"
 AUTH_ACCOUNT_BLOCKED = "AUTH_ACCOUNT_BLOCKED"
 AUTH_SESSION_CREATE_FAILED = "AUTH_SESSION_CREATE_FAILED"
 AUTH_CONFIRM_FAILED = "AUTH_CONFIRM_FAILED"
 AUTH_REFRESH_FAILED = "AUTH_REFRESH_FAILED"
 AUTH_LOGOUT_FAILED = "AUTH_LOGOUT_FAILED"
+
+# Minimum interval between successive request-code calls for the same phone.
+RESEND_MIN_INTERVAL_SECONDS = 30
 
 
 def auth_error(status_code: int, code: str) -> HTTPException:
@@ -106,6 +110,25 @@ async def request_code(
     normalized_phone = normalize_auth_phone(resolved_phone)
 
     now = datetime.now(timezone.utc)
+
+    # Rate-limit: refuse if a code was sent for this phone less than
+    # RESEND_MIN_INTERVAL_SECONDS ago and that session is still pending.
+    last_session_result = await db.execute(
+        select(AuthVerificationSession)
+        .where(AuthVerificationSession.phone == normalized_phone)
+        .order_by(AuthVerificationSession.created_at.desc())
+        .limit(1)
+    )
+    last_session = last_session_result.scalar_one_or_none()
+    if (
+        last_session is not None
+        and last_session.status == AuthVerificationSessionStatus.PENDING
+        and last_session.last_sent_at is not None
+    ):
+        last_sent_at = ensure_utc(last_session.last_sent_at)
+        if (now - last_sent_at).total_seconds() < RESEND_MIN_INTERVAL_SECONDS:
+            raise auth_error(429, AUTH_RESEND_TOO_SOON)
+
     code = generate_code()
     hashed_code = hash_code(code)
     verification_session = AuthVerificationSession(
@@ -122,8 +145,7 @@ async def request_code(
     try:
         db.add(verification_session)
         await db.flush()
-        # DEV: SMS sending disabled for local testing
-        # await send_auth_code(normalized_phone, code)
+        await send_auth_code(normalized_phone, code)
         await db.commit()
         await db.refresh(verification_session)
     except SmsRuError as exc:
@@ -152,7 +174,6 @@ async def confirm_code(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    # DEV: Accept any code, just look up the session phone and create user
     verification_session = await db.get(
         AuthVerificationSession,
         payload.verificationSessionId,
@@ -161,6 +182,53 @@ async def confirm_code(
         raise auth_error(404, AUTH_SESSION_NOT_FOUND)
 
     now = datetime.now(timezone.utc)
+    confirm_ip = request.client.host if request.client else None
+    confirm_user_agent = request.headers.get("user-agent")
+
+    # Reject sessions that have already been used or failed.
+    if verification_session.status != AuthVerificationSessionStatus.PENDING:
+        raise auth_error(409, AUTH_SESSION_INACTIVE)
+
+    # Reject expired sessions and mark them as such for clarity.
+    if ensure_utc(verification_session.expires_at) <= now:
+        verification_session.status = AuthVerificationSessionStatus.EXPIRED
+        verification_session.failed_at = now
+        verification_session.confirm_ip = confirm_ip
+        verification_session.confirm_user_agent = confirm_user_agent
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+        raise auth_error(410, AUTH_SESSION_EXPIRED)
+
+    # Reject sessions that exceeded the allowed number of attempts.
+    if verification_session.attempt_count >= verification_session.max_attempts:
+        verification_session.status = AuthVerificationSessionStatus.FAILED
+        verification_session.failed_at = now
+        verification_session.confirm_ip = confirm_ip
+        verification_session.confirm_user_agent = confirm_user_agent
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+        raise auth_error(429, AUTH_TOO_MANY_ATTEMPTS)
+
+    # Always count the attempt and record confirm-side metadata.
+    verification_session.attempt_count += 1
+    verification_session.confirm_ip = confirm_ip
+    verification_session.confirm_user_agent = confirm_user_agent
+
+    submitted_code = (payload.code or "").strip()
+    if not submitted_code or not verify_code(submitted_code, verification_session.code_hash):
+        # If this attempt exhausted the budget, mark the session as failed.
+        if verification_session.attempt_count >= verification_session.max_attempts:
+            verification_session.status = AuthVerificationSessionStatus.FAILED
+            verification_session.failed_at = now
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+        raise auth_error(401, AUTH_CODE_INVALID)
 
     verification_session.status = AuthVerificationSessionStatus.VERIFIED
     verification_session.consumed_at = now
@@ -178,6 +246,7 @@ async def confirm_code(
         db.add(user)
         await db.flush()
     else:
+        ensure_auth_user_not_blocked(user)
         user.last_login_at = now
 
     auth_session = AuthSession(
@@ -217,13 +286,18 @@ async def confirm_code(
     }
 
 
-# DEV: Instant login without SMS/OTP — for local testing only
+# DEV: Instant login without SMS/OTP — for local testing only.
+# Available only when settings.DEBUG is enabled. In production this endpoint
+# returns 404 to avoid leaking a passwordless login channel.
 @router.post("/dev-login")
 async def dev_login(
     request: Request,
     db: AsyncSession = Depends(get_db),
     payload: RequestCodePayload | None = Body(default=None),
 ):
+    if not settings.DEBUG:
+        raise auth_error(404, AUTH_SESSION_NOT_FOUND)
+
     resolved_phone = payload.phone if payload is not None else None
     if not resolved_phone:
         raise auth_error(422, AUTH_PHONE_REQUIRED)

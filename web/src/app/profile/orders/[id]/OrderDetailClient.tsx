@@ -16,6 +16,7 @@ import {
   RefreshCw,
   RotateCcw,
   XCircle,
+  type LucideIcon,
 } from "lucide-react";
 import { PageChrome } from "@/components/PageChrome";
 import { PageHeader } from "@/components/PageHeader";
@@ -46,6 +47,7 @@ import type {
 import { buildRescheduleProductHref } from "@/shared/checkout/reschedule";
 import { formatCountRu, formatDateTime } from "@/shared/format";
 import { resolvePublicAssetUrl } from "@/shared/media";
+import { isTerminalRentalStatus } from "@/shared/rentalStatus";
 
 type OrderData =
   | { type: "reservation"; data: UpcomingReservation; detail?: ReservationSummary | null }
@@ -69,6 +71,55 @@ function formatDurationLabel(diffMs: number) {
   }
 
   return parts.join(" ");
+}
+
+export type DeadlineMeta = {
+  tone: "warn" | "danger" | "success";
+  title: string;
+  text: string;
+  Icon: LucideIcon;
+};
+
+export function computeOrderDeadlineMeta(
+  rental: RentalListItem,
+  nowMs: number,
+): DeadlineMeta | null {
+  if (rental.status === "return_in_progress") {
+    return {
+      tone: "success",
+      title: "Возврат уже начат",
+      text: "Завершите возврат через открытую ячейку постамата.",
+      Icon: CheckCircle2,
+    };
+  }
+  // Терминальные статусы (например, "completed") не рисуют deadline-плашку
+  // вне зависимости от того, прошло ли плановое окончание. См. design.md
+  // секция "Fix Implementation".
+  if (isTerminalRentalStatus(rental.status)) {
+    return null;
+  }
+  if (!rental.plannedEndAt) return null;
+  const plannedEndMs = new Date(rental.plannedEndAt).getTime();
+  if (Number.isNaN(plannedEndMs)) return null;
+  const diffMs = plannedEndMs - nowMs;
+  const duration = formatDurationLabel(diffMs);
+  if (rental.status === "overdue" || diffMs <= 0) {
+    return {
+      tone: "danger",
+      title: `Просрочено на ${duration}`,
+      text: "Стоит оформить возврат как можно скорее.",
+      Icon: AlertTriangle,
+    };
+  }
+  if (["pickup_ready", "pickup_opened", "active"].includes(rental.status)) {
+    return {
+      tone: "warn",
+      title: `До возврата: ${duration}`,
+      text: `Вернуть до ${formatDateTime(rental.plannedEndAt)}`,
+      Icon: Clock3,
+    };
+  }
+  return null;
 }
 
 function getReservationCancelMessage(error: unknown) {
@@ -263,12 +314,23 @@ function OrderDetailContent({ id }: { id: string }) {
     setMessage("");
     setError("");
     try {
+      // На бэке ждём подтверждения от ESI до 5 секунд, поэтому на этом
+      // этапе показываем "идёт открытие". Сообщение об успехе ставим
+      // только после реального ответа.
+      setMessage("Отправляем команду в постамат…");
       await openRentalCell(rentalId);
       setMessage("Ячейка открыта. Заберите товар.");
       await load();
     } catch (err) {
+      // Команда не подтвердилась — гасим промежуточное сообщение, чтобы
+      // не оставалось «Отправляем команду…» рядом с ошибкой.
+      setMessage("");
       if (err instanceof ApiError) {
-        if (err.code === "LOCKER_OFFLINE") {
+        if (err.code === "PICKUP_NOT_YET_AVAILABLE") {
+          // Бэкенд может вернуть детализацию (startsAt). Кнопка и так
+          // должна была быть disabled — это страховка на гонке часов.
+          setError("Ячейку можно открыть только в назначенное время. Обновите страницу через минуту.");
+        } else if (err.code === "LOCKER_OFFLINE") {
           setError(
             "Постамат сейчас офлайн. Попробуйте чуть позже — в ночные часы устройство может уходить в режим обслуживания.",
           );
@@ -276,6 +338,10 @@ function OrderDetailContent({ id }: { id: string }) {
           setError("Постамат пока не привязан к серверу. Обратитесь в поддержку.");
         } else if (err.code === "CELL_NOT_OPERABLE") {
           setError("Ячейка временно неисправна. Обратитесь в поддержку.");
+        } else if (err.code === "LOCKER_OPEN_NOT_CONFIRMED") {
+          setError(
+            "Команда отправлена, но постамат не подтвердил открытие. Подойдите к ячейке и попробуйте ещё раз через минуту.",
+          );
         } else if (err.code === "ESI_OPEN_FAILED") {
           setError("Не удалось открыть ячейку. Попробуйте ещё раз через минуту.");
         } else {
@@ -298,7 +364,9 @@ function OrderDetailContent({ id }: { id: string }) {
       setMessage("Спасибо! Аренда началась.");
       await load();
     } catch (err) {
-      if (err instanceof ApiError && err.code === "RENTAL_NOT_PICKUP_READY") {
+      if (err instanceof ApiError && err.code === "PICKUP_NOT_YET_AVAILABLE") {
+        setError("Подтвердить получение можно только в назначенное время. Обновите страницу через минуту.");
+      } else if (err instanceof ApiError && err.code === "RENTAL_NOT_PICKUP_READY") {
         setError("Сначала нажмите «Открыть ячейку».");
       } else {
         setError(err instanceof Error ? err.message : "Не удалось подтвердить получение");
@@ -562,46 +630,17 @@ function OrderDetailContent({ id }: { id: string }) {
                   </div>
                 ) : null}
                 {(() => {
-                  const rental = order.data;
-                  if (rental.status === "return_in_progress") {
-                    return (
-                      <div className="rental-deadline rental-deadline-success">
-                        <CheckCircle2 size={16} />
-                        <div>
-                          <strong>Возврат уже начат</strong>
-                          <span>Завершите возврат через открытую ячейку постамата.</span>
-                        </div>
+                  const meta = computeOrderDeadlineMeta(order.data, nowMs);
+                  if (!meta) return null;
+                  return (
+                    <div className={`rental-deadline rental-deadline-${meta.tone}`}>
+                      <meta.Icon size={16} />
+                      <div>
+                        <strong>{meta.title}</strong>
+                        <span>{meta.text}</span>
                       </div>
-                    );
-                  }
-                  if (!rental.plannedEndAt) return null;
-                  const plannedEndMs = new Date(rental.plannedEndAt).getTime();
-                  if (Number.isNaN(plannedEndMs)) return null;
-                  const diffMs = plannedEndMs - nowMs;
-                  const duration = formatDurationLabel(diffMs);
-                  if (rental.status === "overdue" || diffMs <= 0) {
-                    return (
-                      <div className="rental-deadline rental-deadline-danger">
-                        <AlertTriangle size={16} />
-                        <div>
-                          <strong>Просрочено на {duration}</strong>
-                          <span>Стоит оформить возврат как можно скорее.</span>
-                        </div>
-                      </div>
-                    );
-                  }
-                  if (["pickup_ready", "pickup_opened", "active"].includes(rental.status)) {
-                    return (
-                      <div className="rental-deadline rental-deadline-warn">
-                        <Clock3 size={16} />
-                        <div>
-                          <strong>До возврата: {duration}</strong>
-                          <span>Вернуть до {formatDateTime(rental.plannedEndAt)}</span>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
+                    </div>
+                  );
                 })()}
               </>
             )}
@@ -611,32 +650,44 @@ function OrderDetailContent({ id }: { id: string }) {
           <div className="detail-actions">
             {/* Open pickup cell */}
             {!isReservation &&
-              ["pickup_ready", "pickup_opened"].includes(order.data.status) ? (
-              <>
-                <p className="muted detail-actions-hint">
-                  Подойдите к постамату и нажмите «Открыть ячейку». Когда заберёте
-                  товар, нажмите «Я забрал» — аренда начнётся.
-                </p>
-                <button
-                  className="button button-primary"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => handleOpenCell(order.data.id)}
-                >
-                  <Key size={18} />
-                  Открыть ячейку
-                </button>
-                <button
-                  className="button button-secondary"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => handleConfirmPickup(order.data.id)}
-                >
-                  <PackageCheck size={18} />
-                  Я забрал
-                </button>
-              </>
-            ) : null}
+              ["pickup_ready", "pickup_opened"].includes(order.data.status) ? (() => {
+                const startsAtStr = order.detail?.startsAt;
+                const startsAtMs = startsAtStr ? new Date(startsAtStr).getTime() : 0;
+                // Окно доступа открывается за 1 час до starts_at — то же
+                // условие, что и на бэке.
+                const PICKUP_LEAD_GRACE_MS = 60 * 60 * 1000;
+                const tooEarly = startsAtMs > 0 && Date.now() < startsAtMs - PICKUP_LEAD_GRACE_MS;
+                const dateLabel = startsAtStr
+                  ? new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(startsAtStr))
+                  : "";
+                return (
+                  <>
+                    <p className="muted detail-actions-hint">
+                      {tooEarly
+                        ? `Получение запланировано на ${dateLabel}. Кнопка станет активной за час до этого времени.`
+                        : "Подойдите к постамату и нажмите «Открыть ячейку». Когда заберёте товар, нажмите «Я забрал» — аренда начнётся."}
+                    </p>
+                    <button
+                      className="button button-primary"
+                      type="button"
+                      disabled={busy || tooEarly}
+                      onClick={() => handleOpenCell(order.data.id)}
+                    >
+                      <Key size={18} />
+                      Открыть ячейку
+                    </button>
+                    <button
+                      className="button button-secondary"
+                      type="button"
+                      disabled={busy || tooEarly}
+                      onClick={() => handleConfirmPickup(order.data.id)}
+                    >
+                      <PackageCheck size={18} />
+                      Я забрал
+                    </button>
+                  </>
+                );
+              })() : null}
 
             {/* Reschedule button for paid reservation */}
             {isReservation && order.data.status === "payment_authorized" ? (

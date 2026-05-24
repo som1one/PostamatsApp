@@ -101,9 +101,12 @@ function lockerPopup(locker: Locker) {
 
 function markerOptions(selected: boolean, offline: boolean) {
   if (selected) {
+    // Выбранный постамат: зелёный «контурный» маркер.
+    // `islands#circleIcon` рендерится Яндексом как окружность без точки —
+    // визуально воспринимается как обведённый контуром пин.
     return {
-      preset: "islands#circleDotIcon",
-      iconColor: "#181818",
+      preset: "islands#circleIcon",
+      iconColor: "#1a8c3a",
       hideIconOnBalloonOpen: false,
     };
   }
@@ -116,9 +119,10 @@ function markerOptions(selected: boolean, offline: boolean) {
     };
   }
 
+  // Доступные постаматы: спокойный синий, чтобы выбранный зелёный был заметен.
   return {
     preset: "islands#circleDotIcon",
-    iconColor: "#c40404",
+    iconColor: "#2358e2",
     hideIconOnBalloonOpen: false,
   };
 }

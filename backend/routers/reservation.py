@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
@@ -275,6 +275,10 @@ async def create_reservation(
         quoted_amount=minor_to_major_decimal(quoted_amount_minor),
         preauth_amount=minor_to_major_decimal(quoted_amount_minor),
         expires_at=calculate_expires_at(now, payload.pickupWindowMinutes),
+        # Сохраняем выбранную дату выдачи. Используется на confirm для
+        # инициализации rental.starts_at и блокировки преждевременного
+        # открытия ячейки.
+        pickup_at=ensure_utc(payload.startAt) if payload.startAt is not None else None,
     )
     unit.status = InventoryStatus.RESERVED
     db.add(reservation)
@@ -342,6 +346,11 @@ async def get_reservation(
                 "durationType": reservation.duration_type,
                 "durationValue": reservation.duration_value,
                 "expiresAt": ensure_utc(reservation.expires_at).isoformat(),
+                "pickupAt": (
+                    ensure_utc(reservation.pickup_at).isoformat()
+                    if reservation.pickup_at is not None
+                    else None
+                ),
                 "product": {
                     "id": str(product.id) if product else str(reservation.product_id),
                     "name": product_name,
@@ -399,11 +408,22 @@ async def confirm_reservation(
     ):
         raise HTTPException(status_code=409, detail="RESERVATION_NOT_CONFIRMABLE")
 
-    payment = await db.get(Payment, payload.paymentId)
-    if payment is None or payment.reservation_id != reservation.id or payment.user_id != user.id:
-        raise HTTPException(status_code=404, detail="PAYMENT_NOT_FOUND")
-    if payment.type != PaymentType.PREAUTH or payment.status != PaymentStatus.AUTHORIZED:
-        raise HTTPException(status_code=409, detail="PAYMENT_NOT_AUTHORIZED")
+    # Платёж теперь опционален: если paymentId передан — проверяем, что он
+    # авторизован, как раньше. Если пусто — пропускаем шаг оплаты.
+    payment: Payment | None = None
+    if payload.paymentId is not None:
+        payment = await db.get(Payment, payload.paymentId)
+        if (
+            payment is None
+            or payment.reservation_id != reservation.id
+            or payment.user_id != user.id
+        ):
+            raise HTTPException(status_code=404, detail="PAYMENT_NOT_FOUND")
+        if (
+            payment.type != PaymentType.PREAUTH
+            or payment.status != PaymentStatus.AUTHORIZED
+        ):
+            raise HTTPException(status_code=409, detail="PAYMENT_NOT_AUTHORIZED")
 
     locker = await db.get(LockerLocation, reservation.locker_id)
     if locker is None:
@@ -430,6 +450,13 @@ async def confirm_reservation(
 
     pickup_pin = generate_pickup_pin()
 
+    # Источник старта аренды: payload.startAt > reservation.pickup_at > now.
+    pickup_at_source = payload.startAt if payload.startAt is not None else reservation.pickup_at
+    starts_at = ensure_utc(pickup_at_source) if pickup_at_source is not None else now
+
+    # Резервируем ячейку в постамате через ESI. Если постамат офлайн или
+    # ESI ответил ошибкой, бронь не подтверждаем — клиент увидит понятное
+    # сообщение и сможет повторить позже.
     try:
         await reserve_pickup_cell(
             db,
@@ -439,8 +466,13 @@ async def confirm_reservation(
         )
     except EsiReserveError as exc:
         await db.rollback()
-        # Единица инвентаря остаётся RESERVED: клиент может повторить confirm после починки ESI.
-        raise HTTPException(status_code=502, detail="ESI_RESERVE_FAILED") from exc
+        code = str(exc) or "ESI_RESERVE_FAILED"
+        if code == "ESI_MACHINE_OFFLINE":
+            raise HTTPException(status_code=503, detail="LOCKER_OFFLINE") from exc
+        if code == "ESI_NOT_CONFIGURED":
+            raise HTTPException(status_code=503, detail="LOCKER_NOT_CONFIGURED") from exc
+        # ESI_HTTP_ERROR / ESI_RESERVE_FAILED / прочее — серверная ошибка ESI.
+        raise HTTPException(status_code=502, detail=code) from exc
 
     rental = Rental(
         user_id=user.id,
@@ -449,9 +481,24 @@ async def confirm_reservation(
         pickup_locker_id=reservation.locker_id,
         pickup_pin=pickup_pin,
         status=RentalStatus.PICKUP_READY,
-        pickup_expires_at=calculate_pickup_expires_at(now),
+        # Окно забора: либо стандартные 3 часа от сейчас (если starts_at
+        # сейчас или раньше), либо до конца «суток выдачи» — то есть
+        # starts_at + 24 часа. Так клиент успевает в любое время
+        # выбранного дня, и пара лишних часов на буфер.
+        pickup_expires_at=(
+            calculate_pickup_expires_at(now)
+            if starts_at <= now
+            else starts_at + timedelta(hours=24)
+        ),
+        # Дата выдачи: фронт передал в /reservations или confirm. Хранится
+        # в UTC. Используется на /me/rentals/{id}/open-cell для запрета
+        # открытия раньше времени.
+        starts_at=starts_at,
+        # planned_end_at будет пересчитан при confirm-pickup от фактической
+        # даты забора. Здесь ставим «оптимистичный» дедлайн от выбранной
+        # пользователем даты выдачи, чтобы поле не было NULL.
         planned_end_at=calculate_planned_end_at(
-            now,
+            starts_at,
             reservation.duration_type,
             reservation.duration_value,
         ),
@@ -470,7 +517,7 @@ async def confirm_reservation(
             source=RentalEventSource.USER,
             payload_json={
                 "reservationId": str(reservation.id),
-                "paymentId": str(payment.id),
+                "paymentId": str(payment.id) if payment is not None else None,
             },
         )
         db.add(rental_event)

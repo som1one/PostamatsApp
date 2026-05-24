@@ -178,6 +178,7 @@ export type ReservationSummary = {
   quotedAmount?: number;
   preauthAmount?: number;
   expiresAt: string;
+  pickupAt?: string | null;
   product?: {
     id: string;
     name?: string | null;
@@ -199,6 +200,7 @@ export type UpcomingReservation = {
   id: string;
   status: string;
   expiresAt: string;
+  pickupAt?: string | null;
   cancelledAt?: string | null;
   cancelReason?: string | null;
   product: {
@@ -245,6 +247,7 @@ export type RentalListItem = {
   id: string;
   status: string;
   cancelReason?: string | null;
+  startsAt?: string | null;
   plannedEndAt?: string | null;
   actualEndAt?: string | null;
   product: {

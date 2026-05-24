@@ -15,6 +15,7 @@ import {
   fetchVerification,
   presignUpload,
 } from "@/shared/api/endpoints";
+import { apiBaseUrl } from "@/shared/api/client";
 import type { AppUser, VerificationState } from "@/shared/api/types";
 
 type UploadKind = "verification_front" | "verification_back" | "verification_selfie";
@@ -105,7 +106,10 @@ function VerificationContent() {
       fileSize: file.size,
       kind,
     });
-    const uploadResponse = await fetch(presign.uploadUrl, {
+    const targetUrl = /^https?:\/\//i.test(presign.uploadUrl)
+      ? presign.uploadUrl
+      : `${apiBaseUrl()}${presign.uploadUrl.startsWith("/") ? "" : "/"}${presign.uploadUrl}`;
+    const uploadResponse = await fetch(targetUrl, {
       method: presign.method || "PUT",
       headers: presign.headers,
       body: file,
@@ -208,6 +212,7 @@ function VerificationContent() {
 
   const isPendingReview = verification?.status === "pending_review";
   const isApproved = verification?.status === "approved";
+  const isRejected = verification?.status === "rejected";
   const isLocked = isPendingReview || isApproved;
   const requiresDocumentName = form.documentType === "other";
 
@@ -217,6 +222,16 @@ function VerificationContent() {
           title: "Заявка уже на проверке",
           detail:
             "Документы получены. Статус обновится здесь, как только проверка завершится.",
+        }
+      : null;
+
+  const rejectedNotice =
+    !message && isRejected
+      ? {
+          title: "Заявка отклонена",
+          detail:
+            verification?.rejectReason?.trim() ||
+            "Оператор отклонил предыдущую заявку. Проверьте данные и попробуйте отправить документы заново.",
         }
       : null;
 
@@ -248,6 +263,15 @@ function VerificationContent() {
           <div>
             <strong>{pendingReviewNotice.title}</strong>
             <span>{pendingReviewNotice.detail}</span>
+          </div>
+        </div>
+      ) : null}
+      {rejectedNotice ? (
+        <div className="alert alert-danger" role="status">
+          <ShieldCheck size={22} />
+          <div>
+            <strong>{rejectedNotice.title}</strong>
+            <span>{rejectedNotice.detail}</span>
           </div>
         </div>
       ) : null}
@@ -407,6 +431,17 @@ function VerificationContent() {
               <button className="button button-primary" type="submit" disabled={submitting}>
                 {submitting ? "Отправляем" : "Отправить на проверку"}
               </button>
+              {isRejected ? (
+                <button
+                  className="button button-secondary verification-delete-button"
+                  type="button"
+                  disabled={deleting}
+                  onClick={handleDeleteVerification}
+                >
+                  <Trash2 size={16} />
+                  {deleting ? "Удаляем" : "Удалить отклонённую заявку"}
+                </button>
+              ) : null}
             </>
           )}
         </Surface>

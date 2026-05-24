@@ -50,7 +50,14 @@
   }
 
   .brand-copy small {
-    display: none;
+    display: block;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    margin-top: 1px;
+    font-size: 10px;
+    line-height: 1.15;
+    max-width: 170px;
   }
 
   .header-actions {

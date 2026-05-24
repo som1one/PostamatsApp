@@ -398,7 +398,9 @@ function MapFallbackSurface({
           balloonContentBody: buildLockerBalloonHtml(locker, lockerAvailabilityById[locker.id]),
         },
         {
-          preset: active ? "islands#redIcon" : "islands#nightCircleDotIcon",
+          // Выбранный — зелёный «контурный» круг, иначе обычный точечный пин.
+          preset: active ? "islands#circleIcon" : "islands#nightCircleDotIcon",
+          iconColor: active ? "#1a8c3a" : undefined,
           hideIconOnBalloonOpen: false,
         },
       );
@@ -581,10 +583,13 @@ function MapBackButton({ onPress }: { onPress: () => void }) {
 }
 
 function MapMarkerGlyph({ active }: { active: boolean }) {
+  const handleStyle = active
+    ? styles.mapMarkerGlyphHandleActive
+    : styles.mapMarkerGlyphHandleInactive;
   return (
     <View style={styles.mapMarkerGlyph}>
-      <View style={[styles.mapMarkerGlyphHandleOne, !active && styles.mapMarkerGlyphHandleInactive]} />
-      <View style={[styles.mapMarkerGlyphHandleTwo, !active && styles.mapMarkerGlyphHandleInactive]} />
+      <View style={[styles.mapMarkerGlyphHandleOne, handleStyle]} />
+      <View style={[styles.mapMarkerGlyphHandleTwo, handleStyle]} />
     </View>
   );
 }

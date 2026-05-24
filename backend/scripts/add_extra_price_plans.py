@@ -2,13 +2,13 @@
 Заполняет всем активным товарам тарифы 1, 2, 3, 4, 5, 6, 7 и 14 дней,
 рассчитанные от существующего тарифа "1 день".
 
-Множители (итоговая стоимость относительно 1 дня) подобраны под скидочную
-сетку старого магазина naprokatberu.ru: чем дольше аренда, тем меньше
-средняя цена за сутки. Конкретно: 1 день = x1, 7 дней = x4.27 (≈610 ₽
-за сутки против 1626 ₽), 14 дней = x7.14 (≈830 ₽ за сутки). Промежуточные
-значения для 2/4/5/6 дней — линейная интерполяция.
+Прогрессирующая скидка от срока аренды:
+    2 дня — 5%, 3 дня — 10%, 4 дня — 15%, далее +3% за каждый
+    дополнительный день. То есть 5 — 18%, 6 — 21%, 7 — 24%, …,
+    14 — 45%.
 
-Цены округляются до 10 рублей.
+Итоговый множитель относительно тарифа "1 день" равен
+``days * (1 - discount)``. Цены округляются до 10 рублей.
 
 Запуск (внутри backend-контейнера):
     python -m backend.scripts.add_extra_price_plans
@@ -29,15 +29,52 @@ from backend.models.price_plan import PricePlan
 from backend.models.product import Product
 
 
+def _progressive_discount(days: int) -> Decimal:
+    """Возвращает скидку (доля 0..1) для тарифа на ``days`` суток.
+
+    1 день — без скидки, 2 — 5%, 3 — 10%, 4 — 15%, далее +3% за каждые
+    сутки. Скидка ограничена сверху 90%, чтобы цена не стала отрицательной
+    при экстремально длинных тарифах.
+    """
+
+    if days <= 1:
+        return Decimal("0")
+    if days == 2:
+        percent = 5
+    elif days == 3:
+        percent = 10
+    else:
+        # 4 дн -> 15%, 5 -> 18%, 6 -> 21%, ... +3% за каждый день после 4-го
+        percent = 15 + (days - 4) * 3
+    percent = max(0, min(percent, 90))
+    return Decimal(percent) / Decimal(100)
+
+
+def _multiplier_for(days: int) -> Decimal:
+    return (Decimal(days) * (Decimal("1") - _progressive_discount(days))).quantize(
+        Decimal("0.0001")
+    )
+
+
+def _plan_name(days: int) -> str:
+    last_two = days % 100
+    last = days % 10
+    if 11 <= last_two <= 14:
+        word = "дней"
+    elif last == 1:
+        word = "день"
+    elif 2 <= last <= 4:
+        word = "дня"
+    else:
+        word = "дней"
+    return f"{days} {word}"
+
+
 # (имя, duration_type, duration_value, множитель относительно тарифа "1 день", sort_order)
+EXTRA_PLAN_DAYS: list[int] = [2, 3, 4, 5, 6, 7, 14]
 EXTRA_PLANS: list[tuple[str, str, int, Decimal, int]] = [
-    ("2 дня", "day", 2, Decimal("1.85"), 1),
-    ("3 дня", "day", 3, Decimal("2.55"), 2),
-    ("4 дня", "day", 4, Decimal("2.90"), 3),
-    ("5 дней", "day", 5, Decimal("3.40"), 4),
-    ("6 дней", "day", 6, Decimal("3.84"), 5),
-    ("7 дней", "day", 7, Decimal("4.27"), 6),
-    ("14 дней", "day", 14, Decimal("7.14"), 7),
+    (_plan_name(days), "day", days, _multiplier_for(days), index + 1)
+    for index, days in enumerate(EXTRA_PLAN_DAYS)
 ]
 
 

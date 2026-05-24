@@ -1,3 +1,9 @@
+/* Кнопка «Показать полностью» имеет смысл только на мобильном вьюпорте,
+   где описание клампится в 2 строки. На десктопе клампа нет — прячем. */
+.product-hero-copy .page-subtitle-toggle {
+  display: none;
+}
+
 @media (max-width: 680px) {
   .product-page {
     gap: 14px;
@@ -127,6 +133,31 @@
     line-height: 1.4;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+  }
+
+  .product-hero-copy .page-subtitle.is-expanded {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: unset;
+  }
+
+  .product-hero-copy .page-subtitle-toggle {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 6px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    color: var(--accent, #2358e2);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+
+  .product-hero-copy .page-subtitle-toggle:hover,
+  .product-hero-copy .page-subtitle-toggle:focus-visible {
+    text-decoration: underline;
   }
 
   .rental-panel-stack {

@@ -38,6 +38,33 @@ type LockerOption = {
   isAvailable: boolean;
 };
 
+// Длинные описания на мобильном клампятся в 2 строки (см. globals-19.css).
+// Чтобы пользователь мог их прочитать, добавляем кнопку «Показать полностью».
+// На десктопе клампа нет, так что кнопка ничего лишнего не показывает —
+// просто остаётся скрытой по медиа-запросу.
+const PRODUCT_DESCRIPTION_TOGGLE_THRESHOLD = 140;
+
+function ProductDescription({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > PRODUCT_DESCRIPTION_TOGGLE_THRESHOLD;
+
+  return (
+    <>
+      <p className={`page-subtitle${expanded ? " is-expanded" : ""}`}>{text}</p>
+      {isLong ? (
+        <button
+          type="button"
+          className="page-subtitle-toggle"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "Свернуть" : "Показать полностью"}
+        </button>
+      ) : null}
+    </>
+  );
+}
+
 function todayInputValue() {
   const now = new Date();
   const year = now.getFullYear();
@@ -215,6 +242,13 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
   }, [cityId]);
 
   useEffect(() => {
+    // Не запрашиваем товар, пока не загружены города и не выбран cityId.
+    // Иначе первый запрос идёт без cityId и попадают локеры из других
+    // городов; UI потом «прилипает» к чужому локеру как к дефолту.
+    if (cities.length === 0 || !cityId) {
+      return;
+    }
+
     let active = true;
     setLoading(true);
     setError("");
@@ -258,6 +292,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
       active = false;
     };
   }, [
+    cities.length,
     cityId,
     preselectedDurationType,
     preselectedDurationValue,
@@ -333,11 +368,13 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
             <div className="product-hero-copy">
               <p className="eyebrow">{product.brand || "Товар в аренду"}</p>
               <h1 className="page-title">{product.name}</h1>
-              <p className="page-subtitle">
-                {product.fullDescription ||
+              <ProductDescription
+                text={
+                  product.fullDescription ||
                   product.shortDescription ||
-                  "Описание появится после заполнения карточки товара в админке."}
-              </p>
+                  "Описание появится после заполнения карточки товара в админке."
+                }
+              />
               <div className="product-mobile-equipment">
                 <ProductEquipment product={product} />
               </div>

@@ -387,6 +387,70 @@ function setModalSubmitting(isLoading, button) {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const CITY_TIMEZONES = [
+  { value: "Europe/Minsk", label: "Минск (UTC+3)" },
+  { value: "Europe/Moscow", label: "Москва, СПб (UTC+3)" },
+  { value: "Europe/Kaliningrad", label: "Калининград (UTC+2)" },
+  { value: "Europe/Samara", label: "Самара (UTC+4)" },
+  { value: "Asia/Yekaterinburg", label: "Екатеринбург (UTC+5)" },
+  { value: "Asia/Omsk", label: "Омск (UTC+6)" },
+  { value: "Asia/Krasnoyarsk", label: "Красноярск (UTC+7)" },
+  { value: "Asia/Novosibirsk", label: "Новосибирск (UTC+7)" },
+  { value: "Asia/Irkutsk", label: "Иркутск (UTC+8)" },
+  { value: "Asia/Yakutsk", label: "Якутск (UTC+9)" },
+  { value: "Asia/Vladivostok", label: "Владивосток (UTC+10)" },
+  { value: "Asia/Magadan", label: "Магадан (UTC+11)" },
+  { value: "Asia/Kamchatka", label: "Камчатка (UTC+12)" },
+  { value: "Asia/Almaty", label: "Алматы (UTC+5)" },
+  { value: "Asia/Tashkent", label: "Ташкент (UTC+5)" },
+  { value: "Asia/Tbilisi", label: "Тбилиси (UTC+4)" },
+  { value: "Asia/Yerevan", label: "Ереван (UTC+4)" },
+  { value: "Europe/Kyiv", label: "Киев (UTC+2)" },
+  { value: "Europe/Vilnius", label: "Вильнюс (UTC+2)" },
+  { value: "UTC", label: "UTC (UTC+0)" },
+];
+const DEFAULT_CITY_TIMEZONE = "Europe/Minsk";
+
+const CITY_NAME_TRANSLIT_MAP = {
+  а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z",
+  и: "i", й: "i", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r",
+  с: "s", т: "t", у: "u", ф: "f", х: "h", ц: "ts", ч: "ch", ш: "sh", щ: "sch",
+  ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
+};
+
+function slugifyForCity(input) {
+  const raw = String(input || "").trim().toLowerCase();
+  if (!raw) return "";
+  let out = "";
+  for (const ch of raw) {
+    if (CITY_NAME_TRANSLIT_MAP[ch] !== undefined) {
+      out += CITY_NAME_TRANSLIT_MAP[ch];
+    } else if (/[a-z0-9]/.test(ch)) {
+      out += ch;
+    } else if (/[\s\-_]/.test(ch)) {
+      out += "-";
+    }
+  }
+  return out.replace(/-{2,}/g, "-").replace(/^-+|-+$/g, "");
+}
+
+function buildCityTimezoneOptions(selectedValue) {
+  const value = (selectedValue || DEFAULT_CITY_TIMEZONE).trim();
+  const known = CITY_TIMEZONES.some((tz) => tz.value === value);
+  const list = known ? CITY_TIMEZONES : [{ value, label: value }, ...CITY_TIMEZONES];
+  return list
+    .map(
+      (tz) =>
+        `<option value="${escapeHtml(tz.value)}"${tz.value === value ? " selected" : ""}>${escapeHtml(tz.label)}</option>`,
+    )
+    .join("");
+}
+
+function populateCityTimezoneSelect(selectEl, selectedValue) {
+  if (!selectEl) return;
+  selectEl.innerHTML = buildCityTimezoneOptions(selectedValue);
+}
+
 function parseUuidMultiline(value) {
   const raw = String(value || "").trim();
   if (!raw) {
@@ -471,7 +535,12 @@ async function uploadAdminProductImageFile(file, kind) {
   if (!presignData.uploadUrl || !presignData.fileId) {
     throw new Error("Не удалось получить ссылку загрузки.");
   }
-  const uploadResp = await fetch(presignData.uploadUrl, {
+  // Если backend вернул относительный путь (filesystem-провайдер) — дополняем апи-origin'ом.
+  const uploadTargetUrl =
+    presignData.uploadUrl.startsWith("http://") || presignData.uploadUrl.startsWith("https://")
+      ? presignData.uploadUrl
+      : apiUrl(presignData.uploadUrl);
+  const uploadResp = await fetch(uploadTargetUrl, {
     method: presignData.method || "PUT",
     headers: presignData.headers || { "Content-Type": mimeType },
     body: file,
@@ -710,6 +779,7 @@ function openModal(modalType) {
   }
 
   if (modalType === "city") {
+    prepareCityCreateModal();
     cityModal.classList.remove("hidden");
   }
 
@@ -1554,11 +1624,6 @@ function renderCities() {
             <button type="button" class="ghost-button table-inline-button" data-open-city="${escapeHtml(city.id)}">
               Открыть
             </button>
-            <button
-              type="button"
-              class="table-danger-button table-inline-button"
-              data-delete-city="${escapeHtml(city.id)}"
-            >Удалить</button>
           </td>
         </tr>
       `,
@@ -1607,14 +1672,19 @@ function renderCityDetailModal() {
       </div>
       <div class="detail-block">
         <h4 class="detail-block-title">Редактирование</h4>
-        <label class="field"><span>Название</span><input id="city-edit-name" type="text" value="${escapeHtml(c.name)}" /></label>
-        <label class="field"><span>Slug</span><input id="city-edit-slug" type="text" value="${escapeHtml(c.slug)}" /></label>
-        <label class="field"><span>Часовой пояс</span><input id="city-edit-timezone" type="text" value="${escapeHtml(c.timezone)}" /></label>
-        <label class="field"><span>Порядок сортировки</span><input id="city-edit-sort" type="number" value="${Number(c.sortOrder) || 0}" /></label>
+        <label class="field"><span>Название города</span><input id="city-edit-name" type="text" value="${escapeHtml(c.name)}" /></label>
+        <label class="field"><span>Часовой пояс</span>
+          <select id="city-edit-timezone">${buildCityTimezoneOptions(c.timezone)}</select>
+        </label>
         <label class="checkbox-field">
           <input id="city-edit-active" type="checkbox" ${c.isActive ? "checked" : ""} />
-          <span>Активный город</span>
+          <span>Активный город (показывать пользователям)</span>
         </label>
+        <details class="locker-advanced">
+          <summary>Расширенные настройки</summary>
+          <label class="field"><span>Slug (для ссылок)</span><input id="city-edit-slug" type="text" value="${escapeHtml(c.slug)}" /></label>
+          <label class="field"><span>Порядок в списке (меньше — выше)</span><input id="city-edit-sort" type="number" value="${Number(c.sortOrder) || 0}" /></label>
+        </details>
         <div class="user-detail-action-row">
           <button type="button" class="primary-button" data-city-action="save">Сохранить</button>
         </div>
@@ -1730,10 +1800,21 @@ async function handleCityDetailClick(event) {
   btn.disabled = true;
   try {
     if (action === "save") {
+      const slugVal = String(document.getElementById("city-edit-slug")?.value || "").trim();
+      const nameVal = String(document.getElementById("city-edit-name")?.value || "").trim();
+      const tzVal = String(document.getElementById("city-edit-timezone")?.value || "").trim();
+      if (!nameVal) {
+        showToast("error", "Название города не может быть пустым.");
+        return;
+      }
+      if (!tzVal) {
+        showToast("error", "Выберите часовой пояс.");
+        return;
+      }
       const body = {
-        name: String(document.getElementById("city-edit-name")?.value || "").trim(),
-        slug: String(document.getElementById("city-edit-slug")?.value || "").trim(),
-        timezone: String(document.getElementById("city-edit-timezone")?.value || "").trim(),
+        name: nameVal,
+        slug: slugVal || slugifyForCity(nameVal),
+        timezone: tzVal,
         sortOrder: Number(document.getElementById("city-edit-sort")?.value || 0),
         isActive: Boolean(document.getElementById("city-edit-active")?.checked),
       };
@@ -1742,7 +1823,7 @@ async function handleCityDetailClick(event) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      showToast("success", "Город сохранён.");
+      showToast("success", `Город «${nameVal}» сохранён.`);
       await loadAdminData();
       await refreshCityDetail(cityId);
       return;
@@ -3402,6 +3483,44 @@ async function handleLogout() {
   showToast("success", "Сессия закрыта.");
 }
 
+function prepareCityCreateModal() {
+  if (!cityForm) return;
+  const tzSelect = cityForm.querySelector("#city-create-timezone");
+  populateCityTimezoneSelect(tzSelect, DEFAULT_CITY_TIMEZONE);
+  const nameInput = cityForm.querySelector("#city-create-name");
+  const slugInput = cityForm.querySelector("#city-create-slug");
+  const sortInput = cityForm.querySelector("#city-create-sort");
+  const activeInput = cityForm.querySelector("#city-create-active");
+  if (nameInput) {
+    nameInput.value = "";
+    nameInput.dataset.userTouchedSlug = "0";
+  }
+  if (slugInput) {
+    slugInput.value = "";
+    slugInput.dataset.userEdited = "0";
+  }
+  if (sortInput) sortInput.value = "0";
+  if (activeInput) activeInput.checked = true;
+  setTimeout(() => nameInput?.focus(), 50);
+}
+
+let cityCreateListenersBound = false;
+function bindCityCreateListenersOnce() {
+  if (cityCreateListenersBound || !cityForm) return;
+  cityCreateListenersBound = true;
+  const nameInput = cityForm.querySelector("#city-create-name");
+  const slugInput = cityForm.querySelector("#city-create-slug");
+  if (nameInput && slugInput) {
+    nameInput.addEventListener("input", () => {
+      if (slugInput.dataset.userEdited === "1") return;
+      slugInput.value = slugifyForCity(nameInput.value);
+    });
+    slugInput.addEventListener("input", () => {
+      slugInput.dataset.userEdited = slugInput.value ? "1" : "0";
+    });
+  }
+}
+
 async function handleCityCreate(event) {
   event.preventDefault();
   if (state.modalSubmitting) {
@@ -3411,6 +3530,16 @@ async function handleCityCreate(event) {
   const submitBtn = cityForm.querySelector('button[type="submit"]');
   const formData = new FormData(cityForm);
 
+  const rawName = String(formData.get("name") || "").trim();
+  const slugInput = cityForm.querySelector("#city-create-slug");
+  let rawSlug = String(formData.get("slug") || "").trim();
+  if (!rawSlug && rawName) {
+    rawSlug = slugifyForCity(rawName);
+    if (slugInput) {
+      slugInput.value = rawSlug;
+    }
+  }
+
   setModalSubmitting(true, submitBtn);
   try {
     await authorizedRequest("/api/admin/cities", {
@@ -3419,21 +3548,27 @@ async function handleCityCreate(event) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: String(formData.get("name") || ""),
-        slug: String(formData.get("slug") || ""),
-        timezone: String(formData.get("timezone") || ""),
+        name: rawName,
+        slug: rawSlug,
+        timezone: String(formData.get("timezone") || "").trim(),
         sortOrder: Number(formData.get("sortOrder") || 0),
         isActive: formData.get("isActive") === "on",
       }),
     });
 
     cityForm.reset();
-    cityForm.elements.timezone.value = "Europe/Minsk";
-    cityForm.elements.sortOrder.value = "0";
-    cityForm.elements.isActive.checked = true;
+    if (cityForm.elements.timezone) {
+      cityForm.elements.timezone.value = DEFAULT_CITY_TIMEZONE;
+    }
+    if (cityForm.elements.sortOrder) {
+      cityForm.elements.sortOrder.value = "0";
+    }
+    if (cityForm.elements.isActive) {
+      cityForm.elements.isActive.checked = true;
+    }
     await loadAdminData();
     closeModal();
-    showToast("success", "Город добавлен.");
+    showToast("success", `Город «${rawName}» добавлен.`);
   } catch (error) {
     console.error(error);
     showToast("error", error.message || "Не удалось создать город");
@@ -3533,8 +3668,6 @@ async function handleLockerCreate(event) {
   }
 }
 
-let cityDeleteBusy = false;
-
 async function handleCityTableClick(event) {
   const root = clickTargetElement(event);
   if (!root) {
@@ -3546,41 +3679,12 @@ async function handleCityTableClick(event) {
     if (cityId) {
       openCityDetail(cityId);
     }
-    return;
-  }
-  const button = root.closest("[data-delete-city]");
-  if (!button || cityDeleteBusy) {
-    return;
-  }
-  if (!window.confirm("Удалить город? Если к городу привязаны постаматы, удаление будет отклонено.")) {
-    return;
-  }
-  const cityId = (
-    button.getAttribute("data-delete-city") ||
-    button.dataset.deleteCity ||
-    ""
-  ).trim();
-  if (!cityId) {
-    return;
-  }
-  cityDeleteBusy = true;
-  button.disabled = true;
-  try {
-    const safeId = encodeURIComponent(cityId);
-    await authorizedRequest(`/api/admin/cities/${safeId}/delete`, { method: "POST" });
-    await loadAdminData();
-    showToast("success", "Город удалён.");
-  } catch (error) {
-    console.error(error);
-    showToast("error", error.message || "Не удалось удалить город");
-  } finally {
-    cityDeleteBusy = false;
-    button.disabled = false;
   }
 }
 
 loginForm.addEventListener("submit", handleLogin);
 cityForm.addEventListener("submit", handleCityCreate);
+bindCityCreateListenersOnce();
 if (productCategoryForm) {
   productCategoryForm.addEventListener("submit", handleProductCategoryCreate);
 }

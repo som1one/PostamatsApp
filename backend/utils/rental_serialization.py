@@ -50,6 +50,7 @@ async def serialize_rental_list_item(
         "id": str(rental.id),
         "status": rental.status.value,
         "cancelReason": rental.cancel_reason,
+        "startsAt": rental.starts_at.isoformat() if rental.starts_at else None,
         "plannedEndAt": rental.planned_end_at.isoformat() if rental.planned_end_at else None,
         "actualEndAt": rental.actual_end_at.isoformat() if rental.actual_end_at else None,
         "product": {

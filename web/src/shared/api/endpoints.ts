@@ -304,6 +304,7 @@ export async function createReservation(payload: {
   durationType: string;
   durationValue: number;
   sourceReservationId?: string;
+  startAt?: string;
 }) {
   const data = await requestWithAuth<{ reservation: ReservationSummary }>(
     "/reservations",
@@ -349,7 +350,14 @@ export async function authorizePaymentDevStub(paymentId: string) {
   return data.payment;
 }
 
-export async function confirmReservation(reservationId: string, paymentId?: string) {
+export async function confirmReservation(
+  reservationId: string,
+  paymentId?: string,
+  startAt?: string,
+) {
+  const body: Record<string, unknown> = {};
+  if (paymentId) body.paymentId = paymentId;
+  if (startAt) body.startAt = startAt;
   const data = await requestWithAuth<{
     rental: {
       id: string;
@@ -360,7 +368,7 @@ export async function confirmReservation(reservationId: string, paymentId?: stri
     };
   }>(`/reservations/${reservationId}/confirm`, {
     method: "POST",
-    body: paymentId ? { paymentId } : {},
+    body,
   });
   return data.rental;
 }

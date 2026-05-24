@@ -44,6 +44,13 @@ async function parseError(response: Response) {
   if (payload && typeof payload.detail === "string") {
     return { message: payload.detail, code: payload.detail };
   }
+  // FastAPI HTTPException(detail={"code": "...", ...}) — структурированная ошибка.
+  if (payload && payload.detail && typeof payload.detail === "object" && !Array.isArray(payload.detail) && typeof payload.detail.code === "string") {
+    return {
+      message: payload.detail.message || payload.detail.code,
+      code: payload.detail.code,
+    };
+  }
   if (payload?.error?.message) {
     return {
       message: String(payload.error.message),

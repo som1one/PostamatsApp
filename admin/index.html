@@ -6,7 +6,7 @@
     <!-- Базовый URL API: только корень (http://host:8000), без /admin в конце -->
     <meta name="postamats-api-origin" content="" />
     <title>Postamats Admin</title>
-    <link rel="stylesheet" href="./styles.css?v=19" />
+    <link rel="stylesheet" href="./styles.css?v=20" />
   </head>
   <body>
     <div class="admin-shell">
@@ -518,29 +518,47 @@
 
         <form id="city-form" class="modal-form">
           <label class="field">
-            <span>Название</span>
-            <input name="name" type="text" placeholder="Минск" required />
-          </label>
-
-          <label class="field">
-            <span>Slug</span>
-            <input name="slug" type="text" placeholder="minsk" required />
+            <span>Название города</span>
+            <input
+              id="city-create-name"
+              name="name"
+              type="text"
+              placeholder="Например, Минск"
+              required
+            />
           </label>
 
           <label class="field">
             <span>Часовой пояс</span>
-            <input name="timezone" type="text" value="Europe/Minsk" required />
+            <select id="city-create-timezone" name="timezone" required></select>
           </label>
 
           <label class="field">
-            <span>Порядок</span>
-            <input name="sortOrder" type="number" value="0" />
+            <span>Slug (для ссылок)</span>
+            <input
+              id="city-create-slug"
+              name="slug"
+              type="text"
+              placeholder="minsk"
+              required
+            />
+            <span class="muted-inline city-slug-hint">
+              Заполнится автоматически от названия. Можно поправить вручную.
+            </span>
           </label>
 
           <label class="checkbox-field">
-            <input name="isActive" type="checkbox" checked />
-            <span>Активный город</span>
+            <input id="city-create-active" name="isActive" type="checkbox" checked />
+            <span>Активный город (показывать пользователям)</span>
           </label>
+
+          <details class="locker-advanced">
+            <summary>Расширенные настройки</summary>
+            <label class="field">
+              <span>Порядок в списке (меньше — выше)</span>
+              <input id="city-create-sort" name="sortOrder" type="number" value="0" />
+            </label>
+          </details>
 
           <div class="modal-actions">
             <button class="ghost-button" type="button" data-close-modal>Отмена</button>
@@ -799,6 +817,6 @@
 
     <div id="toast-stack" class="toast-stack" aria-live="assertive" aria-atomic="true"></div>
 
-    <script src="./app.js?v=23" defer></script>
+    <script src="./app.js?v=24" defer></script>
   </body>
 </html>

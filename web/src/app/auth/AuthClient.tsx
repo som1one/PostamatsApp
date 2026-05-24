@@ -19,6 +19,7 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   AUTH_PHONE_INVALID: "Введите корректный номер РФ или РБ.",
   AUTH_SMS_SEND_FAILED: "Не удалось отправить SMS. Попробуйте еще раз чуть позже.",
   AUTH_SMS_PROVIDER_ERROR: "Сервис SMS сейчас недоступен. Попробуйте еще раз чуть позже.",
+  AUTH_RESEND_TOO_SOON: "Подождите немного перед повторной отправкой кода.",
   AUTH_SESSION_NOT_FOUND: "Сессия входа не найдена. Запросите код заново.",
   AUTH_SESSION_INACTIVE: "Этот код уже недействителен. Запросите новый.",
   AUTH_SESSION_EXPIRED: "Срок действия кода истек. Запросите новый.",
@@ -74,22 +75,24 @@ export function AuthClient() {
 
   async function handlePhoneSubmit(event: FormEvent) {
     event.preventDefault();
-    // DEV: phone validation disabled — accept any input, fallback to unique dummy
-    const phoneToSend = normalizedPhone || `+7000${Date.now().toString().slice(-7)}`;
+    if (!normalizedPhone) {
+      setError(AUTH_ERROR_MESSAGES.AUTH_PHONE_INVALID);
+      return;
+    }
 
     setLoading(true);
     setError("");
     try {
-      // DEV: request-code + auto-confirm with dummy code
-      const result = await requestCode(phoneToSend);
-      const confirmResult = await confirmCode(result.verificationSessionId, "0000");
-      setSessionFromLogin(confirmResult);
-      router.replace("/");
+      const result = await requestCode(normalizedPhone);
+      setSessionId(result.verificationSessionId);
+      setTtl(result.ttlSeconds ?? 0);
+      setCode("");
+      setStep("code");
     } catch (submitError) {
       setError(
         resolveAuthErrorMessage(
           submitError,
-          "Не удалось выполнить вход. Попробуйте еще раз.",
+          "Не удалось отправить SMS. Попробуйте еще раз.",
         ),
       );
     } finally {

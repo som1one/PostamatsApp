@@ -334,7 +334,9 @@ export const styleChunk4 = {
   mapMarkerActive: {
     width: 58,
     height: 58,
-    backgroundColor: "#df4c3c",
+    backgroundColor: "#ffffff",
+    borderWidth: 3,
+    borderColor: "#1a8c3a",
   },
   mapMarkerGlyph: {
     width: 16,
@@ -360,6 +362,11 @@ export const styleChunk4 = {
   },
   mapMarkerGlyphHandleInactive: {
     backgroundColor: "#f7f7f8",
+  },
+  mapMarkerGlyphHandleActive: {
+    // Активный маркер теперь белый с зелёным контуром (см. mapMarkerActive),
+    // поэтому глифы тоже зелёные, иначе на белом фоне их не видно.
+    backgroundColor: "#1a8c3a",
   },
   locationPinGlyph: {
     width: 11,

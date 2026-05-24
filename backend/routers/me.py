@@ -55,7 +55,7 @@ from backend.utils.me_utils import (
 from backend.utils.products_utils import load_media_files_by_ids, public_media_url
 from backend.utils.rental_return_flow import ReturnRequestError, start_rental_return
 from backend.utils.rental_serialization import serialize_rental_detail, serialize_rental_list_item
-from backend.utils.reservation_utils import ensure_utc
+from backend.utils.reservation_utils import calculate_planned_end_at, ensure_utc
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -68,6 +68,7 @@ _RETURN_REQUEST_ERRORS: dict[str, tuple[int, str]] = {
     "RETURN_CELL_NOT_AVAILABLE": (409, "RETURN_CELL_NOT_AVAILABLE"),
     "INVENTORY_NOT_FOUND": (500, "RETURN_REQUEST_FAILED"),
     "ESI_OPEN_FAILED": (502, "ESI_OPEN_FAILED"),
+    "ESI_OPEN_NOT_CONFIRMED": (504, "LOCKER_OPEN_NOT_CONFIRMED"),
     "ESI_NOT_CONFIGURED": (503, "ESI_NOT_CONFIGURED"),
     "RETURN_CELL_NOT_FOUND": (502, "ESI_OPEN_FAILED"),
     "RETURN_CELL_NOT_OPERABLE": (409, "RETURN_CELL_NOT_OPERABLE"),
@@ -345,6 +346,11 @@ async def list_my_reservations(
                 "id": str(reservation.id),
                 "status": reservation.status.value,
                 "expiresAt": ensure_utc(reservation.expires_at).isoformat(),
+                "pickupAt": (
+                    ensure_utc(reservation.pickup_at).isoformat()
+                    if reservation.pickup_at is not None
+                    else None
+                ),
                 "product": {
                     "id": str(product.id) if product is not None else str(reservation.product_id),
                     "name": product.name if product is not None else None,
@@ -599,6 +605,21 @@ async def open_pickup_cell(
     if rental.status not in (RentalStatus.PICKUP_READY, RentalStatus.PICKUP_OPENED):
         raise HTTPException(status_code=409, detail="RENTAL_NOT_PICKUP_READY")
 
+    # Запрет открывать ячейку раньше выбранной пользователем даты выдачи.
+    # Допускаем доступ за 1 час до фактического `starts_at`, чтобы клиент
+    # мог подойти к постамату чуть раньше.
+    if rental.starts_at is not None:
+        starts_at = ensure_utc(rental.starts_at)
+        now = datetime.now(timezone.utc)
+        if (starts_at - now).total_seconds() > 60 * 60:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "PICKUP_NOT_YET_AVAILABLE",
+                    "startsAt": starts_at.isoformat(),
+                },
+            )
+
     inventory_unit = await db.get(InventoryUnit, rental.inventory_unit_id)
     if inventory_unit is None or inventory_unit.locker_cell_id is None:
         raise HTTPException(status_code=409, detail="INVENTORY_CELL_MISSING")
@@ -624,6 +645,12 @@ async def open_pickup_cell(
             raise HTTPException(status_code=503, detail="LOCKER_NOT_CONFIGURED") from exc
         if code == "CELL_NOT_OPERABLE":
             raise HTTPException(status_code=409, detail="CELL_NOT_OPERABLE") from exc
+        if code == "ESI_OPEN_NOT_CONFIRMED":
+            # Команда ушла в ESI, но дверца не открылась за отведённый таймаут.
+            # Не трогаем статус rental — пользователь сможет повторить попытку.
+            raise HTTPException(
+                status_code=504, detail="LOCKER_OPEN_NOT_CONFIRMED"
+            ) from exc
         raise HTTPException(status_code=502, detail="ESI_OPEN_FAILED") from exc
 
     now = datetime.now(timezone.utc)
@@ -690,6 +717,20 @@ async def confirm_pickup(
     if rental.status not in (RentalStatus.PICKUP_READY, RentalStatus.PICKUP_OPENED):
         raise HTTPException(status_code=409, detail="RENTAL_NOT_PICKUP_READY")
 
+    # Запрет подтверждать забор раньше выбранной даты выдачи. Допуск
+    # 1 час до фактического `starts_at` — тот же, что у /open-cell.
+    if rental.starts_at is not None:
+        starts_at = ensure_utc(rental.starts_at)
+        now_check = datetime.now(timezone.utc)
+        if (starts_at - now_check).total_seconds() > 60 * 60:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "PICKUP_NOT_YET_AVAILABLE",
+                    "startsAt": starts_at.isoformat(),
+                },
+            )
+
     now = datetime.now(timezone.utc)
     unit = await db.get(InventoryUnit, rental.inventory_unit_id)
     cell = (
@@ -703,7 +744,19 @@ async def confirm_pickup(
     prev_cell_id = unit.locker_cell_id if unit is not None else None
 
     rental.status = RentalStatus.ACTIVE
-    rental.starts_at = rental.starts_at or now
+    # Аренда стартует в момент фактического забора. День = 24 часа от
+    # этого момента, а не от выбранного календарного дня. Поэтому
+    # пересчитываем `starts_at` и `planned_end_at` здесь, переопределяя
+    # ранее проставленные при confirm-reservation значения.
+    rental.starts_at = now
+    if rental.reservation_id is not None:
+        reservation = await db.get(Reservation, rental.reservation_id)
+        if reservation is not None:
+            rental.planned_end_at = calculate_planned_end_at(
+                now,
+                reservation.duration_type,
+                reservation.duration_value,
+            )
 
     if unit is not None:
         unit.status = InventoryStatus.RENTED

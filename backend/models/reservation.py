@@ -39,6 +39,10 @@ class Reservation(Base, TimestampMixin):
     quoted_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     preauth_amount: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # Время, на которое пользователь оформил выдачу. Может быть в будущем
+    # (например, "завтра"). Используется для блокировки `open-cell` до
+    # этого момента и для расчёта `planned_end_at`. NULL — значит "сразу".
+    pickup_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancel_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

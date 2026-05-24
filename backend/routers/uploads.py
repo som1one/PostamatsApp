@@ -129,7 +129,10 @@ async def presign_upload(
         await db.flush()
         expires_in = settings.UPLOAD_PRESIGN_EXPIRES
         if settings.STORAGE_PROVIDER == "filesystem":
-            upload_url = str(request.url_for("put_media_upload", file_id=str(media.id)))
+            # Возвращаем относительный путь, чтобы клиент дополнил его своим apiBaseUrl().
+            # Это устраняет проблему, когда reverse-proxy срезает префикс (/api/*),
+            # а request.url_for видит уже срезанный путь и формирует URL мимо прокси.
+            upload_url = f"/uploads/files/{media.id}"
             upload_token = build_local_upload_token(
                 file_id=media.id,
                 file_key=file_key,

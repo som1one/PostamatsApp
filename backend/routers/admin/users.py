@@ -350,6 +350,9 @@ async def approve_verification(
     now = datetime.now(timezone.utc)
     vr.status = VerificationStatus.APPROVED
     vr.reviewed_at = now
+    # NB: vr.reviewed_by_admin_id ссылается на legacy-таблицу admin_users.
+    # Реальные админы в продакшене живут в admin_accounts (см. record_admin_audit),
+    # поэтому колонку оставляем пустой, чтобы не ловить FK-нарушение.
     vr.reject_reason = None
     user.verification_status = VerificationStatus.APPROVED
     try:
@@ -394,6 +397,7 @@ async def reject_verification(
     vr.status = VerificationStatus.REJECTED
     vr.reject_reason = payload.reason.strip()
     vr.reviewed_at = now
+    # См. комментарий в approve_verification про reviewed_by_admin_id.
     user.verification_status = VerificationStatus.REJECTED
     try:
         record_admin_audit(
