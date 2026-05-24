@@ -47,7 +47,7 @@ import type {
 import { buildRescheduleProductHref } from "@/shared/checkout/reschedule";
 import { formatCountRu, formatDateTime } from "@/shared/format";
 import { resolvePublicAssetUrl } from "@/shared/media";
-import { isTerminalRentalStatus } from "@/shared/rentalStatus";
+import { isRentalFinished } from "@/shared/rentalStatus";
 
 type OrderData =
   | { type: "reservation"; data: UpcomingReservation; detail?: ReservationSummary | null }
@@ -92,10 +92,12 @@ export function computeOrderDeadlineMeta(
       Icon: CheckCircle2,
     };
   }
-  // Терминальные статусы (например, "completed") не рисуют deadline-плашку
-  // вне зависимости от того, прошло ли плановое окончание. См. design.md
-  // секция "Fix Implementation".
-  if (isTerminalRentalStatus(rental.status)) {
+  // Завершённые аренды (терминальный статус ИЛИ проставлен actualEndAt) не
+  // рисуют deadline-плашку вне зависимости от того, прошло ли плановое
+  // окончание. Это закрывает в т.ч. случаи, когда статус ещё не успел
+  // прийти к "completed" (отставание webhook'а, ручная админская правка),
+  // но фактический возврат уже зафиксирован.
+  if (isRentalFinished(rental)) {
     return null;
   }
   if (!rental.plannedEndAt) return null;

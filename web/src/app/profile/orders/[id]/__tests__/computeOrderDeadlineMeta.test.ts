@@ -201,3 +201,49 @@ describe("computeOrderDeadlineMeta — preservation — Behaviour Matrix", () =>
     expect(meta?.text).toBe("Стоит оформить возврат как можно скорее.");
   });
 });
+
+// Регрессия: реальный пользовательский кейс — пользователь уже сдал товар
+// (`actualEndAt` проставлен бэком), но `status` ещё не успел переключиться
+// на "completed". Без фикса страница `/profile/orders/[id]` рисовала бы
+// «Просрочено на N дней» поверх блока «Фактическое окончание: …», что
+// очевидно противоречит данным, отображаемым в той же карточке.
+describe("computeOrderDeadlineMeta — regression: actualEndAt suppresses 'Просрочено' overlay", () => {
+  it("returns null when actualEndAt is set and status is still 'active'", () => {
+    const rental = makeRental({
+      status: "active",
+      plannedEndAt: "2025-01-02T21:38:00Z",
+      actualEndAt: "2025-01-01T21:38:00Z",
+    });
+    const nowMs = Date.parse("2025-01-03T23:38:00Z");
+
+    const meta = computeOrderDeadlineMeta(rental, nowMs);
+
+    expect(meta).toBeNull();
+  });
+
+  it("returns null when actualEndAt is set and status is 'overdue'", () => {
+    const rental = makeRental({
+      status: "overdue",
+      plannedEndAt: "2025-01-02T21:38:00Z",
+      actualEndAt: "2025-01-01T21:38:00Z",
+    });
+    const nowMs = Date.parse("2025-01-03T23:38:00Z");
+
+    const meta = computeOrderDeadlineMeta(rental, nowMs);
+
+    expect(meta).toBeNull();
+  });
+
+  it("returns null when actualEndAt is set and status is 'incident'", () => {
+    const rental = makeRental({
+      status: "incident",
+      plannedEndAt: "2025-01-02T21:38:00Z",
+      actualEndAt: "2025-01-01T21:38:00Z",
+    });
+    const nowMs = Date.parse("2025-01-03T23:38:00Z");
+
+    const meta = computeOrderDeadlineMeta(rental, nowMs);
+
+    expect(meta).toBeNull();
+  });
+});
