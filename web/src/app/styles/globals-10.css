@@ -55,11 +55,11 @@
     border-color 0.18s ease;
 }.locker-card-pro.is-selected {
   transform: translateY(0);
-  border-color: rgba(221, 54, 45, 0.72);
-  background: linear-gradient(180deg, #fffaf6, var(--surface-tint));
+  border-color: rgba(73, 111, 83, 0.72);
+  background: linear-gradient(180deg, #fbfdf8, var(--green-soft));
   box-shadow:
-    0 0 0 3px rgba(221, 54, 45, 0.12),
-    0 18px 34px rgba(125, 42, 34, 0.12);
+    0 0 0 3px rgba(73, 111, 83, 0.16),
+    0 18px 34px rgba(35, 76, 47, 0.12);
 }.locker-card-pro.is-selected:hover,
 .locker-card-pro.is-selected:focus-within {
   transform: translateY(0);
@@ -73,7 +73,7 @@
   background: transparent;
   cursor: pointer;
 }.locker-card-hit:focus-visible {
-  outline: 3px solid rgba(221, 54, 45, 0.28);
+  outline: 3px solid rgba(73, 111, 83, 0.32);
   outline-offset: 3px;
 }.locker-card-pro > *:not(.locker-card-hit) {
   position: relative;
