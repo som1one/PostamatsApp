@@ -240,6 +240,7 @@
   background: var(--surface-tint);
   border: 1px solid var(--line);
   border-radius: 999px;
+  flex: 0 0 auto;
 }
 
 .rental-mode-switch-button {
@@ -256,10 +257,13 @@
   cursor: pointer;
   transition:
     background-color 0.16s ease,
-    color 0.16s ease;
+    color 0.16s ease,
+    box-shadow 0.16s ease;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  white-space: nowrap;
 }
 
 .rental-mode-switch-button.is-active {
@@ -270,6 +274,38 @@
 
 .rental-mode-switch-button:not(.is-active):hover {
   color: var(--primary);
+}
+
+@media (max-width: 720px) {
+  .rental-step-panel-tariff .card-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .rental-mode-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+    gap: 0;
+    padding: 4px;
+    border-radius: 14px;
+  }
+
+  .rental-mode-switch-button {
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+    letter-spacing: 0.01em;
+  }
+
+  .rental-mode-switch-button.is-active {
+    box-shadow: 0 6px 16px rgba(196, 4, 4, 0.22);
+  }
+
+  .rental-mode-switch-button svg {
+    flex: 0 0 auto;
+  }
 }
 
 @media (max-width: 600px) {

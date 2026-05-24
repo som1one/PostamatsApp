@@ -18,6 +18,8 @@ describe("progressiveDiscountPercent", () => {
     [6, 24],
     [7, 27],
     [14, 48],
+    [18, 60],
+    [25, 60],
   ] as const)("returns %s%% discount for %s day(s)", (days, expected) => {
     expect(progressiveDiscountPercent(days)).toBe(expected);
   });
@@ -32,10 +34,12 @@ describe("progressiveDiscountPercent", () => {
     expect(progressiveDiscountPercent(Number.POSITIVE_INFINITY)).toBe(0);
   });
 
-  it("caps the discount at 90 percent for very long rentals", () => {
-    // Без cap'a 30 дней давало бы 15 + 27*3 = 96.
-    expect(progressiveDiscountPercent(30)).toBe(90);
-    expect(progressiveDiscountPercent(365)).toBe(90);
+  it("caps the discount at 60 percent for very long rentals", () => {
+    // Без cap'a 30 дней давало бы 15 + 27*3 = 96; со старой формулой — тот же
+    // потолок, но теперь установлен на 60%.
+    expect(progressiveDiscountPercent(20)).toBe(60);
+    expect(progressiveDiscountPercent(30)).toBe(60);
+    expect(progressiveDiscountPercent(365)).toBe(60);
   });
 
   it("floors fractional days", () => {

@@ -1,8 +1,8 @@
 // Прогрессирующая скидка от срока аренды.
 //
 // 1 день — 5%, 2 дня — 10%, 3 дня — 15%, далее +3% за каждый
-// дополнительный день. Скидка ограничена сверху 90%, чтобы цена не стала
-// отрицательной для экстремально длинных тарифов.
+// дополнительный день. Скидка ограничена сверху 60% (потолок), чтобы
+// длинные тарифы оставались экономически осмысленными.
 //
 // Эта же формула продублирована на бэке в
 // ``backend/scripts/add_extra_price_plans.py``; правьте в обоих местах.
@@ -21,7 +21,7 @@ export function progressiveDiscountPercent(days: number): number {
   } else {
     percent = 15 + (d - 3) * 3;
   }
-  return Math.max(0, Math.min(percent, 90));
+  return Math.max(0, Math.min(percent, 60));
 }
 
 export function progressiveDiscountFraction(days: number): number {
