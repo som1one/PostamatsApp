@@ -455,34 +455,41 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                   }}
                   baseAmountPerDayMinor={baseDayPlan?.baseAmount ?? 0}
                   currency={baseDayPlan?.currency || "RUB"}
-                  mode="single"
                 />
                 {dayPlans.length ? (
-                  <RentalDurationSelector
-                    plans={dayPlans}
-                    selectedPlanId={selectedPlan?.id ?? ""}
-                    onSelect={(planId) => {
-                      const plan = dayPlans.find((item) => item.id === planId);
-                      if (!plan) {
-                        return;
+                  <>
+                    <p className="muted small rental-range-hint">
+                      Или выберите готовый тариф со скидкой:
+                    </p>
+                    <RentalDurationSelector
+                      plans={dayPlans}
+                      selectedPlanId={
+                        selectedPlan && rangeDays === selectedPlan.durationValue
+                          ? selectedPlan.id
+                          : ""
                       }
-                      // daysBetweenInclusive считает по ночам:
-                      // (start, start) = 1, (start, start+1) = 1, (start, start+2) = 2.
-                      // Поэтому endDate = start + durationValue даёт ровно
-                      // durationValue суток аренды.
-                      const startISO = date || todayInputValue();
-                      const start = new Date(`${startISO}T00:00:00`);
-                      if (Number.isNaN(start.getTime())) {
-                        return;
-                      }
-                      const next = new Date(start);
-                      next.setDate(next.getDate() + Math.max(plan.durationValue, 1));
-                      const yyyy = next.getFullYear();
-                      const mm = String(next.getMonth() + 1).padStart(2, "0");
-                      const dd = String(next.getDate()).padStart(2, "0");
-                      setEndDate(`${yyyy}-${mm}-${dd}`);
-                    }}
-                  />
+                      onSelect={(planId) => {
+                        const plan = dayPlans.find((item) => item.id === planId);
+                        if (!plan) {
+                          return;
+                        }
+                        // daysBetweenInclusive считает по ночам:
+                        // (start, start) = 1, (start, start+1) = 1, (start, start+2) = 2.
+                        // Чтобы тариф 3 дня дал ровно 3 — endDate = start + durationValue.
+                        const startISO = date || todayInputValue();
+                        const start = new Date(`${startISO}T00:00:00`);
+                        if (Number.isNaN(start.getTime())) {
+                          return;
+                        }
+                        const next = new Date(start);
+                        next.setDate(next.getDate() + Math.max(plan.durationValue, 1));
+                        const yyyy = next.getFullYear();
+                        const mm = String(next.getMonth() + 1).padStart(2, "0");
+                        const dd = String(next.getDate()).padStart(2, "0");
+                        setEndDate(`${yyyy}-${mm}-${dd}`);
+                      }}
+                    />
+                  </>
                 ) : null}
               </section>
 
