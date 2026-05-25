@@ -58,6 +58,10 @@ const nav = [
   },
 ] as const;
 
+// На широком десктопе отдельный пункт "Идея для аренды" не помещается
+// в навигации, поэтому оставляем его только в бургер-меню и футере.
+const desktopNav = nav.filter((item) => item.href !== "/ideas");
+
 const ordersNavItem = {
   href: "/profile/orders",
   label: "Мои заказы",
@@ -78,7 +82,7 @@ export function AppHeader() {
   const [cities, setCities] = useState<City[]>([]);
   const [cityId, setCityId] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const desktopLinks = isAuthed ? [...nav, ordersNavItem] : nav;
+  const desktopLinks = isAuthed ? [...desktopNav, ordersNavItem] : desktopNav;
   const selectedCity = cities.find((item) => item.id === cityId);
   const userInitial = session?.user?.phone
     ? session.user.phone.replace(/\D/g, "").slice(-1)
