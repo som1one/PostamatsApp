@@ -24,8 +24,9 @@ def upgrade() -> None:
     inspector = inspect(bind)
 
     # Добавляем новое значение в существующий enum media_file_kind, если его ещё нет.
-    # ALTER TYPE ... ADD VALUE требует commit перед использованием в DDL ниже,
-    # поэтому запускаем его в собственной транзакции через autocommit-блок.
+    # PostgreSQL 12+ поддерживает ALTER TYPE ... ADD VALUE IF NOT EXISTS внутри
+    # транзакции; новое значение НЕ используется в этой же миграции, поэтому
+    # ограничение "нельзя использовать в той же транзакции" нас не затрагивает.
     if bind.dialect.name == "postgresql":
         existing = bind.execute(
             sa.text(
@@ -36,13 +37,12 @@ def upgrade() -> None:
             {"label": NEW_MEDIA_KIND},
         ).first()
         if existing is None:
-            with op.get_context().autocommit_block():
-                op.execute(
-                    sa.text(
-                        "ALTER TYPE media_file_kind ADD VALUE IF NOT EXISTS '%s'"
-                        % NEW_MEDIA_KIND
-                    )
+            op.execute(
+                sa.text(
+                    "ALTER TYPE media_file_kind ADD VALUE IF NOT EXISTS '%s'"
+                    % NEW_MEDIA_KIND
                 )
+            )
 
     if not inspector.has_table("rental_ideas"):
         op.create_table(
