@@ -100,21 +100,26 @@ describe("calculateRentalTotalMinor", () => {
 });
 
 describe("daysBetweenInclusive", () => {
-  it("returns 1 when start and end are the same day", () => {
+  it("returns 1 when start and end are the same day (single-day rental)", () => {
     expect(daysBetweenInclusive("2026-05-25", "2026-05-25")).toBe(1);
   });
 
-  it("returns 2 for one-night rental", () => {
-    expect(daysBetweenInclusive("2026-05-25", "2026-05-26")).toBe(2);
+  it("returns 1 for one-night rental (start to next day = one rental day)", () => {
+    expect(daysBetweenInclusive("2026-05-25", "2026-05-26")).toBe(1);
   });
 
-  it("returns the inclusive day count for a multi-day range", () => {
-    expect(daysBetweenInclusive("2026-05-01", "2026-05-15")).toBe(15);
+  it("returns 2 for two-night rental", () => {
+    expect(daysBetweenInclusive("2026-05-25", "2026-05-27")).toBe(2);
+  });
+
+  it("returns the night count for a multi-day range", () => {
+    // 1 мая → 15 мая = 14 ночей = 14 суток аренды.
+    expect(daysBetweenInclusive("2026-05-01", "2026-05-15")).toBe(14);
   });
 
   it("handles month boundaries correctly", () => {
-    // 25 апреля → 5 мая = 11 календарных дней включительно.
-    expect(daysBetweenInclusive("2026-04-25", "2026-05-05")).toBe(11);
+    // 25 апреля → 5 мая = 10 ночей = 10 суток аренды.
+    expect(daysBetweenInclusive("2026-04-25", "2026-05-05")).toBe(10);
   });
 
   it("returns 0 for inverted ranges", () => {

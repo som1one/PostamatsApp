@@ -52,10 +52,15 @@ export function calculateRentalTotalMinor(
   return Math.round(raw / QUANTUM) * QUANTUM;
 }
 
-// Считает разницу в днях между двумя ISO-датами (YYYY-MM-DD).
-// Возвращает количество "ночей" + 1 (включая стартовый день), так что
-// одинаковые start/end дают 1 день. Это согласуется с тем, как 1-дневный
-// тариф соответствует «забрал и вернул в тот же календарный день».
+// Количество суток аренды между двумя ISO-датами (YYYY-MM-DD).
+//
+// Сутки считаются как разница start..end:
+//   25 мая → 25 мая = 1 сутки (минимум, забрал и сдал в тот же день);
+//   25 мая → 26 мая = 1 сутки (с одной даты на следующую = 24 часа);
+//   25 мая → 27 мая = 2 суток;
+//   1 мая → 15 мая = 14 суток.
+//
+// Если start позже end — возвращаем 0 как невалидный диапазон.
 export function daysBetweenInclusive(startISO: string, endISO: string): number {
   const start = parseDateOnly(startISO);
   const end = parseDateOnly(endISO);
@@ -66,9 +71,10 @@ export function daysBetweenInclusive(startISO: string, endISO: string): number {
   if (diffMs < 0) {
     return 0;
   }
-  // 86_400_000 ms в сутках (UTC, без DST-перескоков, потому что мы парсим
-  // на полночь локально и складываем сутки целыми днями).
-  return Math.round(diffMs / 86_400_000) + 1;
+  // 86_400_000 ms в сутках. Полные сутки между датами + минимум 1
+  // (если start == end — арендуем на одни сутки, не на ноль).
+  const nights = Math.round(diffMs / 86_400_000);
+  return Math.max(1, nights);
 }
 
 function parseDateOnly(iso: string): Date | null {
