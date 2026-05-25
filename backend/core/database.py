@@ -38,6 +38,44 @@ async def get_db():
     async with SessionLocal() as db:
         yield db
 
+async def _ensure_media_file_kind_values(conn) -> None:
+    """Add any missing values from Python MediaFileKind enum into the
+    existing Postgres enum `media_file_kind`.
+
+    SQLAlchemy `metadata.create_all` does not synchronize values of
+    existing enums, so adding a new member to the Python enum has to
+    be backed by either a migration or a runtime sync. We do the
+    runtime sync here so that the app works even if the alembic
+    migration has not been applied yet.
+    """
+    from sqlalchemy import text
+    from backend.models.enums import MediaFileKind
+
+    rows = await conn.execute(
+        text(
+            "SELECT enumlabel FROM pg_enum e "
+            "JOIN pg_type t ON e.enumtypid = t.oid "
+            "WHERE t.typname = 'media_file_kind'"
+        )
+    )
+    existing = {row[0] for row in rows.all()}
+    # SQLAlchemy by default sends member names, not values, for enums
+    # created via metadata.create_all (no values_callable). So we add
+    # both the name and the value to be safe in either schema.
+    expected: set[str] = set()
+    for member in MediaFileKind:
+        expected.add(member.name)
+        expected.add(member.value)
+
+    for label in expected - existing:
+        # Quote single quotes inside the label defensively, even though
+        # all enum labels are simple identifiers.
+        safe = label.replace("'", "''")
+        await conn.execute(
+            text(f"ALTER TYPE media_file_kind ADD VALUE IF NOT EXISTS '{safe}'")
+        )
+
+
 async def init_db():
     for module_name in (
         "backend.models.admin_account",
@@ -74,6 +112,18 @@ async def init_db():
         import_module(module_name)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    if engine.dialect.name == "postgresql":
+        async with engine.begin() as conn:
+            try:
+                await _ensure_media_file_kind_values(conn)
+            except Exception:
+                # Не валим запуск, если что-то пошло не так — просто
+                # не синхронизируем enum. Логи покажут причину.
+                import logging
+
+                logging.getLogger(__name__).exception(
+                    "failed to sync media_file_kind enum values"
+                )
 
 async def close_db():
     await engine.dispose()
