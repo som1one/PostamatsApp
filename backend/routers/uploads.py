@@ -166,12 +166,17 @@ async def presign_upload(
         raise
     except ClientError as exc:
         await db.rollback()
-        logger.exception("upload presign failed")
+        logger.exception("upload presign failed (client error)")
         raise HTTPException(status_code=500, detail=str(exc) or "STORAGE_PRESIGN_FAILED") from None
-    except Exception:
+    except Exception as exc:
         await db.rollback()
         logger.exception("presign upload failed")
-        raise HTTPException(status_code=500, detail="STORAGE_PRESIGN_FAILED") from None
+        # Прокидываем класс/сообщение в detail, чтобы было видно реальную причину
+        # на клиенте (в проде помогает диагностировать конфигурацию storage).
+        raise HTTPException(
+            status_code=500,
+            detail=f"STORAGE_PRESIGN_FAILED: {type(exc).__name__}: {exc}"[:200],
+        ) from None
 
     return {
         "data": {
