@@ -323,3 +323,41 @@
     font-size: 12px;
   }
 }
+
+/* Защитные правила, чтобы hero-картинка на мобильном гарантированно
+   рендерилась с ненулевым размером. Раньше на узких экранах при
+   авторизованном состоянии (с длинным телефоном в шапке) сетка
+   .hero-service-copy могла схлопывать колонку с картинкой в 0 пикселей —
+   получалась только тонкая красная полоска от рамки. */
+@media (max-width: 720px) {
+  .hero-service-media {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .hero-service-media-frame {
+    min-width: 104px;
+    min-height: 148px;
+    /* На случай, если сетка схлопнула ширину до 0 — оставим картинку
+       видимой за счёт inline-block + явного aspect-ratio. */
+    display: block;
+  }
+
+  .hero-service-media-image {
+    min-height: inherit;
+  }
+}
+
+@media (max-width: 560px) {
+  .hero-service-media-frame {
+    min-width: 108px;
+    min-height: 152px;
+  }
+}
+
+@media (max-width: 400px) {
+  .hero-service-media-frame {
+    min-width: 96px;
+    min-height: 134px;
+  }
+}
