@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleUserRound,
+  HelpCircle,
   Home,
   LogOut,
   MapPin,
@@ -43,6 +44,11 @@ const nav = [
     href: "/lockers",
     label: "Постаматы",
     icon: MapPinned,
+  },
+  {
+    href: "/faq",
+    label: "Вопрос-ответ",
+    icon: HelpCircle,
   },
 ] as const;
 
