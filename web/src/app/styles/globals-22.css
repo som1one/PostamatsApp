@@ -107,25 +107,29 @@
 /* Сжимаем основную навигацию на промежуточных десктопных ширинах,
    когда пунктов уже много и они не помещаются. */
 @media (min-width: 1081px) and (max-width: 1700px) {
-  /* Не даём бренду сжиматься — иначе "naprokatberu" обрезается до "naprokatb". */
+  /* Не даём бренду сжиматься/обрезаться — иначе "naprokatberu" режется. */
   .brand {
-    flex-shrink: 0;
-    min-width: 0;
+    flex: 0 0 auto;
+    min-width: max-content;
+    overflow: visible;
   }
 
   .brand-copy {
-    flex-shrink: 0;
+    flex: 0 0 auto;
     min-width: max-content;
+    overflow: visible;
   }
 
   .brand-copy strong {
     overflow: visible;
     text-overflow: clip;
+    white-space: nowrap;
   }
 
   .brand-copy small {
     overflow: visible;
     text-overflow: clip;
+    white-space: nowrap;
   }
 }
 
@@ -149,12 +153,30 @@
     font-size: 13px;
   }
 
+  /* Прячем "Мои заказы" из основной навигации — он есть в бургер-меню
+     и в /profile. Иначе вместе с длинным номером телефона переполняет шапку. */
+  .desktop-nav a[href="/profile/orders"] {
+    display: none;
+  }
+
   .header-actions {
     gap: 7px;
   }
 
+  /* Сжимаем кнопку профиля до иконки: длинный номер телефона забирает
+     слишком много места в шапке. Полный номер виден в верхней плашке "Ваш город". */
   .header-profile {
-    max-width: 144px;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    padding: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    color: transparent;
+  }
+
+  .header-profile svg {
+    color: var(--text);
   }
 }
 
