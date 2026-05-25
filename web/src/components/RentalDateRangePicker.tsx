@@ -120,12 +120,14 @@ export function RentalDateRangePicker({
   baseAmountPerDayMinor,
   currency,
   maxDays = 30,
+  mode = "range",
 }: {
   value: DateRangeValue;
   onChange: (next: DateRangeValue) => void;
   baseAmountPerDayMinor: number;
   currency: string;
   maxDays?: number;
+  mode?: "range" | "single";
 }) {
   const today = useMemo(() => {
     const now = new Date();
@@ -186,6 +188,16 @@ export function RentalDateRangePicker({
     if (cell.iso < minSelectableISO || cell.iso > maxSelectableISO) {
       return;
     }
+    if (mode === "single") {
+      // Один клик — выбираем только дату начала. Конечную дату определяет
+      // выбранный тариф снаружи; пока тариф не выбран — пусть end будет
+      // равен start, чтобы пикер не показывал «диапазон».
+      onChange({
+        startDate: cell.iso,
+        endDate: value.endDate && value.endDate >= cell.iso ? value.endDate : cell.iso,
+      });
+      return;
+    }
     if (pendingEdge === "end" && startDateObj) {
       if (cell.iso < value.startDate) {
         // Кликнули раньше старта — начинаем заново с этой даты.
@@ -220,8 +232,14 @@ export function RentalDateRangePicker({
   }, [maxSelectableISO, viewMonth]);
 
   const summaryLabel = (() => {
-    if (!startDateObj || !endDateObj) {
-      return "Выберите даты";
+    if (!startDateObj) {
+      return mode === "single" ? "Выберите день начала" : "Выберите даты";
+    }
+    if (mode === "single") {
+      return formatDayMonth(startDateObj);
+    }
+    if (!endDateObj) {
+      return formatDayMonth(startDateObj);
     }
     if (isSameDay(startDateObj, endDateObj)) {
       return formatDayMonth(startDateObj);
@@ -238,24 +256,30 @@ export function RentalDateRangePicker({
           </span>
           <div>
             <strong>{summaryLabel}</strong>
-            <span className="muted">
-              {days > 0
-                ? `${days} ${pluralizeRu(days, ["сутки", "суток", "суток"])}`
-                : "—"}
-            </span>
+            {mode === "single" ? (
+              <span className="muted">Выберите тариф ниже</span>
+            ) : (
+              <span className="muted">
+                {days > 0
+                  ? `${days} ${pluralizeRu(days, ["сутки", "суток", "суток"])}`
+                  : "—"}
+              </span>
+            )}
           </div>
         </div>
-        <div className="rental-range-summary-price">
-          <strong>{formatMoney(totalMinor, currency)}</strong>
-          {discountPercent > 0 ? (
-            <span
-              className="rental-range-summary-discount"
-              aria-label={`Скидка ${discountPercent} процентов`}
-            >
-              −{discountPercent}%
-            </span>
-          ) : null}
-        </div>
+        {mode === "single" ? null : (
+          <div className="rental-range-summary-price">
+            <strong>{formatMoney(totalMinor, currency)}</strong>
+            {discountPercent > 0 ? (
+              <span
+                className="rental-range-summary-discount"
+                aria-label={`Скидка ${discountPercent} процентов`}
+              >
+                −{discountPercent}%
+              </span>
+            ) : null}
+          </div>
+        )}
       </div>
 
       <div className="rental-range-calendar">
@@ -335,10 +359,12 @@ export function RentalDateRangePicker({
         </div>
       </div>
 
-      <p className="muted small rental-range-hint">
-        Стоимость считается прогрессивно: 1 сутки — −5%, 2 — −10%, 3 — −15%,
-        далее +3% за каждый дополнительный день.
-      </p>
+      {mode === "single" ? null : (
+        <p className="muted small rental-range-hint">
+          Стоимость считается прогрессивно: 1 сутки — −5%, 2 — −10%, 3 — −15%,
+          далее +3% за каждый дополнительный день.
+        </p>
+      )}
     </div>
   );
 }

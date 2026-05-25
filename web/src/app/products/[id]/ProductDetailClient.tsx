@@ -17,6 +17,7 @@ import { PageChrome } from "@/components/PageChrome";
 import { ProductEquipment, ProductInstructions, ProductUsageGuide } from "@/components/ProductInfoBlocks";
 import { ProductGallery } from "@/components/ProductGallery";
 import { RentalDateRangePicker } from "@/components/RentalDateRangePicker";
+import { RentalDurationSelector } from "@/components/RentalDurationSelector";
 import { YandexMap } from "@/components/YandexMap";
 import {
   fetchCities,
@@ -453,11 +454,33 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                   }}
                   baseAmountPerDayMinor={baseDayPlan?.baseAmount ?? 0}
                   currency={baseDayPlan?.currency || "RUB"}
+                  mode="single"
                 />
-                {selectedPlan && rangeDays > 0 && selectedPlan.durationValue !== rangeDays ? (
-                  <p className="muted small rental-range-hint">
-                    Ближайший доступный тариф — «{selectedPlan.name}» ({selectedPlan.durationValue} дн.). При оформлении срок аренды будет {selectedPlan.durationValue} дн.
-                  </p>
+                {dayPlans.length ? (
+                  <RentalDurationSelector
+                    plans={dayPlans}
+                    selectedPlanId={selectedPlan?.id ?? ""}
+                    onSelect={(planId) => {
+                      const plan = dayPlans.find((item) => item.id === planId);
+                      if (!plan) {
+                        return;
+                      }
+                      // Конечная дата = старт + (длительность тарифа − 1).
+                      // daysBetweenInclusive считает оба конца включительно,
+                      // поэтому durationValue=1 → endDate = startDate.
+                      const startISO = date || todayInputValue();
+                      const start = new Date(`${startISO}T00:00:00`);
+                      if (Number.isNaN(start.getTime())) {
+                        return;
+                      }
+                      const next = new Date(start);
+                      next.setDate(next.getDate() + Math.max(plan.durationValue - 1, 0));
+                      const yyyy = next.getFullYear();
+                      const mm = String(next.getMonth() + 1).padStart(2, "0");
+                      const dd = String(next.getDate()).padStart(2, "0");
+                      setEndDate(`${yyyy}-${mm}-${dd}`);
+                    }}
+                  />
                 ) : null}
               </section>
 
