@@ -24,7 +24,6 @@ export function Footer() {
         </nav>
         <nav className="footer-section" aria-label="Документы">
           <strong>Документы</strong>
-          <Link href="/about">Условия аренды</Link>
           <Link href="/about">Политика данных</Link>
           <Link href="/profile">Личный кабинет</Link>
         </nav>
