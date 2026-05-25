@@ -106,7 +106,30 @@
 
 /* Сжимаем основную навигацию на промежуточных десктопных ширинах,
    когда пунктов уже много и они не помещаются. */
-@media (min-width: 1361px) and (max-width: 1500px) {
+@media (min-width: 1081px) and (max-width: 1700px) {
+  /* Не даём бренду сжиматься — иначе "naprokatberu" обрезается до "naprokatb". */
+  .brand {
+    flex-shrink: 0;
+    min-width: 0;
+  }
+
+  .brand-copy {
+    flex-shrink: 0;
+    min-width: max-content;
+  }
+
+  .brand-copy strong {
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .brand-copy small {
+    overflow: visible;
+    text-overflow: clip;
+  }
+}
+
+@media (min-width: 1361px) and (max-width: 1700px) {
   .brand-copy small {
     display: none;
   }
@@ -135,9 +158,9 @@
   }
 }
 
-/* Очень тесный диапазон: дополнительно прячем селектор города
-   из шапки — он остаётся в верхней плашке "Ваш город". */
-@media (min-width: 1361px) and (max-width: 1420px) {
+/* Тесный диапазон: дополнительно прячем селектор города из шапки —
+   он остаётся в верхней плашке "Ваш город". */
+@media (min-width: 1361px) and (max-width: 1600px) {
   .header-city-control {
     display: none;
   }
