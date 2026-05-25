@@ -119,8 +119,10 @@ jobs:
             fi
           done
 
-          echo "[deploy] git fetch origin"
-          git fetch origin
+          echo "[deploy] git fetch origin main"
+          # Тянем ветку main явно — на сервере мог быть клон другой ветки,
+          # тогда `git fetch origin` без аргументов не подтянет origin/main.
+          git fetch origin main:refs/remotes/origin/main
           echo "[deploy] git reset --hard origin/main"
           git reset --hard origin/main
 
