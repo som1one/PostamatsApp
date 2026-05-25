@@ -445,7 +445,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                   <div>
                     <p className="eyebrow">Срок и стоимость</p>
                     <h2 className="section-title">
-                      {rentMode === "tariff" ? "Выберите длительность" : "Выберите даты"}
+                      {rentMode === "tariff" ? "Выберите дату и срок аренды" : "Выберите даты"}
                     </h2>
                   </div>
                   <div
