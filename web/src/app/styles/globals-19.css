@@ -718,12 +718,3 @@
   }
 }
 
-@media (min-width: 1361px) {
-  .menu-button {
-    display: inline-flex;
-    min-height: 40px;
-    width: 40px;
-    padding: 0;
-    border-radius: 12px;
-  }
-}
