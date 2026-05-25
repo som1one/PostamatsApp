@@ -291,6 +291,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
         setProduct(item);
         // Если пришли с reschedule с заданным durationValue (в днях) —
         // выставляем endDate так, чтобы диапазон совпадал с прошлым тарифом.
+        // daysBetweenInclusive по ночам, поэтому endDate = start + durationValue.
         if (
           preselectedDurationType === "day" &&
           Number.isFinite(preselectedDurationValue) &&
@@ -300,7 +301,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
           const start = new Date(`${startISO}T00:00:00`);
           if (!Number.isNaN(start.getTime())) {
             const next = new Date(start);
-            next.setDate(next.getDate() + Math.max(preselectedDurationValue - 1, 0));
+            next.setDate(next.getDate() + Math.max(preselectedDurationValue, 1));
             const yyyy = next.getFullYear();
             const mm = String(next.getMonth() + 1).padStart(2, "0");
             const dd = String(next.getDate()).padStart(2, "0");
@@ -465,16 +466,17 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                       if (!plan) {
                         return;
                       }
-                      // Конечная дата = старт + (длительность тарифа − 1).
-                      // daysBetweenInclusive считает оба конца включительно,
-                      // поэтому durationValue=1 → endDate = startDate.
+                      // daysBetweenInclusive считает по ночам:
+                      // (start, start) = 1, (start, start+1) = 1, (start, start+2) = 2.
+                      // Поэтому endDate = start + durationValue даёт ровно
+                      // durationValue суток аренды.
                       const startISO = date || todayInputValue();
                       const start = new Date(`${startISO}T00:00:00`);
                       if (Number.isNaN(start.getTime())) {
                         return;
                       }
                       const next = new Date(start);
-                      next.setDate(next.getDate() + Math.max(plan.durationValue - 1, 0));
+                      next.setDate(next.getDate() + Math.max(plan.durationValue, 1));
                       const yyyy = next.getFullYear();
                       const mm = String(next.getMonth() + 1).padStart(2, "0");
                       const dd = String(next.getDate()).padStart(2, "0");
