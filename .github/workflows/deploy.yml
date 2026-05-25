@@ -1,0 +1,178 @@
+name: Deploy to VPS
+
+# Auto-deploy: push в main или ручной запуск через workflow_dispatch.
+# Подключается по SSH к VPS и переразворачивает контейнеры через
+# deploy/deploy-ip.sh. Все параметры доступа — только в GitHub Secrets,
+# никаких литералов IP/пользователей/путей в этом файле быть не должно.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # Один общий ключ на все триггеры и ветки — гарантирует, что на VPS
+  # одновременно выполняется максимум один деплой.
+  group: deploy-vps-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+    steps:
+      - name: Validate required secrets
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -n "${DEPLOY_HOST:-}" ] || missing+=("DEPLOY_HOST")
+          [ -n "${DEPLOY_USER:-}" ] || missing+=("DEPLOY_USER")
+          [ -n "${DEPLOY_PORT:-}" ] || missing+=("DEPLOY_PORT")
+          [ -n "${DEPLOY_PATH:-}" ] || missing+=("DEPLOY_PATH")
+          [ -n "${DEPLOY_SSH_KEY:-}" ] || missing+=("DEPLOY_SSH_KEY")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            exit 1
+          fi
+          # Маскируем нелитеральные параметры на всякий случай (host/user/path
+          # хранятся в secrets и так маскируются, но повторная регистрация
+          # не повредит и закроет возможные подвыводы).
+          echo "::add-mask::${DEPLOY_HOST}"
+          echo "::add-mask::${DEPLOY_USER}"
+          echo "::add-mask::${DEPLOY_PATH}"
+          echo "Secrets are present (values are masked)."
+
+      - name: Configure SSH client
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${DEPLOY_SSH_KEY}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          attempt_start=$(date +%s.%1N)
+          if ! ssh-keyscan -T 10 -p "${DEPLOY_PORT}" "${DEPLOY_HOST}" \
+                >> ~/.ssh/known_hosts 2> /tmp/ssh-keyscan.err; then
+            attempt_end=$(date +%s.%1N)
+            duration=$(awk "BEGIN{printf \"%.1f\", ${attempt_end}-${attempt_start}}")
+            err_text=$(cat /tmp/ssh-keyscan.err || true)
+            category="unknown"
+            case "${err_text}" in
+              *"Connection timed out"*|*"timed out"*) category="timeout" ;;
+              *"Connection refused"*)                category="connection refused" ;;
+              *"Could not resolve hostname"*|*"Name or service not known"*)
+                                                     category="unknown host" ;;
+            esac
+            echo "::error::SSH keyscan failed host=*** port=${DEPLOY_PORT} category=${category} duration=${duration}s"
+            echo "${err_text}"
+            exit 1
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy on VPS
+        run: |
+          set -euo pipefail
+
+          attempt_start=$(date +%s.%1N)
+          ssh_status=0
+
+          # bash -s + heredoc: удалённый скрипт выполняется на VPS,
+          # переменная DEPLOY_PATH явно пробрасывается в окружение
+          # удалённой сессии, чтобы внутри heredoc не было подстановки
+          # на стороне runner-а.
+          ssh \
+            -i ~/.ssh/deploy_key \
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=3 \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -p "${DEPLOY_PORT}" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'REMOTE_EOF' || ssh_status=$?
+          set -euo pipefail
+
+          if [ ! -d "${DEPLOY_PATH}" ]; then
+            echo "::error::DEPLOY_PATH not found on VPS"
+            exit 1
+          fi
+          cd "${DEPLOY_PATH}"
+
+          # Требование 8.3: env-файлы должны существовать ДО git reset.
+          for f in deploy/.env.ip backend/.env.production; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Required env file missing on VPS: $f"
+              exit 1
+            fi
+          done
+
+          echo "[deploy] git fetch origin"
+          git fetch origin
+          echo "[deploy] git reset --hard origin/main"
+          git reset --hard origin/main
+
+          echo "[deploy] running deploy/deploy-ip.sh"
+          bash deploy/deploy-ip.sh
+
+          echo "[deploy] verifying web and backend reach running state"
+          deadline=$(( $(date +%s) + 60 ))
+          while :; do
+            web_id=$(docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml ps -q web 2>/dev/null || true)
+            backend_id=$(docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml ps -q backend 2>/dev/null || true)
+
+            if [ -n "${web_id}" ]; then
+              web_state=$(docker inspect -f '{{.State.Status}}' "${web_id}" 2>/dev/null || echo "missing")
+            else
+              web_state="missing"
+            fi
+            if [ -n "${backend_id}" ]; then
+              backend_state=$(docker inspect -f '{{.State.Status}}' "${backend_id}" 2>/dev/null || echo "missing")
+            else
+              backend_state="missing"
+            fi
+            echo "[deploy] state web=${web_state} backend=${backend_state}"
+            if [ "${web_state}" = "running" ] && [ "${backend_state}" = "running" ]; then
+              break
+            fi
+            if [ "$(date +%s)" -ge "${deadline}" ]; then
+              echo "::error::web or backend did not reach running state within 60s"
+              docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml ps || true
+              exit 1
+            fi
+            sleep 3
+          done
+
+          echo "[deploy] success"
+          REMOTE_EOF
+
+          attempt_end=$(date +%s.%1N)
+          duration=$(awk "BEGIN{printf \"%.1f\", ${attempt_end}-${attempt_start}}")
+
+          if [ "${ssh_status}" -ne 0 ]; then
+            category="remote-failure"
+            case "${ssh_status}" in
+              255) category="ssh connection error" ;;
+            esac
+            echo "::error::Deploy failed host=*** port=${DEPLOY_PORT} category=${category} duration=${duration}s exit=${ssh_status}"
+            exit "${ssh_status}"
+          fi
+
+          echo "Deploy completed in ${duration}s"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: |
+          rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts
