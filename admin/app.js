@@ -4476,3 +4476,105 @@ if (inventoryServiceSubmit) {
   }
   showAuthScreen();
 })();
+
+
+// =====================================================================
+// Раздел "Идеи для аренды" (заявки с публичной формы /ideas)
+// =====================================================================
+(function initRentalIdeasSection() {
+  const ideasTableBody = document.getElementById("ideas-table-body");
+  const ideasEmpty = document.getElementById("ideas-empty");
+  const ideasTotal = document.getElementById("ideas-total");
+  const ideasRefreshButton = document.getElementById("ideas-refresh-button");
+  if (!ideasTableBody || !ideasEmpty || !ideasTotal) {
+    return;
+  }
+
+  let ideas = [];
+
+  function renderIdeas() {
+    ideasTotal.textContent = `${formatNumber(ideas.length)} заявок`;
+    if (!ideas.length) {
+      ideasTableBody.innerHTML = "";
+      ideasEmpty.classList.remove("hidden");
+      return;
+    }
+    ideasEmpty.classList.add("hidden");
+    ideasTableBody.innerHTML = ideas
+      .map((idea) => {
+        const ref = idea.referenceUrl
+          ? `<a href="${escapeHtml(idea.referenceUrl)}" target="_blank" rel="noreferrer">Ссылка</a>`
+          : "—";
+        const photo = idea.photoUrl
+          ? `<a href="${escapeHtml(idea.photoUrl)}" target="_blank" rel="noreferrer">Открыть</a>`
+          : "—";
+        const ideaText = idea.idea || "";
+        const trimmed = ideaText.length > 200 ? `${ideaText.slice(0, 200)}…` : ideaText;
+        return `
+          <tr>
+            <td>${formatDateTime(idea.createdAt)}</td>
+            <td>${escapeHtml(idea.name)}</td>
+            <td><a href="mailto:${escapeHtml(idea.email)}">${escapeHtml(idea.email)}</a></td>
+            <td title="${escapeHtml(ideaText)}">${escapeHtml(trimmed)}</td>
+            <td class="muted-inline">${ref}</td>
+            <td class="muted-inline">${photo}</td>
+            <td class="data-table-col-actions">
+              <button class="ghost-button" type="button" data-delete-idea="${escapeHtml(idea.id)}">Удалить</button>
+            </td>
+          </tr>`;
+      })
+      .join("");
+  }
+
+  async function loadIdeas() {
+    try {
+      const payload = await authorizedRequest("/api/admin/ideas?page=1&limit=200");
+      ideas = (payload && payload.data && payload.data.items) || [];
+      renderIdeas();
+    } catch (error) {
+      console.error(error);
+      showToast("error", error.message || "Не удалось загрузить идеи");
+    }
+  }
+
+  async function deleteIdea(id) {
+    if (!confirm("Удалить заявку?")) {
+      return;
+    }
+    try {
+      await authorizedRequest(`/api/admin/ideas/${id}`, { method: "DELETE" });
+      ideas = ideas.filter((item) => item.id !== id);
+      renderIdeas();
+      showToast("success", "Заявка удалена");
+    } catch (error) {
+      console.error(error);
+      showToast("error", error.message || "Не удалось удалить заявку");
+    }
+  }
+
+  ideasTableBody.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    const btn = target.closest("[data-delete-idea]");
+    if (!btn) {
+      return;
+    }
+    const id = btn.getAttribute("data-delete-idea");
+    if (id) {
+      deleteIdea(id);
+    }
+  });
+
+  if (ideasRefreshButton) {
+    ideasRefreshButton.addEventListener("click", loadIdeas);
+  }
+
+  // Подключаемся к существующему обработчику навигации: загружаем,
+  // когда пользователь переходит на раздел "ideas".
+  const navLink = document.querySelector('[data-section="ideas"]');
+  if (navLink) {
+    navLink.addEventListener("click", loadIdeas);
+  }
+})();

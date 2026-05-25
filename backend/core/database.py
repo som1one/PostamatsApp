@@ -65,6 +65,7 @@ async def init_db():
         "backend.models.product_image",
         "backend.models.rental",
         "backend.models.rental_event",
+        "backend.models.rental_idea",
         "backend.models.return_request",
         "backend.models.reservation",
         "backend.models.user",

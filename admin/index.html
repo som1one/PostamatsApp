@@ -80,6 +80,7 @@
             <button class="nav-link" type="button" data-section="lockers">Постаматы</button>
             <button class="nav-link" type="button" data-section="cities">Города</button>
             <button class="nav-link" type="button" data-section="catalog">Каталог</button>
+            <button class="nav-link" type="button" data-section="ideas">Идеи</button>
             <button class="nav-link" type="button" data-section="audit">Аудит</button>
           </nav>
 
@@ -464,6 +465,39 @@
                 <span id="products-page-label" class="muted-inline">Стр. 1</span>
                 <button type="button" class="ghost-button" id="products-next-page" disabled>Вперёд</button>
               </div>
+            </article>
+          </section>
+
+          <section class="section-panel hidden" data-section-panel="ideas">
+            <div class="section-top">
+              <div>
+                <p class="section-kicker">Идеи для аренды</p>
+                <h2>Заявки от посетителей</h2>
+              </div>
+              <div class="section-top-actions">
+                <p id="ideas-total" class="section-meta">0 заявок</p>
+                <button type="button" class="ghost-button" id="ideas-refresh-button">Обновить</button>
+              </div>
+            </div>
+
+            <article class="surface table-surface">
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Дата</th>
+                      <th>Имя</th>
+                      <th>Email</th>
+                      <th>Идея</th>
+                      <th>Ссылка</th>
+                      <th>Фото</th>
+                      <th class="data-table-col-actions">Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ideas-table-body"></tbody>
+                </table>
+              </div>
+              <div id="ideas-empty" class="empty-state hidden">Идей пока нет.</div>
             </article>
           </section>
 

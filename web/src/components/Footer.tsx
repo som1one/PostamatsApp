@@ -19,6 +19,7 @@ export function Footer() {
           <strong>Сервис</strong>
           <Link href="/catalog">Каталог</Link>
           <Link href="/lockers">Карта постаматов</Link>
+          <Link href="/ideas">Идея для аренды</Link>
           <Link href="/faq">FAQ</Link>
           <Link href="/about">О нас</Link>
         </nav>

@@ -43,6 +43,7 @@ from backend.models import product_category  # noqa: F401
 from backend.models import product_image  # noqa: F401
 from backend.models import rental  # noqa: F401
 from backend.models import rental_event  # noqa: F401
+from backend.models import rental_idea  # noqa: F401
 from backend.models import return_request  # noqa: F401
 from backend.models import reservation  # noqa: F401
 from backend.models import user  # noqa: F401

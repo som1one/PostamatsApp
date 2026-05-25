@@ -14,6 +14,7 @@ PRESIGN_KIND_TO_MEDIA: dict[str, MediaFileKind] = {
     "incident_attachment": MediaFileKind.INCIDENT_ATTACHMENT,
     "condition_photo_before": MediaFileKind.CONDITION_PHOTO_BEFORE,
     "condition_photo_after": MediaFileKind.CONDITION_PHOTO_AFTER,
+    "rental_idea_photo": MediaFileKind.RENTAL_IDEA_PHOTO,
 }
 
 # Папка в ключе: как в примере ТЗ (verification/…), не значение enum целиком.
@@ -26,6 +27,7 @@ KIND_TO_FOLDER: dict[str, str] = {
     "incident_attachment": "incident",
     "condition_photo_before": "condition",
     "condition_photo_after": "condition",
+    "rental_idea_photo": "rental-ideas",
 }
 
 MIME_BY_KIND: dict[MediaFileKind, frozenset[str]] = {
@@ -39,12 +41,19 @@ MIME_BY_KIND: dict[MediaFileKind, frozenset[str]] = {
     ),
     MediaFileKind.CONDITION_PHOTO_BEFORE: frozenset({"image/jpeg", "image/png", "image/webp"}),
     MediaFileKind.CONDITION_PHOTO_AFTER: frozenset({"image/jpeg", "image/png", "image/webp"}),
+    MediaFileKind.RENTAL_IDEA_PHOTO: frozenset({"image/jpeg", "image/png", "image/gif", "image/webp"}),
 }
 
 # Лимиты в байтах (MVP)
 MAX_FILE_SIZE_IMAGE = 10 * 1024 * 1024
 MAX_FILE_SIZE_INCIDENT = 20 * 1024 * 1024
-PUBLIC_MEDIA_KINDS = frozenset({MediaFileKind.PRODUCT_COVER, MediaFileKind.PRODUCT_GALLERY})
+PUBLIC_MEDIA_KINDS = frozenset(
+    {
+        MediaFileKind.PRODUCT_COVER,
+        MediaFileKind.PRODUCT_GALLERY,
+        MediaFileKind.RENTAL_IDEA_PHOTO,
+    }
+)
 
 
 def max_size_for_kind(media_kind: MediaFileKind) -> int:

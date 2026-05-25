@@ -31,6 +31,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 CLIENT_PRESIGN_KIND_VALUES = PRESIGN_KIND_VALUES.difference({"product_cover", "product_gallery"})
+# Эти виды можно подписывать без авторизации — публичные формы (например,
+# страница "Идея для аренды" доступна гостям).
+PUBLIC_PRESIGN_KIND_VALUES = frozenset({"rental_idea_photo"})
 
 
 @router.put("/files/{file_id}", name="put_media_upload")
@@ -83,7 +86,14 @@ async def presign_upload(
     db: AsyncSession = Depends(get_db),
     payload: PresignUploadRequest = Body(...),
 ):
-    user = await get_current_client_user(request, db)
+    user = None
+    admin = None
+    if payload.kind in PUBLIC_PRESIGN_KIND_VALUES:
+        # Публичный presign: гость без авторизации может загружать вложение.
+        # Размер и MIME валидируем строго ниже, ставим статус uploaded_by_*=NULL.
+        pass
+    else:
+        user = await get_current_client_user(request, db)
 
     if payload.kind not in CLIENT_PRESIGN_KIND_VALUES:
         raise HTTPException(status_code=400, detail="INVALID_FILE_KIND")
@@ -98,8 +108,9 @@ async def presign_upload(
     if payload.fileSize > max_sz:
         raise HTTPException(status_code=400, detail="FILE_TOO_LARGE")
 
-    result = await db.execute(select(AdminUser).where(AdminUser.user_id == user.id))
-    admin = result.scalar_one_or_none()
+    if user is not None:
+        result = await db.execute(select(AdminUser).where(AdminUser.user_id == user.id))
+        admin = result.scalar_one_or_none()
 
     file_id = uuid4()
     file_key = build_file_key(payload.kind, file_id, payload.fileName)
@@ -119,7 +130,7 @@ async def presign_upload(
         file_size=payload.fileSize,
         original_name=payload.fileName,
         kind=media_kind,
-        uploaded_by_user_id=user.id if admin is None else None,
+        uploaded_by_user_id=user.id if (user is not None and admin is None) else None,
         uploaded_by_admin_id=admin.id if admin is not None else None,
         created_at=now,
     )

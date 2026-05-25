@@ -25,6 +25,7 @@ from backend.routers.admin.product_categories import router as admin_product_cat
 from backend.routers.admin.product_filters import router as admin_product_filters_router
 from backend.routers.admin.products import router as admin_products_router
 from backend.routers.admin.rentals import router as admin_rentals_router
+from backend.routers.admin.rental_ideas import router as admin_rental_ideas_router
 from backend.routers.admin.uploads import router as admin_uploads_router
 from backend.routers.admin.users import router as admin_users_router
 from backend.routers.admin.verification_queue import router as admin_verification_queue_router
@@ -37,6 +38,7 @@ from backend.routers.products import router as products_router
 from backend.routers.reservation import router as reservation_router
 from backend.routers.payments import router as payments_router, yookassa_webhook_router
 from backend.routers.public_stats import router as public_stats_router
+from backend.routers.rental_ideas import router as rental_ideas_router
 from backend.routers.webhooks_esi import router as webhooks_esi_router
 from backend.utils.featured_product import (
     start_featured_product_scheduler,
@@ -90,6 +92,7 @@ app.include_router(reservation_router)
 app.include_router(payments_router)
 app.include_router(yookassa_webhook_router)
 app.include_router(public_stats_router)
+app.include_router(rental_ideas_router)
 app.include_router(webhooks_esi_router)
 app.include_router(admin_auth_router)
 app.include_router(admin_dashboard_router)
@@ -99,6 +102,7 @@ app.include_router(admin_cities_router)
 app.include_router(admin_lockers_router)
 app.include_router(admin_inventory_router)
 app.include_router(admin_rentals_router)
+app.include_router(admin_rental_ideas_router)
 app.include_router(admin_audit_router)
 app.include_router(admin_product_categories_router)
 app.include_router(admin_product_filters_router)

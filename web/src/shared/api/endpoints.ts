@@ -113,6 +113,31 @@ export async function presignUpload(payload: {
   });
 }
 
+export async function presignPublicUpload(payload: {
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  kind: string;
+}) {
+  return requestJson<PresignUploadResponse>("/uploads/presign", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function submitRentalIdea(payload: {
+  name: string;
+  email: string;
+  idea: string;
+  referenceUrl?: string | null;
+  photoId?: string | null;
+}) {
+  return requestJson<{ id: string }>("/api/ideas", {
+    method: "POST",
+    body: payload,
+  });
+}
+
 export async function fetchCities() {
   const payload = await requestJson<{ cities: City[] }>("/cities/");
   return payload.cities;

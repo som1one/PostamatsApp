@@ -45,6 +45,7 @@ class MediaFileKind(str, Enum):
     INCIDENT_ATTACHMENT = "incident_attachment"
     CONDITION_PHOTO_BEFORE = "condition_photo_before"
     CONDITION_PHOTO_AFTER = "condition_photo_after"
+    RENTAL_IDEA_PHOTO = "rental_idea_photo"
 
 
 class DocumentType(str, Enum):

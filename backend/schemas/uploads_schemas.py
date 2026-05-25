@@ -10,6 +10,7 @@ PRESIGN_KIND_VALUES = frozenset(
         "incident_attachment",
         "condition_photo_before",
         "condition_photo_after",
+        "rental_idea_photo",
     }
 )
 

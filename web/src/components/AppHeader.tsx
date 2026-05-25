@@ -10,6 +10,7 @@ import {
   CircleUserRound,
   HelpCircle,
   Home,
+  Lightbulb,
   LogOut,
   MapPin,
   MapPinned,
@@ -49,6 +50,11 @@ const nav = [
     href: "/faq",
     label: "Вопрос-ответ",
     icon: HelpCircle,
+  },
+  {
+    href: "/ideas",
+    label: "Идея для аренды",
+    icon: Lightbulb,
   },
 ] as const;
 
