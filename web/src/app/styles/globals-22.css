@@ -102,3 +102,43 @@
   color: #1f7a2c;
   font-size: 13px;
 }
+
+
+/* Сжимаем основную навигацию на промежуточных десктопных ширинах,
+   когда пунктов уже много и они не помещаются. */
+@media (min-width: 1361px) and (max-width: 1500px) {
+  .brand-copy small {
+    display: none;
+  }
+
+  .app-header-inner {
+    gap: 12px;
+  }
+
+  .desktop-nav {
+    gap: 2px;
+  }
+
+  .desktop-nav a,
+  .desktop-nav button {
+    gap: 5px;
+    padding: 0 8px;
+    font-size: 13px;
+  }
+
+  .header-actions {
+    gap: 7px;
+  }
+
+  .header-profile {
+    max-width: 144px;
+  }
+}
+
+/* Очень тесный диапазон: дополнительно прячем селектор города
+   из шапки — он остаётся в верхней плашке "Ваш город". */
+@media (min-width: 1361px) and (max-width: 1420px) {
+  .header-city-control {
+    display: none;
+  }
+}
