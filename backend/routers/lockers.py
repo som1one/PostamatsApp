@@ -167,6 +167,12 @@ async def get_lockers(
             conditions.append(LockerLocation.city_id == city_uuid)
         if status is not None:
             conditions.append(LockerLocation.status == status)
+        else:
+            # По умолчанию прячем из публичной выдачи постаматы, выведенные
+            # из эксплуатации (status=offline). Это позволяет админу выключить
+            # точку, не удаляя её и не теряя историю аренд. Если клиент
+            # явно запросил `status=offline` — отдадим, как и просили.
+            conditions.append(LockerLocation.status != LockerStatus.OFFLINE)
         if hasAvailableItems is True:
             conditions.append(LockerLocation.id.in_(lockers_with_avail))
         elif hasAvailableItems is False:
