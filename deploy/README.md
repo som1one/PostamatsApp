@@ -45,6 +45,22 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml run --r
 docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml up -d
 ```
 
+## Разовая миграция постаматов в боевую конфигурацию
+
+Перевод сидовых демо-точек в реальную раскладку (СПб — оба OFFLINE,
+В.Новгород Центр — настоящий ESI `0980`, В.Новгород Западный — OFFLINE)
+делается одной командой. Скрипт идемпотентный, можно запускать
+повторно — он только приводит каждую точку к целевому состоянию.
+
+```bash
+docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml \
+    exec backend python -m scripts.migrate_lockers_to_real
+```
+
+Запускать **до** повторного применения `deploy/catalog-sync.bundle.json`,
+иначе bundle создаст дубль точки `esi/0980` рядом с уже существующей
+сидовой версией Центра.
+
 ## Проверка
 
 ```bash

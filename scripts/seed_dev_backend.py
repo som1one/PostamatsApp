@@ -216,25 +216,13 @@ PRODUCT_SEEDS = (
 LOCKER_SEEDS = (
     {
         "city_slug": "spb",
-        "external_locker_id": "seed-spb-nevsky",
-        "name": "СПб Невский",
-        "address": "Санкт-Петербург, Невский пр., 114",
-        "lat": 59.931258,
-        "lon": 30.360748,
-        "working_hours": {"mode": "daily", "from": "08:00", "to": "23:00"},
-        "inventory": {
-            "playstation-5-slim": 1,
-            "xgimi-mogo-2-pro": 1,
-            "karcher-se-3-compact": 1,
-        },
-    },
-    {
-        "city_slug": "spb",
+        "external_provider": "seed",
         "external_locker_id": "seed-spb-petrogradka",
         "name": "СПб Петроградская",
         "address": "Санкт-Петербург, Каменноостровский пр., 42",
         "lat": 59.966394,
         "lon": 30.311838,
+        "status": LockerStatus.OFFLINE,
         "working_hours": {"mode": "daily", "from": "09:00", "to": "22:00"},
         "inventory": {
             "nintendo-switch-oled": 1,
@@ -244,11 +232,13 @@ LOCKER_SEEDS = (
     },
     {
         "city_slug": "velikiy-novgorod",
-        "external_locker_id": "seed-vn-center",
+        "external_provider": "esi",
+        "external_locker_id": "0980",
         "name": "Великий Новгород Центр",
         "address": "Великий Новгород, Большая Санкт-Петербургская ул., 39",
         "lat": 58.533147,
         "lon": 31.269947,
+        "status": LockerStatus.ONLINE,
         "working_hours": {"mode": "daily", "from": "08:00", "to": "22:00"},
         "inventory": {
             "playstation-5-slim": 1,
@@ -258,11 +248,13 @@ LOCKER_SEEDS = (
     },
     {
         "city_slug": "velikiy-novgorod",
+        "external_provider": "seed",
         "external_locker_id": "seed-vn-west",
         "name": "Великий Новгород Западный",
         "address": "Великий Новгород, ул. Кочетова, 10",
         "lat": 58.541245,
         "lon": 31.219804,
+        "status": LockerStatus.OFFLINE,
         "working_hours": {"mode": "daily", "from": "09:00", "to": "21:00"},
         "inventory": {
             "karcher-se-3-compact": 1,
@@ -444,42 +436,66 @@ def ensure_locker(
     session: Session,
     *,
     city_id,
+    external_provider: str,
     external_locker_id: str,
     name: str,
     address: str,
     lat: float,
     lon: float,
+    status: LockerStatus,
     working_hours: dict[str, str],
 ) -> LockerLocation:
+    """Создаёт или обновляет dev-постамат.
+
+    Поиск идёт по паре (`external_provider`, `external_locker_id`). Это
+    важно: один и тот же сидовый постамат не должен дублироваться, если
+    мы поменяли его провайдер с `seed` на `esi`. Поэтому если первая
+    попытка ничего не нашла — пробуем найти по `external_locker_id` без
+    учёта провайдера, чтобы безопасно перенести существующий локер на
+    новый провайдер вместо создания дубля.
+    """
+
     locker = session.execute(
         select(LockerLocation).where(
-            LockerLocation.external_provider == "seed",
+            LockerLocation.external_provider == external_provider,
             LockerLocation.external_locker_id == external_locker_id,
         )
     ).scalar_one_or_none()
+
+    if locker is None:
+        locker = session.execute(
+            select(LockerLocation).where(
+                LockerLocation.external_locker_id == external_locker_id,
+            )
+        ).scalar_one_or_none()
+
+    partner_name = "Dev Seed" if external_provider == "seed" else "ESI"
+
     if locker is None:
         locker = LockerLocation(
             city_id=city_id,
-            external_provider="seed",
+            external_provider=external_provider,
             external_locker_id=external_locker_id,
             name=name,
             address=address,
             lat=Decimal(str(lat)),
             lon=Decimal(str(lon)),
-            status=LockerStatus.ONLINE,
-            partner_name="Dev Seed",
+            status=status,
+            partner_name=partner_name,
             working_hours_json=working_hours,
         )
         session.add(locker)
         session.flush()
     else:
         locker.city_id = city_id
+        locker.external_provider = external_provider
+        locker.external_locker_id = external_locker_id
         locker.name = name
         locker.address = address
         locker.lat = Decimal(str(lat))
         locker.lon = Decimal(str(lon))
-        locker.status = LockerStatus.ONLINE
-        locker.partner_name = "Dev Seed"
+        locker.status = status
+        locker.partner_name = partner_name
         locker.working_hours_json = working_hours
     return locker
 
@@ -630,11 +646,13 @@ def main() -> None:
             locker = ensure_locker(
                 session,
                 city_id=cities_by_slug[seed["city_slug"]].id,
+                external_provider=seed["external_provider"],
                 external_locker_id=seed["external_locker_id"],
                 name=seed["name"],
                 address=seed["address"],
                 lat=seed["lat"],
                 lon=seed["lon"],
+                status=seed["status"],
                 working_hours=seed["working_hours"],
             )
             rebuild_locker_inventory(
