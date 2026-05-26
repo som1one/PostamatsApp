@@ -562,7 +562,7 @@
       "address": "Санкт-Петербург, Невский пр., 114",
       "lat": 59.931258,
       "lon": 30.360748,
-      "status": "ONLINE",
+      "status": "OFFLINE",
       "workingHoursJson": {
         "mode": "daily",
         "from": "08:00",
@@ -579,7 +579,7 @@
       "address": "Санкт-Петербург, Каменноостровский пр., 42",
       "lat": 59.966394,
       "lon": 30.311838,
-      "status": "ONLINE",
+      "status": "OFFLINE",
       "workingHoursJson": {
         "mode": "daily",
         "from": "09:00",
@@ -596,7 +596,7 @@
       "address": "Великий Новгород, ул. Кочетова, 10",
       "lat": 58.541245,
       "lon": 31.219804,
-      "status": "ONLINE",
+      "status": "OFFLINE",
       "workingHoursJson": {
         "mode": "daily",
         "from": "09:00",
@@ -619,9 +619,9 @@
         "from": "08:00",
         "to": "22:00"
       },
-      "externalProvider": "seed",
-      "externalLockerId": "seed-vn-center",
-      "partnerName": "Dev Seed",
+      "externalProvider": "esi",
+      "externalLockerId": "0980",
+      "partnerName": "ESI",
       "lastOnlineAt": null
     }
   ],
@@ -1011,8 +1011,8 @@
       "lastEventAt": null
     },
     {
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-vn-center",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "0980",
       "externalCellId": "seed-vn-center-cell-01",
       "label": "A1",
       "size": "M",
@@ -1023,8 +1023,8 @@
       "lastEventAt": null
     },
     {
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-vn-center",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "0980",
       "externalCellId": "seed-vn-center-cell-02",
       "label": "A2",
       "size": "M",
@@ -1035,8 +1035,8 @@
       "lastEventAt": null
     },
     {
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-vn-center",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "0980",
       "externalCellId": "seed-vn-center-cell-03",
       "label": "A3",
       "size": "M",
@@ -1047,8 +1047,8 @@
       "lastEventAt": null
     },
     {
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-vn-center",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "0980",
       "externalCellId": "seed-vn-center-empty-1",
       "label": "B1",
       "size": "L",
@@ -1059,8 +1059,8 @@
       "lastEventAt": null
     },
     {
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-vn-center",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "0980",
       "externalCellId": "seed-vn-center-empty-2",
       "label": "B2",
       "size": "L",
@@ -1071,8 +1071,8 @@
       "lastEventAt": null
     },
     {
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-vn-center",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "0980",
       "externalCellId": "sync-velikiy-novgorod-seed-vn-center-c1",
       "label": "C1",
       "size": "L",
@@ -1083,8 +1083,8 @@
       "lastEventAt": null
     },
     {
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-vn-center",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "0980",
       "externalCellId": "sync-velikiy-novgorod-seed-vn-center-c2",
       "label": "C2",
       "size": "L",
@@ -1578,8 +1578,8 @@
     },
     {
       "productSlug": "rashodniki-instax",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-vn-center",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "0980",
       "cellExternalCellId": "seed-vn-center-cell-01",
       "cellLabel": "A1",
       "serialNumber": "SEED-VN-CENTER-PLAYSTATION-5-SLIM-1",
@@ -1593,8 +1593,8 @@
     },
     {
       "productSlug": "robot-mojshchik-okon",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-vn-center",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "0980",
       "cellExternalCellId": "seed-vn-center-cell-02",
       "cellLabel": "A2",
       "serialNumber": "SEED-VN-CENTER-NINTENDO-SWITCH-OLED-1",
@@ -1608,8 +1608,8 @@
     },
     {
       "productSlug": "shurupovert",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-vn-center",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "0980",
       "cellExternalCellId": "seed-vn-center-cell-03",
       "cellLabel": "A3",
       "serialNumber": "SEED-VN-CENTER-XGIMI-MOGO-2-PRO-1",
@@ -1623,8 +1623,8 @@
     },
     {
       "productSlug": "polaroid",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-vn-center",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "0980",
       "cellExternalCellId": "seed-vn-center-empty-1",
       "cellLabel": "B1",
       "serialNumber": null,
@@ -1638,8 +1638,8 @@
     },
     {
       "productSlug": "avtonomnyj-projektor",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-vn-center",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "0980",
       "cellExternalCellId": "seed-vn-center-empty-2",
       "cellLabel": "B2",
       "serialNumber": null,
@@ -1653,8 +1653,8 @@
     },
     {
       "productSlug": "moyushchij-pylesos",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-vn-center",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "0980",
       "cellExternalCellId": "sync-velikiy-novgorod-seed-vn-center-c1",
       "cellLabel": "C1",
       "serialNumber": null,
@@ -1668,8 +1668,8 @@
     },
     {
       "productSlug": "paroochistitel-karcher",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-vn-center",
+      "lockerExternalProvider": "esi",
+      "lockerExternalLockerId": "0980",
       "cellExternalCellId": "sync-velikiy-novgorod-seed-vn-center-c2",
       "cellLabel": "C2",
       "serialNumber": null,

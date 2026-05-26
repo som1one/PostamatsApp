@@ -1,7 +1,21 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Boxes, Leaf, LockKeyhole, MapPinned, PackageCheck, ShieldCheck } from "lucide-react";
 import { PageChrome } from "@/components/PageChrome";
 import { safetyItems } from "@/shared/content";
+
+export const metadata: Metadata = {
+  title: "О сервисе аренды naprokatberu — прокат техники и вещей через постаматы",
+  description:
+    "naprokatberu — сервис аренды и проката техники и вещей через постаматы без залога. Получение и возврат рядом с домом по понятному цифровому сценарию.",
+  alternates: { canonical: "/about" },
+  openGraph: {
+    url: "/about",
+    title: "О сервисе аренды naprokatberu — прокат техники и вещей через постаматы",
+    description:
+      "Сервис аренды техники и вещей через постаматы без залога: каталог, постамат, оплата и возврат — всё в одном цифровом сценарии.",
+  },
+};
 
 export default function AboutPage() {
   return (

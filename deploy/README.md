@@ -45,6 +45,38 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml run --r
 docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml up -d
 ```
 
+## Разовая миграция постаматов в боевую конфигурацию
+
+Перевод сидовых демо-точек в реальную раскладку (СПб — оба OFFLINE,
+В.Новгород Центр — настоящий ESI `0980`, В.Новгород Западный — OFFLINE)
+делается одной командой. Скрипт идемпотентный, можно запускать
+повторно — он только приводит каждую точку к целевому состоянию.
+
+Через GitHub Actions (рекомендуется): в репозитории открыть
+**Actions → Migrate lockers to real config → Run workflow**. Доступны
+параметры:
+
+- `dryRun=false` (по умолчанию) — реально применит миграцию.
+- `dryRun=true` — только распечатает текущее состояние постаматов в
+  БД, не меняя данные. Удобно проверить, что workflow видит ожидаемый
+  набор точек до запуска самой миграции.
+
+Workflow использует те же секреты SSH, что и основной деплой
+(`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PORT`, `DEPLOY_PATH`,
+`DEPLOY_SSH_KEY`), и ставится в одну `concurrency`-группу с обычным
+деплоем, чтобы не пересекаться по времени.
+
+Альтернативно — вручную с VPS:
+
+```bash
+docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml \
+    exec backend python -m scripts.migrate_lockers_to_real
+```
+
+Запускать **до** повторного применения `deploy/catalog-sync.bundle.json`,
+иначе bundle создаст дубль точки `esi/0980` рядом с уже существующей
+сидовой версией Центра.
+
 ## Проверка
 
 ```bash
