@@ -52,6 +52,22 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml up -d
 делается одной командой. Скрипт идемпотентный, можно запускать
 повторно — он только приводит каждую точку к целевому состоянию.
 
+Через GitHub Actions (рекомендуется): в репозитории открыть
+**Actions → Migrate lockers to real config → Run workflow**. Доступны
+параметры:
+
+- `dryRun=false` (по умолчанию) — реально применит миграцию.
+- `dryRun=true` — только распечатает текущее состояние постаматов в
+  БД, не меняя данные. Удобно проверить, что workflow видит ожидаемый
+  набор точек до запуска самой миграции.
+
+Workflow использует те же секреты SSH, что и основной деплой
+(`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PORT`, `DEPLOY_PATH`,
+`DEPLOY_SSH_KEY`), и ставится в одну `concurrency`-группу с обычным
+деплоем, чтобы не пересекаться по времени.
+
+Альтернативно — вручную с VPS:
+
 ```bash
 docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml \
     exec backend python -m scripts.migrate_lockers_to_real

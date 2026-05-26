@@ -1,0 +1,147 @@
+name: Migrate lockers to real config
+
+# Разовая (но идемпотентная) миграция постаматов в боевую конфигурацию:
+# СПб — оба OFFLINE, В.Новгород Центр → ESI 0980 ONLINE, Западный — OFFLINE.
+# Используется тот же SSH-доступ к VPS, что и в основном deploy.yml.
+# Запускается только вручную через "Run workflow" в GitHub Actions.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: "Dry run: только показать, что бы изменилось, без коммита"
+        type: boolean
+        default: false
+
+concurrency:
+  # Не пересекаемся с обычным деплоем — оба правят одну и ту же VPS.
+  group: deploy-vps-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Run lockers migration on VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      DRY_RUN: ${{ inputs.dryRun }}
+    steps:
+      - name: Validate required secrets
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -n "${DEPLOY_HOST:-}" ] || missing+=("DEPLOY_HOST")
+          [ -n "${DEPLOY_USER:-}" ] || missing+=("DEPLOY_USER")
+          [ -n "${DEPLOY_PORT:-}" ] || missing+=("DEPLOY_PORT")
+          [ -n "${DEPLOY_PATH:-}" ] || missing+=("DEPLOY_PATH")
+          [ -n "${DEPLOY_SSH_KEY:-}" ] || missing+=("DEPLOY_SSH_KEY")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            exit 1
+          fi
+          echo "::add-mask::${DEPLOY_HOST}"
+          echo "::add-mask::${DEPLOY_USER}"
+          echo "::add-mask::${DEPLOY_PATH}"
+          echo "Secrets are present (values are masked)."
+
+      - name: Configure SSH client
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${DEPLOY_SSH_KEY}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          if ! ssh-keyscan -T 10 -p "${DEPLOY_PORT}" "${DEPLOY_HOST}" \
+                >> ~/.ssh/known_hosts 2> /tmp/ssh-keyscan.err; then
+            err_text=$(cat /tmp/ssh-keyscan.err || true)
+            echo "::error::SSH keyscan failed: ${err_text}"
+            exit 1
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Run lockers migration on VPS
+        run: |
+          set -euo pipefail
+
+          ssh_status=0
+          ssh \
+            -i ~/.ssh/deploy_key \
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=3 \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -p "${DEPLOY_PORT}" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "DEPLOY_PATH='${DEPLOY_PATH}' DRY_RUN='${DRY_RUN}' bash -s" <<'REMOTE_EOF' || ssh_status=$?
+          set -euo pipefail
+
+          if [ ! -d "${DEPLOY_PATH}" ]; then
+            echo "::error::DEPLOY_PATH not found on VPS"
+            exit 1
+          fi
+          cd "${DEPLOY_PATH}"
+
+          for f in deploy/.env.ip backend/.env.production; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Required env file missing on VPS: $f"
+              exit 1
+            fi
+          done
+
+          # Берём актуальную ветку main, чтобы скрипт миграции и сид
+          # совпадали с тем, что лежит в репозитории.
+          echo "[migrate] git fetch origin main"
+          git fetch origin main:refs/remotes/origin/main
+          echo "[migrate] git reset --hard origin/main"
+          git reset --hard origin/main
+
+          # Контейнер backend должен быть поднят. Если он не запущен —
+          # лучше остановиться явно, чем тихо запускать одноразовый run,
+          # который не увидит реального docker-сетевого окружения.
+          backend_id=$(docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml ps -q backend 2>/dev/null || true)
+          if [ -z "${backend_id}" ]; then
+            echo "::error::backend container is not running. Run deploy first."
+            docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml ps || true
+            exit 1
+          fi
+          backend_state=$(docker inspect -f '{{.State.Status}}' "${backend_id}" 2>/dev/null || echo "missing")
+          if [ "${backend_state}" != "running" ]; then
+            echo "::error::backend container is not in running state (current=${backend_state})"
+            exit 1
+          fi
+
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "[migrate] DRY_RUN=true: showing current locker state, no commit"
+            docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml \
+              exec -T backend python -m scripts.dump_lockers
+            echo "[migrate] dry run done"
+          else
+            echo "[migrate] running scripts.migrate_lockers_to_real"
+            docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml \
+              exec -T backend python -m scripts.migrate_lockers_to_real
+            echo "[migrate] success"
+          fi
+          REMOTE_EOF
+
+          if [ "${ssh_status}" -ne 0 ]; then
+            echo "::error::Migration failed exit=${ssh_status}"
+            exit "${ssh_status}"
+          fi
+
+      - name: Cleanup SSH key
+        if: always()
+        run: |
+          rm -f ~/.ssh/deploy_key ~/.ssh/known_hosts
