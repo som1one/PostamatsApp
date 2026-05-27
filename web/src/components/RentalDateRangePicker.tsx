@@ -361,7 +361,7 @@ export function RentalDateRangePicker({
 
       {mode === "single" ? null : (
         <p className="muted small rental-range-hint">
-          Стоимость считается прогрессивно: 1 сутки — −5%, 2 — −10%, 3 — −15%,
+          Стоимость считается прогрессивно: 2 суток — −10%, 3 — −15%,
           далее +3% за каждый дополнительный день.
         </p>
       )}

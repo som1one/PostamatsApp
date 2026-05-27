@@ -10,7 +10,7 @@ import {
 // `backend/scripts/add_extra_price_plans.py`.
 describe("progressiveDiscountPercent", () => {
   it.each([
-    [1, 5],
+    [1, 0],
     [2, 10],
     [3, 15],
     [4, 18],
@@ -50,7 +50,8 @@ describe("progressiveDiscountPercent", () => {
 
 describe("progressiveDiscountFraction", () => {
   it("returns the fraction form of the percent discount", () => {
-    expect(progressiveDiscountFraction(1)).toBeCloseTo(0.05, 10);
+    expect(progressiveDiscountFraction(1)).toBeCloseTo(0, 10);
+    expect(progressiveDiscountFraction(2)).toBeCloseTo(0.1, 10);
     expect(progressiveDiscountFraction(3)).toBeCloseTo(0.15, 10);
     expect(progressiveDiscountFraction(7)).toBeCloseTo(0.27, 10);
   });
@@ -60,8 +61,9 @@ describe("calculateRentalTotalMinor", () => {
   // Базовая цена 100 руб/день = 10_000 минорных единиц.
   const BASE = 10_000;
 
-  it("applies 5% discount for 1 day", () => {
-    // 100 * 1 * 0.95 = 95 ₽ → округление до 10 ₽ = 100 ₽ → 10 000 минорных.
+  it("applies no discount for 1 day", () => {
+    // 100 * 1 = 100 ₽ → 10 000 минорных. 1-дневный тариф — это базовый
+    // прайс-лист, скидка начинает работать со 2-го дня.
     expect(calculateRentalTotalMinor(BASE, 1)).toBe(10_000);
   });
 
