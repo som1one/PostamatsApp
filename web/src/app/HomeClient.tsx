@@ -423,6 +423,7 @@ export function HomeClient() {
                 <LockerCard
                   key={locker.id}
                   locker={locker}
+                  cityName={cities.find((city) => city.id === locker.cityId)?.name ?? null}
                   selected={selectedLockerId === locker.id}
                   onSelect={setSelectedLockerId}
                   showAction
