@@ -1,4 +1,4 @@
-http://{$SERVER_IP} {
+:80 {
 	encode zstd gzip
 
 	handle /api/admin/* {
