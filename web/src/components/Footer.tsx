@@ -20,7 +20,7 @@ export function Footer() {
           <Link href="/catalog">Каталог</Link>
           <Link href="/lockers">Карта постаматов</Link>
           <Link href="/ideas">Идея для аренды</Link>
-          <Link href="/faq">FAQ</Link>
+          <Link href="/faq">Вопрос-ответ</Link>
           <Link href="/about">О нас</Link>
         </nav>
         <nav className="footer-section" aria-label="Документы">

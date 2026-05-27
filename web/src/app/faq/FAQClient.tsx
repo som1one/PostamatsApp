@@ -22,7 +22,7 @@ export function FAQClient() {
   return (
     <PageChrome>
       <section className="faq-hero">
-        <p className="eyebrow">FAQ</p>
+        <p className="eyebrow">Вопрос-ответ</p>
         <h1 className="page-title">Ответы перед первой арендой</h1>
         <p className="page-subtitle">
           Собрали вопросы про заказ, верификацию, получение, возврат и работу
