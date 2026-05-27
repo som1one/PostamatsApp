@@ -136,7 +136,7 @@
   }
 
   .hero-service h1 {
-    max-width: 12ch;
+    max-width: none;
     font-size: 34px;
     line-height: 1.05;
   }
@@ -271,11 +271,10 @@
   .section-kicker {
     gap: 4px;
     margin-bottom: 14px;
-    max-width: 320px;
   }
 
   .section-heading {
-    max-width: 16ch;
+    max-width: none;
     text-wrap: balance;
   }
 

@@ -25,6 +25,7 @@ export function Footer() {
         </nav>
         <nav className="footer-section" aria-label="Документы">
           <strong>Документы</strong>
+          <Link href="/terms-rental">Условия аренды товаров</Link>
           <Link href="/about">Политика данных</Link>
           <Link href="/profile">Личный кабинет</Link>
         </nav>
@@ -43,6 +44,11 @@ export function Footer() {
       <div className="container footer-bottom">
         <span>© naprokatberu, 2026</span>
         <span className="footer-bottom-note">Аренда техники и вещей по понятному цифровому сценарию.</span>
+      </div>
+      <div className="container footer-legal" aria-label="Реквизиты">
+        <span>ИП Кириллов Виталий Валерьевич</span>
+        <span>ИНН 532120829653</span>
+        <span>ОГРНИП 318532100005699</span>
       </div>
     </footer>
   );
