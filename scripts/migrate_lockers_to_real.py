@@ -2,15 +2,22 @@
 
 Цель миграции (по запросу продакта):
 
-- В Санкт-Петербурге остаётся один постамат, оба переводятся в OFFLINE
-  (`seed-spb-nevsky`, `seed-spb-petrogradka`).
-- В Великом Новгороде остаётся два постамата:
+- В Санкт-Петербурге:
+  * `seed-spb-nevsky` остаётся как фейковый seed-постамат в статусе
+    OFFLINE. Фронт фильтрует не-ONLINE точки и при выборе товара
+    в Питере покажет EmptyState «Нет постаматов с этим товаром»;
+  * `seed-spb-petrogradka` удаляется полностью со всеми связанными
+    ячейками и пустыми inventory_units. Если к нему привязаны
+    активные брони/аренды — миграция останавливается с ошибкой,
+    чтобы не порушить чужие операции.
+- В Великом Новгороде:
   * `seed-vn-center` становится "настоящим" — провайдер `esi`,
-    `external_locker_id=0980`, статус ONLINE, partner_name=ESI.
-  * `seed-vn-west` переводится в OFFLINE.
+    `external_locker_id=0980`, статус ONLINE, partner_name=ESI;
+  * `seed-vn-west` остаётся как seed-постамат, OFFLINE.
 
 Скрипт идемпотентный: можно гонять сколько угодно раз, он только
-приводит каждую сущность к целевому состоянию.
+приводит каждую сущность к целевому состоянию. Удаление Петроградки
+тоже идемпотентно — повторный запуск просто ничего не находит.
 
 Запуск:
     python -m scripts.migrate_lockers_to_real
@@ -28,7 +35,7 @@ import os
 import sys
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Поддерживаем запуск как `python -m scripts.migrate_lockers_to_real`
@@ -38,8 +45,17 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from backend.core.database import SessionLocal, engine  # noqa: E402
-from backend.models.enums import LockerStatus  # noqa: E402
+from backend.models.enums import (  # noqa: E402
+    InventoryStatus,
+    LockerStatus,
+    RentalStatus,
+    ReservationStatus,
+)
+from backend.models.inventory_unit import InventoryUnit  # noqa: E402
+from backend.models.locker_cell import LockerCell  # noqa: E402
 from backend.models.locker_location import LockerLocation  # noqa: E402
+from backend.models.rental import Rental  # noqa: E402
+from backend.models.reservation import Reservation  # noqa: E402
 
 # При flush SQLAlchemy строит граф таблиц по всем FK у моделей,
 # зарегистрированных в Base.metadata. У ``LockerLocation`` есть
@@ -94,21 +110,27 @@ class TargetState:
     new_address: str | None = None
 
 
+@dataclass(frozen=True)
+class DeleteTarget:
+    """Постамат, который нужно удалить вместе со всеми его ячейками
+    и пустыми inventory_units. Если к нему привязаны активные брони
+    или аренды — миграция остановится."""
+
+    match_provider: str
+    match_external_id: str
+
+
 TARGETS: tuple[TargetState, ...] = (
-    # СПб: оба постамата выключаем.
+    # СПб Невский — оставляем как фейковый seed-постамат в статусе OFFLINE.
+    # У LockerLocation нет поля is_active; фильтр на фронте/бэке
+    # скрывает все не-ONLINE точки из выдачи доступных постаматов,
+    # поэтому в Питере при выборе товара покажется EmptyState
+    # «Нет постаматов с этим товаром».
     TargetState(
         match_provider="seed",
         match_external_id="seed-spb-nevsky",
         new_provider="seed",
         new_external_id="seed-spb-nevsky",
-        new_status=LockerStatus.OFFLINE,
-        new_partner_name="Dev Seed",
-    ),
-    TargetState(
-        match_provider="seed",
-        match_external_id="seed-spb-petrogradka",
-        new_provider="seed",
-        new_external_id="seed-spb-petrogradka",
         new_status=LockerStatus.OFFLINE,
         new_partner_name="Dev Seed",
     ),
@@ -123,7 +145,8 @@ TARGETS: tuple[TargetState, ...] = (
         new_name="Великий Новгород Центр",
         new_address="Великий Новгород, Большая Санкт-Петербургская ул., 39",
     ),
-    # В.Новгород Западный — выключаем.
+    # В.Новгород Западный — выключаем (seed, OFFLINE, остаётся в каталоге
+    # как тестовая точка).
     TargetState(
         match_provider="seed",
         match_external_id="seed-vn-west",
@@ -132,6 +155,43 @@ TARGETS: tuple[TargetState, ...] = (
         new_status=LockerStatus.OFFLINE,
         new_partner_name="Dev Seed",
     ),
+)
+
+
+# Постаматы, подлежащие полному удалению вместе с ячейками.
+DELETE_TARGETS: tuple[DeleteTarget, ...] = (
+    DeleteTarget(match_provider="seed", match_external_id="seed-spb-petrogradka"),
+)
+
+
+# Статусы броней/аренд, при которых удалять постамат опасно — это
+# реальные пользовательские операции в полёте.
+_ACTIVE_RESERVATION_STATUSES: frozenset[ReservationStatus] = frozenset(
+    {
+        ReservationStatus.CREATED,
+        ReservationStatus.AWAITING_PAYMENT,
+        ReservationStatus.PAYMENT_AUTHORIZED,
+        ReservationStatus.CONFIRMED,
+    }
+)
+_ACTIVE_RENTAL_STATUSES: frozenset[RentalStatus] = frozenset(
+    {
+        RentalStatus.PICKUP_READY,
+        RentalStatus.PICKUP_OPENED,
+        RentalStatus.ACTIVE,
+        RentalStatus.RETURN_IN_PROGRESS,
+        RentalStatus.OVERDUE,
+        RentalStatus.INCIDENT,
+    }
+)
+_DELETABLE_INVENTORY_STATUSES: frozenset[InventoryStatus] = frozenset(
+    {
+        InventoryStatus.AVAILABLE,
+        InventoryStatus.DAMAGED,
+        InventoryStatus.MAINTENANCE,
+        InventoryStatus.LOST,
+        InventoryStatus.RETIRED,
+    }
 )
 
 
@@ -185,10 +245,91 @@ def _apply_target(locker: LockerLocation, target: TargetState) -> bool:
     return changed
 
 
+async def _delete_locker_cascade(
+    session: AsyncSession, target: DeleteTarget
+) -> tuple[bool, str]:
+    """Удаляет постамат вместе с ячейками и пустыми inventory_units.
+
+    Возвращает (deleted, reason). ``deleted=True`` означает, что точка
+    была найдена и удалена. ``deleted=False`` + reason описывает, почему
+    миграция должна остановиться (есть активные брони/аренды) или почему
+    удалять было нечего (точку уже удалили раньше).
+    """
+
+    locker = await session.scalar(
+        select(LockerLocation).where(
+            LockerLocation.external_provider == target.match_provider,
+            LockerLocation.external_locker_id == target.match_external_id,
+        )
+    )
+    if locker is None:
+        return False, "not_found"
+
+    cell_ids = list(
+        (
+            await session.scalars(
+                select(LockerCell.id).where(LockerCell.locker_id == locker.id)
+            )
+        ).all()
+    )
+
+    # Защита: активные брони на этом постамате.
+    if (
+        await session.scalar(
+            select(Reservation.id)
+            .where(
+                Reservation.locker_id == locker.id,
+                Reservation.status.in_(_ACTIVE_RESERVATION_STATUSES),
+            )
+            .limit(1)
+        )
+    ) is not None:
+        return False, "has_active_reservations"
+
+    # Защита: активные аренды на этом постамате.
+    rental_by_locker = await session.scalar(
+        select(Rental.id)
+        .where(
+            Rental.pickup_locker_id == locker.id,
+            Rental.status.in_(_ACTIVE_RENTAL_STATUSES),
+        )
+        .limit(1)
+    )
+    if rental_by_locker is not None:
+        return False, "has_active_rentals"
+
+    # Inventory_units, которые сейчас лежат в ячейках этого постамата.
+    if cell_ids:
+        units = list(
+            (
+                await session.scalars(
+                    select(InventoryUnit).where(
+                        InventoryUnit.locker_cell_id.in_(cell_ids)
+                    )
+                )
+            ).all()
+        )
+        for unit in units:
+            if unit.status not in _DELETABLE_INVENTORY_STATUSES:
+                return False, f"inventory_unit_{unit.id}_status_{unit.status.value}"
+        # Удаляем полностью — точка уходит навсегда, привязывать к другой
+        # ячейке некуда. Это безопасно благодаря проверкам выше.
+        for unit in units:
+            await session.delete(unit)
+
+    # Удаляем все ячейки этого постамата, потом сам постамат.
+    if cell_ids:
+        await session.execute(delete(LockerCell).where(LockerCell.id.in_(cell_ids)))
+    await session.delete(locker)
+    return True, "deleted"
+
+
 async def _run() -> int:
     updates = 0
     skipped = 0
     missing = 0
+    deleted = 0
+    delete_skipped = 0
 
     async with SessionLocal() as session:
         for target in TARGETS:
@@ -219,15 +360,48 @@ async def _run() -> int:
                     target.new_external_id,
                 )
 
+        for delete_target in DELETE_TARGETS:
+            ok, reason = await _delete_locker_cascade(session, delete_target)
+            if ok:
+                deleted += 1
+                logger.info(
+                    "Deleted locker provider=%s external_id=%s",
+                    delete_target.match_provider,
+                    delete_target.match_external_id,
+                )
+            elif reason == "not_found":
+                delete_skipped += 1
+                logger.info(
+                    "Locker provider=%s external_id=%s already absent — skip",
+                    delete_target.match_provider,
+                    delete_target.match_external_id,
+                )
+            else:
+                # Активные операции на постамате — отказываемся удалять,
+                # откатываем всю транзакцию, чтобы не получился
+                # частично применённый перевод.
+                await session.rollback()
+                await engine.dispose()
+                logger.error(
+                    "Refuse to delete locker provider=%s external_id=%s: %s",
+                    delete_target.match_provider,
+                    delete_target.match_external_id,
+                    reason,
+                )
+                return 1
+
         await session.commit()
 
     await engine.dispose()
 
     logger.info(
-        "Migration finished: updated=%s up_to_date=%s missing=%s",
+        "Migration finished: updated=%s up_to_date=%s missing=%s deleted=%s "
+        "delete_skipped=%s",
         updates,
         skipped,
         missing,
+        deleted,
+        delete_skipped,
     )
     return 0
 
