@@ -141,6 +141,46 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
     // тариф 2 дня, а пользователь выбрал 1 день), берём самый короткий.
     return best ?? dayPlans[0] ?? null;
   }, [baseDayPlan, dayPlans, rangeDays]);
+
+  // Тариф с точным совпадением durationValue == rangeDays. Если есть —
+  // итог в календаре равен его baseAmount (это и есть «правда» из БД,
+  // именно такую цену вернёт `/products/{id}/pricing` и за такую сумму
+  // пройдёт предавторизация). Если такого тарифа нет — оцениваем как
+  // base * days, без выдуманной прогрессивной скидки.
+  const exactDayPlan = useMemo<PricePlan | null>(
+    () => dayPlans.find((plan) => plan.durationValue === rangeDays) ?? null,
+    [dayPlans, rangeDays],
+  );
+
+  const rangeTotalMinor = useMemo<number | null>(() => {
+    if (rangeDays <= 0) {
+      return null;
+    }
+    if (exactDayPlan) {
+      return Math.max(0, Math.floor(exactDayPlan.baseAmount));
+    }
+    if (baseDayPlan) {
+      return Math.max(0, Math.floor(baseDayPlan.baseAmount * rangeDays));
+    }
+    return null;
+  }, [baseDayPlan, exactDayPlan, rangeDays]);
+
+  // Скидка = насколько итоговый тариф дешевле, чем базовый день × дни.
+  // Считаем по факту, без таблиц процентов.
+  const rangeDiscountPercent = useMemo<number>(() => {
+    if (!baseDayPlan || rangeDays <= 1 || rangeTotalMinor == null) {
+      return 0;
+    }
+    const reference = baseDayPlan.baseAmount * rangeDays;
+    if (reference <= 0) {
+      return 0;
+    }
+    const ratio = 1 - rangeTotalMinor / reference;
+    if (ratio <= 0) {
+      return 0;
+    }
+    return Math.round(ratio * 100);
+  }, [baseDayPlan, rangeDays, rangeTotalMinor]);
   const lockerOptions = useMemo<LockerOption[]>(() => {
     if (!product) {
       return [];
@@ -453,7 +493,8 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                     setDate(next.startDate);
                     setEndDate(next.endDate);
                   }}
-                  baseAmountPerDayMinor={baseDayPlan?.baseAmount ?? 0}
+                  totalMinor={rangeTotalMinor}
+                  discountPercent={rangeDiscountPercent}
                   currency={baseDayPlan?.currency || "RUB"}
                 />
                 {dayPlans.length ? (

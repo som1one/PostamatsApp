@@ -2,11 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
-import {
-  calculateRentalTotalMinor,
-  daysBetweenInclusive,
-  progressiveDiscountPercent,
-} from "@/shared/rentalPricing";
+import { daysBetweenInclusive } from "@/shared/rentalPricing";
 import { formatMoney, pluralizeRu } from "@/shared/format";
 
 export type DateRangeValue = {
@@ -117,14 +113,20 @@ function buildMonthGrid(monthStart: Date): CalendarCell[] {
 export function RentalDateRangePicker({
   value,
   onChange,
-  baseAmountPerDayMinor,
+  totalMinor,
+  discountPercent = 0,
   currency,
   maxDays = 30,
   mode = "range",
 }: {
   value: DateRangeValue;
   onChange: (next: DateRangeValue) => void;
-  baseAmountPerDayMinor: number;
+  // Итог в минорных единицах (копейках). Источник правды — `pricing` с
+  // бэка либо `selectedPlan.baseAmount`. Не считаем здесь сами, чтобы
+  // не расходиться с реальными тарифами в БД.
+  totalMinor: number | null;
+  // Скидка в целых процентах. Если 0 — бейдж не рисуем.
+  discountPercent?: number;
   currency: string;
   maxDays?: number;
   mode?: "range" | "single";
@@ -167,12 +169,7 @@ export function RentalDateRangePicker({
     () => daysBetweenInclusive(value.startDate, value.endDate),
     [value.endDate, value.startDate],
   );
-  const safeBase = Math.max(0, Math.floor(baseAmountPerDayMinor));
-  const totalMinor = useMemo(
-    () => calculateRentalTotalMinor(safeBase, days),
-    [days, safeBase],
-  );
-  const discountPercent = progressiveDiscountPercent(days);
+  const safeDiscount = Math.max(0, Math.round(discountPercent));
 
   const monthGrid = useMemo(() => buildMonthGrid(viewMonth), [viewMonth]);
 
@@ -269,13 +266,13 @@ export function RentalDateRangePicker({
         </div>
         {mode === "single" ? null : (
           <div className="rental-range-summary-price">
-            <strong>{formatMoney(totalMinor, currency)}</strong>
-            {discountPercent > 0 ? (
+            <strong>{formatMoney(totalMinor ?? 0, currency)}</strong>
+            {safeDiscount > 0 ? (
               <span
                 className="rental-range-summary-discount"
-                aria-label={`Скидка ${discountPercent} процентов`}
+                aria-label={`Скидка ${safeDiscount} процентов`}
               >
-                −{discountPercent}%
+                −{safeDiscount}%
               </span>
             ) : null}
           </div>
