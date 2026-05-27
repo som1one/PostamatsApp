@@ -41,6 +41,43 @@ from backend.core.database import SessionLocal, engine  # noqa: E402
 from backend.models.enums import LockerStatus  # noqa: E402
 from backend.models.locker_location import LockerLocation  # noqa: E402
 
+# При flush SQLAlchemy строит граф таблиц по всем FK у моделей,
+# зарегистрированных в Base.metadata. У ``LockerLocation`` есть
+# ``ForeignKey("cities.id")`` — без явного импорта ``City`` ORM не
+# находит таблицу ``cities`` и падает на ``commit()`` с
+# ``NoReferencedTableError``. Подгружаем все модели по тому же
+# списку, что использует ``alembic/env.py``, чтобы граф был полным
+# и в любых будущих миграциях скрипту хватало контекста.
+from backend.models import (  # noqa: E402, F401
+    admin_account,
+    admin_audit_event,
+    admin_auth_session,
+    admin_user,
+    auth_session,
+    auth_verification_session,
+    city,
+    condition_report,
+    condition_report_photo,
+    esi_event_log,
+    inventory_movement,
+    inventory_unit,
+    locker_cell,
+    media_file,
+    payment,
+    payment_event,
+    price_plan,
+    product,
+    product_category,
+    product_image,
+    rental,
+    rental_event,
+    rental_idea,
+    return_request,
+    reservation,
+    user,
+    verification_request,
+)
+
 
 logger = logging.getLogger("migrate_lockers_to_real")
 
