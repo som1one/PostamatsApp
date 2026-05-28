@@ -135,6 +135,34 @@ class Settings:
             ENV_VALUES.get("RETURN_REQUEST_TIMEOUT_SECONDS", "1800")
         )
 
+        # Telegram bot for admin operational notifications (verification queue,
+        # incidents, etc.). Token belongs to a bot the admin has started a
+        # private chat with; chat ids are CSV-listed numeric ids of the
+        # destinations (private chats, groups, channels). When token or chat
+        # ids are missing, notifications are silently skipped — это позволяет
+        # держать прод-конфиг и dev одинаковыми и не падать в тестах.
+        self.TELEGRAM_ADMIN_BOT_TOKEN = (
+            (ENV_VALUES.get("TELEGRAM_ADMIN_BOT_TOKEN") or "").strip() or None
+        )
+        self.TELEGRAM_ADMIN_CHAT_IDS = _split_csv(
+            ENV_VALUES.get("TELEGRAM_ADMIN_CHAT_IDS")
+        )
+        self.TELEGRAM_API_TIMEOUT_SECONDS = float(
+            ENV_VALUES.get("TELEGRAM_API_TIMEOUT_SECONDS", "10")
+        )
+        # Базовый URL админки для deep-link'ов из уведомлений. Если не
+        # задан — берём из WEB_APP_ORIGIN + "/admin", чтобы dev и прод
+        # работали без отдельного значения.
+        configured_admin_url = (
+            (ENV_VALUES.get("ADMIN_PANEL_URL") or "").strip().rstrip("/") or None
+        )
+        if configured_admin_url:
+            self.ADMIN_PANEL_URL = configured_admin_url
+        elif self.WEB_APP_ORIGIN:
+            self.ADMIN_PANEL_URL = f"{self.WEB_APP_ORIGIN}/admin"
+        else:
+            self.ADMIN_PANEL_URL = None
+
     def storage_config_error_code(self) -> str | None:
         if self.UPLOAD_DEV_STUB:
             return None

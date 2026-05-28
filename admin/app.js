@@ -3431,6 +3431,40 @@ async function bootstrapAuthorizedApp() {
     showToast("error", error.message || "Не удалось загрузить админку");
   }
   startVerificationPolling();
+  await applyDeepLinkFromQuery();
+}
+
+async function applyDeepLinkFromQuery() {
+  // Поддерживаем ?section=<name>&user=<uuid>, чтобы Telegram-уведомления
+  // вели сразу в нужный раздел и карточку пользователя.
+  let params;
+  try {
+    params = new URLSearchParams(window.location.search);
+  } catch (_) {
+    return;
+  }
+
+  const section = (params.get("section") || "").trim();
+  if (section) {
+    setActiveSection(section);
+    if (section === "verification") {
+      try {
+        await loadVerificationQueue();
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  }
+
+  const userId = (params.get("user") || "").trim();
+  if (userId && UUID_RE.test(userId)) {
+    try {
+      await openUserDetail(userId);
+    } catch (error) {
+      console.error(error);
+      showToast("error", "Не удалось открыть карточку пользователя.");
+    }
+  }
 }
 
 async function handleLogin(event) {
