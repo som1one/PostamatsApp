@@ -167,9 +167,13 @@ _IMAGE_EXTS = {".webp", ".jpg", ".jpeg", ".png"}
 
 
 def _collect_images(folder: Path) -> list[Path]:
-    images = sorted(p for p in folder.iterdir() if p.suffix.lower() in _IMAGE_EXTS)
+    images = [p for p in folder.iterdir() if p.suffix.lower() in _IMAGE_EXTS]
     if not images:
         raise FileNotFoundError(f"no images found in {folder}")
+    # Самый «тяжёлый» файл обычно и есть фотография товара, а промо-
+    # баннеры/превью весят меньше. Сортируем по убыванию размера, при
+    # равенстве — по имени, чтобы порядок был детерминирован.
+    images.sort(key=lambda p: (-p.stat().st_size, p.name))
     return images
 
 
@@ -326,7 +330,28 @@ async def _ensure_product_images(
     *,
     product: Product,
     item: ItemImport,
+    reset: bool = False,
 ) -> None:
+    if reset:
+        # Сносим текущую обложку и всю галерею — потом перезальём.
+        if product.cover_file_id is not None:
+            old_cover_id = product.cover_file_id
+            product.cover_file_id = None
+            await session.flush()
+            old_cover = await session.get(MediaFile, old_cover_id)
+            if old_cover is not None:
+                await session.delete(old_cover)
+        existing_images = (
+            await session.scalars(
+                select(ProductImage).where(ProductImage.product_id == product.id)
+            )
+        ).all()
+        for image in existing_images:
+            old_media = await session.get(MediaFile, image.file_id)
+            await session.delete(image)
+            if old_media is not None:
+                await session.delete(old_media)
+        await session.flush()
     # Cover
     if product.cover_file_id is None:
         cover_media = await _import_media(
@@ -460,7 +485,7 @@ async def _resolve_target_lockers(session: AsyncSession) -> list[LockerLocation]
     return lockers
 
 
-async def _run(items_dir: Path) -> int:
+async def _run(items_dir: Path, reset_images: bool = False) -> int:
     items = _scan_items_dir(items_dir)
     if not items:
         logger.error("no items to import in %s", items_dir)
@@ -482,7 +507,9 @@ async def _run(items_dir: Path) -> int:
             action = "created" if created else "found existing"
             logger.info("[product] %s (%s) — %s", item.name, item.slug, action)
 
-            await _ensure_product_images(session, product=product, item=item)
+            await _ensure_product_images(
+                session, product=product, item=item, reset=reset_images
+            )
             await _ensure_price_plans(session, product=product, item=item)
 
             for locker in target_lockers:
@@ -514,8 +541,18 @@ def main() -> int:
         default=os.path.join(ROOT, "items"),
         help="Папка с товарами (по умолчанию ./items от корня репо)",
     )
+    parser.add_argument(
+        "--reset-images",
+        action="store_true",
+        help=(
+            "Удалить текущую обложку и галерею у каждого товара и перезалить "
+            "из items/<slug>/. По умолчанию — нет, скрипт идемпотентный."
+        ),
+    )
     args = parser.parse_args()
-    return asyncio.run(_run(Path(args.items_dir).resolve()))
+    return asyncio.run(
+        _run(Path(args.items_dir).resolve(), reset_images=args.reset_images)
+    )
 
 
 if __name__ == "__main__":
