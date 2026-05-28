@@ -159,9 +159,12 @@
     flex-direction: column;
   }
 }@media (max-width: 440px) {
-  .page-title,
-  .hero-service h1 {
+  .page-title {
     font-size: 30px;
+  }
+
+  .hero-service h1 {
+    font-size: 24px;
   }
 
   .hero-service-actions {

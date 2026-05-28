@@ -137,8 +137,8 @@
 
   .hero-service h1 {
     max-width: none;
-    font-size: 34px;
-    line-height: 1.05;
+    font-size: 28px;
+    line-height: 1.08;
   }
 
   .hero-service-copy > p:not(.eyebrow) {

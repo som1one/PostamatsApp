@@ -1,7 +1,10 @@
 @media (max-width: 400px) {
-  .page-title,
-  .hero-service h1 {
+  .page-title {
     font-size: 27px;
+  }
+
+  .hero-service h1 {
+    font-size: 22px;
   }
 
   .hero-service-copy {

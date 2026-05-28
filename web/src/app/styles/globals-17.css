@@ -149,8 +149,8 @@
   .hero-service h1 {
     width: auto;
     max-width: 12.6em;
-    font-size: clamp(1.78rem, 7vw, 1.96rem);
-    line-height: 1.06;
+    font-size: clamp(1.45rem, 5.6vw, 1.6rem);
+    line-height: 1.1;
   }
 
   .hero-service-description {

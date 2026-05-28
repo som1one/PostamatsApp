@@ -88,9 +88,9 @@
   max-width: 12.5ch;
   margin: 0;
   color: var(--text);
-  font-size: 56px;
+  font-size: 44px;
   font-weight: 950;
-  line-height: 1;
+  line-height: 1.05;
   overflow-wrap: break-word;
 }.hero-service-copy > p:not(.eyebrow) {
   max-width: 650px;
