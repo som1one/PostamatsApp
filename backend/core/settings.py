@@ -67,6 +67,13 @@ class Settings:
         self.SMS_RU_API_ID = (ENV_VALUES.get("SMS_RU_API_ID") or "").strip() or None
         self.SMS_RU_FROM = (ENV_VALUES.get("SMS_RU_FROM") or "").strip() or None
         self.SMS_RU_TIMEOUT_SECONDS = float(ENV_VALUES.get("SMS_RU_TIMEOUT_SECONDS", "10"))
+        # "sms" — обычный SMS с кодом; "call" — звонок-авторизация:
+        # sms.ru сам генерирует код, мы получаем его в ответе API.
+        # Звонок не требует согласования отправителя у операторов и
+        # стоит дешевле.
+        self.SMS_RU_AUTH_MODE = (
+            (ENV_VALUES.get("SMS_RU_AUTH_MODE") or "sms").strip().lower()
+        )
 
         # S3 / MinIO presign for POST /uploads/presign
         self.AWS_ACCESS_KEY_ID = (ENV_VALUES.get("AWS_ACCESS_KEY_ID") or "").strip() or None

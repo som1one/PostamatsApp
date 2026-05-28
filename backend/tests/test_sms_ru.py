@@ -42,12 +42,15 @@ class SmsRuTests(unittest.IsolatedAsyncioTestCase):
         self.sms_ru = sms_ru
         self.original_api_id = sms_ru.settings.SMS_RU_API_ID
         self.original_timeout = sms_ru.settings.SMS_RU_TIMEOUT_SECONDS
+        self.original_mode = sms_ru.settings.SMS_RU_AUTH_MODE
         sms_ru.settings.SMS_RU_API_ID = "test-api-id"
         sms_ru.settings.SMS_RU_TIMEOUT_SECONDS = 3
+        sms_ru.settings.SMS_RU_AUTH_MODE = "sms"
 
     def tearDown(self):
         self.sms_ru.settings.SMS_RU_API_ID = self.original_api_id
         self.sms_ru.settings.SMS_RU_TIMEOUT_SECONDS = self.original_timeout
+        self.sms_ru.settings.SMS_RU_AUTH_MODE = self.original_mode
 
     async def test_send_auth_code_success(self):
         sink = {}
@@ -71,9 +74,11 @@ class SmsRuTests(unittest.IsolatedAsyncioTestCase):
             "AsyncClient",
             side_effect=lambda **kwargs: _FakeAsyncClient(response=response, sink=sink, **kwargs),
         ):
-            sms_id = await send_auth_code("+79216928433", "1234")
+            result = await send_auth_code("+79216928433", "1234")
 
-        self.assertEqual(sms_id, "000000-10000000")
+        self.assertEqual(result.channel, "sms")
+        self.assertEqual(result.provider_id, "000000-10000000")
+        self.assertIsNone(result.code)
         self.assertEqual(sink["url"], self.sms_ru.SMS_RU_SEND_URL)
         self.assertEqual(sink["params"]["to"], "79216928433")
         self.assertEqual(sink["params"]["json"], 1)

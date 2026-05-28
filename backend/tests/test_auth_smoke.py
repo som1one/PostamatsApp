@@ -57,10 +57,19 @@ class AuthSmokeTests(unittest.IsolatedAsyncioTestCase):
         self.redis_patcher.start()
 
         # Patch sms.ru sender so tests never hit the network.
+        # The real `send_auth_code` returns an `AuthChannelResult`; since
+        # we run in default `sms` mode (`channel='sms'`, `code` is None),
+        # the auth router treats this as "user already knows the code we
+        # generated" — which is exactly what the smoke tests assume.
+        from backend.utils.sms_ru import AuthChannelResult
+
         self.sms_patcher = patch(
             "backend.routers.auth.send_auth_code",
             new_callable=AsyncMock,
-            return_value="sms-id-stub",
+            return_value=AuthChannelResult(
+                channel="sms",
+                provider_id="sms-id-stub",
+            ),
         )
         self.mock_send_auth_code = self.sms_patcher.start()
 

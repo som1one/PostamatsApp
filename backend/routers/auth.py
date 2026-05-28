@@ -145,7 +145,13 @@ async def request_code(
     try:
         db.add(verification_session)
         await db.flush()
-        await send_auth_code(normalized_phone, code)
+        delivery = await send_auth_code(normalized_phone, code)
+        if delivery.channel == "call" and delivery.code:
+            # При авторизации звонком sms.ru сам решает, какой код
+            # увидит пользователь (последние 4 цифры исходящего
+            # номера). Перезаписываем хеш сессии под этот код, иначе
+            # confirm-code никогда не пройдёт.
+            verification_session.code_hash = hash_code(delivery.code)
         await db.commit()
         await db.refresh(verification_session)
     except SmsRuError as exc:
@@ -164,6 +170,7 @@ async def request_code(
         "data": {
             "verificationSessionId": verification_session.id,
             "ttlSeconds": settings.AUTH_CODE_TTL_SECONDS,
+            "channel": delivery.channel,
         }
     }
 

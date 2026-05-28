@@ -13,12 +13,13 @@ import {
 } from "@/shared/format";
 
 type Step = "phone" | "code";
+type Channel = "sms" | "call";
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   AUTH_PHONE_REQUIRED: "Введите номер телефона.",
   AUTH_PHONE_INVALID: "Введите корректный номер РФ или РБ.",
-  AUTH_SMS_SEND_FAILED: "Не удалось отправить SMS. Попробуйте еще раз чуть позже.",
-  AUTH_SMS_PROVIDER_ERROR: "Сервис SMS сейчас недоступен. Попробуйте еще раз чуть позже.",
+  AUTH_SMS_SEND_FAILED: "Не удалось отправить код. Попробуйте еще раз чуть позже.",
+  AUTH_SMS_PROVIDER_ERROR: "Сервис подтверждения сейчас недоступен. Попробуйте еще раз чуть позже.",
   AUTH_RESEND_TOO_SOON: "Подождите немного перед повторной отправкой кода.",
   AUTH_SESSION_NOT_FOUND: "Сессия входа не найдена. Запросите код заново.",
   AUTH_SESSION_INACTIVE: "Этот код уже недействителен. Запросите новый.",
@@ -45,6 +46,7 @@ export function AuthClient() {
   const [code, setCode] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [ttl, setTtl] = useState(0);
+  const [channel, setChannel] = useState<Channel>("sms");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isCodeFocused, setIsCodeFocused] = useState(false);
@@ -86,13 +88,14 @@ export function AuthClient() {
       const result = await requestCode(normalizedPhone);
       setSessionId(result.verificationSessionId);
       setTtl(result.ttlSeconds ?? 0);
+      setChannel(result.channel === "call" ? "call" : "sms");
       setCode("");
       setStep("code");
     } catch (submitError) {
       setError(
         resolveAuthErrorMessage(
           submitError,
-          "Не удалось отправить SMS. Попробуйте еще раз.",
+          "Не удалось отправить код. Попробуйте еще раз.",
         ),
       );
     } finally {
@@ -103,7 +106,7 @@ export function AuthClient() {
   async function handleCodeSubmit(event: FormEvent) {
     event.preventDefault();
     if (!sessionId || code.trim().length < 4) {
-      setError("Введите SMS-код.");
+      setError(channel === "call" ? "Введите код из звонка." : "Введите SMS-код.");
       return;
     }
 
@@ -129,6 +132,7 @@ export function AuthClient() {
     setStep("phone");
     setSessionId("");
     setTtl(0);
+    setChannel("sms");
     setError("");
     setCode("");
     setIsCodeFocused(false);
@@ -180,8 +184,15 @@ export function AuthClient() {
                   <ArrowLeft size={18} />
                   Назад
                 </button>
-                <p className="eyebrow">SMS-код</p>
+                <p className="eyebrow">{channel === "call" ? "Код из звонка" : "SMS-код"}</p>
                 <h1>{normalizedPhone}</h1>
+                {channel === "call" ? (
+                  <p className="auth-hint">
+                    Сейчас на ваш номер поступит входящий звонок.
+                    Возьмите трубку не нужно — последние 4 цифры
+                    номера, с которого звонят, и есть ваш код.
+                  </p>
+                ) : null}
                 <form className="form-stack" onSubmit={handleCodeSubmit}>
                   <div className="field">
                     <span>Код</span>
@@ -189,7 +200,11 @@ export function AuthClient() {
                       className={`otp-input-shell ${isCodeFocused ? "is-focused" : ""}`}
                       role="button"
                       tabIndex={0}
-                      aria-label="Введите код из SMS"
+                      aria-label={
+                        channel === "call"
+                          ? "Введите 4 цифры с экрана звонка"
+                          : "Введите код из SMS"
+                      }
                       onClick={() => codeInputRef.current?.focus()}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {

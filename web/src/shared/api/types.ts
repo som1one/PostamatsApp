@@ -133,6 +133,9 @@ export type AppUser = {
 export type RequestCodeResponse = {
   verificationSessionId: string;
   ttlSeconds: number;
+  /** Канал доставки кода: "sms" — пришёл SMS, "call" — звонок-сброс,
+   * последние 4 цифры исходящего номера и есть код. По умолчанию "sms". */
+  channel?: "sms" | "call";
 };
 
 export type ConfirmCodeResponse = {
