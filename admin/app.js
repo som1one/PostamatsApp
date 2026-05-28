@@ -3940,6 +3940,9 @@ navLinks.forEach((link) => {
       state.auditMeta.page = 1;
       loadAuditPage();
     }
+    if (link.dataset.section === "notifications") {
+      loadTelegramSubscribers();
+    }
     if (link.dataset.section === "inventory") {
       bootstrapInventorySection();
     }
@@ -4610,5 +4613,200 @@ if (inventoryServiceSubmit) {
   const navLink = document.querySelector('[data-section="ideas"]');
   if (navLink) {
     navLink.addEventListener("click", loadIdeas);
+  }
+})();
+
+
+// =====================================================================
+// Раздел "Уведомления" — управление Telegram-подписчиками
+// =====================================================================
+(function initTelegramSubscribersSection() {
+  const tableBody = document.getElementById("telegram-subscribers-table-body");
+  const emptyEl = document.getElementById("telegram-subscribers-empty");
+  const countEl = document.getElementById("telegram-subscribers-count");
+  const form = document.getElementById("telegram-subscribers-form");
+  const usernameInput = document.getElementById("telegram-subscribers-username");
+  const noteInput = document.getElementById("telegram-subscribers-note");
+  const resyncButton = document.getElementById("telegram-subscribers-resync");
+
+  if (!tableBody || !form) {
+    return;
+  }
+
+  const ERROR_MESSAGES = {
+    USERNAME_REQUIRED: "Юзернейм обязателен.",
+    USERNAME_INVALID: "Юзернейм должен быть 5–32 символа: латиница, цифры, _.",
+    SUBSCRIBER_ALREADY_EXISTS: "Подписчик с таким юзернеймом уже есть.",
+    SUBSCRIBER_NOT_FOUND: "Подписчик не найден.",
+    TELEGRAM_BOT_TOKEN_NOT_CONFIGURED:
+      "Не задан TELEGRAM_ADMIN_BOT_TOKEN на бэкенде.",
+    TELEGRAM_API_ERROR: "Telegram API вернул ошибку. Попробуйте позже.",
+    TELEGRAM_API_NETWORK_ERROR: "Не удалось связаться с Telegram API.",
+  };
+
+  function describeError(error) {
+    if (!error) return "Неизвестная ошибка";
+    const detail = error.detail || error.message || "";
+    if (typeof detail === "string" && ERROR_MESSAGES[detail]) {
+      return ERROR_MESSAGES[detail];
+    }
+    return detail || "Неизвестная ошибка";
+  }
+
+  function renderRows(items) {
+    if (!Array.isArray(items) || items.length === 0) {
+      tableBody.innerHTML = "";
+      if (emptyEl) emptyEl.classList.remove("hidden");
+      if (countEl) countEl.textContent = "0 подписчиков";
+      return;
+    }
+    if (emptyEl) emptyEl.classList.add("hidden");
+    if (countEl) {
+      countEl.textContent = `${items.length} подписчик${
+        items.length === 1 ? "" : items.length < 5 ? "а" : "ов"
+      }`;
+    }
+    tableBody.innerHTML = items
+      .map((item) => {
+        const linked = item.isLinked
+          ? `<span class="status-pill status-online">Связан</span>`
+          : `<span class="status-pill status-offline">Ждёт /start</span>`;
+        const enabled = item.isEnabled
+          ? `<span class="status-pill status-online">Включены</span>`
+          : `<span class="status-pill status-offline">Отключены</span>`;
+        const toggleLabel = item.isEnabled ? "Отключить" : "Включить";
+        const note = item.note ? escapeHtml(item.note) : "—";
+        return `
+          <tr data-subscriber-id="${escapeHtml(item.id)}">
+            <td><strong>@${escapeHtml(item.username)}</strong></td>
+            <td>${linked}</td>
+            <td>${enabled}</td>
+            <td>${note}</td>
+            <td class="data-table-col-actions">
+              <button type="button" class="ghost-button table-inline-button"
+                data-tg-toggle="${escapeHtml(item.id)}"
+                data-tg-current="${item.isEnabled ? "1" : "0"}">${toggleLabel}</button>
+              <button type="button" class="ghost-button table-inline-button"
+                data-tg-delete="${escapeHtml(item.id)}">Удалить</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
+
+  async function loadAll() {
+    try {
+      const payload = await authorizedRequest("/api/admin/telegram-subscribers");
+      renderRows(payload.data?.items || []);
+    } catch (error) {
+      console.error(error);
+      showToast("error", describeError(error));
+    }
+  }
+
+  // Экспортируем для обработчика навигации.
+  window.loadTelegramSubscribers = loadAll;
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const username = (usernameInput?.value || "").trim();
+    if (!username) {
+      showToast("error", ERROR_MESSAGES.USERNAME_REQUIRED);
+      return;
+    }
+    const note = (noteInput?.value || "").trim();
+    try {
+      await authorizedRequest("/api/admin/telegram-subscribers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, note: note || null, isEnabled: true }),
+      });
+      if (usernameInput) usernameInput.value = "";
+      if (noteInput) noteInput.value = "";
+      showToast("success", `Добавили @${username}.`);
+      await loadAll();
+    } catch (error) {
+      console.error(error);
+      showToast("error", describeError(error));
+    }
+  });
+
+  tableBody.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const toggleId = target.getAttribute("data-tg-toggle");
+    if (toggleId) {
+      const current = target.getAttribute("data-tg-current") === "1";
+      try {
+        await authorizedRequest(
+          `/api/admin/telegram-subscribers/${encodeURIComponent(toggleId)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isEnabled: !current }),
+          },
+        );
+        showToast("success", current ? "Уведомления отключены." : "Уведомления включены.");
+        await loadAll();
+      } catch (error) {
+        console.error(error);
+        showToast("error", describeError(error));
+      }
+      return;
+    }
+
+    const deleteId = target.getAttribute("data-tg-delete");
+    if (deleteId) {
+      if (!window.confirm("Удалить подписчика? Уведомления перестанут приходить.")) {
+        return;
+      }
+      try {
+        await authorizedRequest(
+          `/api/admin/telegram-subscribers/${encodeURIComponent(deleteId)}`,
+          { method: "DELETE" },
+        );
+        showToast("success", "Подписчик удалён.");
+        await loadAll();
+      } catch (error) {
+        console.error(error);
+        showToast("error", describeError(error));
+      }
+    }
+  });
+
+  if (resyncButton) {
+    resyncButton.addEventListener("click", async () => {
+      resyncButton.disabled = true;
+      try {
+        const payload = await authorizedRequest(
+          "/api/admin/telegram-subscribers/resync",
+          { method: "POST" },
+        );
+        const report = payload.data?.report || {};
+        const linked = report.linked ?? 0;
+        const missing = Array.isArray(report.missing) ? report.missing : [];
+        if (linked > 0) {
+          showToast(
+            "success",
+            `Привязали chat_id для ${linked} подписчика(ов).`,
+          );
+        } else if (missing.length > 0) {
+          showToast(
+            "error",
+            `Нет /start от: ${missing.map((u) => "@" + u).join(", ")}.`,
+          );
+        } else {
+          showToast("success", "Все подписчики уже связаны.");
+        }
+        renderRows(payload.data?.items || []);
+      } catch (error) {
+        console.error(error);
+        showToast("error", describeError(error));
+      } finally {
+        resyncButton.disabled = false;
+      }
+    });
   }
 })();

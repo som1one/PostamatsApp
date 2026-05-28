@@ -2,22 +2,21 @@
 
 Использование (fire-and-forget):
 
-    asyncio.create_task(
-        notify_admins(
-            "<b>Новая заявка на верификацию</b>\\n+7 999 ***",
-            link_text="Открыть в админке",
-            link_url="https://.../admin/?section=verification&user=...",
-        )
+    fire_and_forget_notify(
+        "<b>Новая заявка на верификацию</b>\\n+7 999 ***",
+        buttons=[("Открыть в админке", "https://.../admin/?section=verification&user=...")],
     )
 
 Особенности:
 
-- Если ``TELEGRAM_ADMIN_BOT_TOKEN`` или ``TELEGRAM_ADMIN_CHAT_IDS`` не
-  заданы, функция тихо ничего не делает. Это удобно в dev и в тестах:
-  не валит транзакции и не требует мокать сеть.
-- Отправка идёт по списку chat_id параллельно. Ошибки логируются, но не
-  пробрасываются наружу — клиентский запрос не должен падать из-за
-  телеги.
+- Если ``TELEGRAM_ADMIN_BOT_TOKEN`` не задан, функция тихо ничего не
+  делает. Это удобно в dev и в тестах.
+- Адресаты определяются динамически: сначала пытаемся взять активных
+  подписчиков из БД, и только если БД пустая или недоступна — падаем
+  на ``settings.TELEGRAM_ADMIN_CHAT_IDS`` (старый CSV-режим).
+- Отправка идёт по списку chat_id параллельно. Ошибки логируются, но
+  не пробрасываются наружу — клиентский запрос не должен падать
+  из-за телеги.
 - Сообщение форматируется как HTML, поэтому пользовательский текст,
   который мы хотим показать (имя, телефон, документ), нужно прогонять
   через :func:`escape_html` (re-export ``html.escape``).
@@ -32,6 +31,7 @@ from typing import Iterable, Sequence
 
 import httpx
 
+from backend.core.database import SessionLocal
 from backend.core.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -89,27 +89,56 @@ async def _send_one(
         )
 
 
+async def _resolve_chat_ids() -> list[str]:
+    """Определяет получателей для текущей рассылки.
+
+    Сначала пытаемся взять активных (включённых и привязанных)
+    подписчиков из БД. Если в БД ни одного активного — fallback на
+    CSV из настроек, чтобы старый деплой без миграции продолжал
+    работать.
+    """
+
+    try:
+        # Импорт внутри функции, чтобы избежать кругового импорта на
+        # этапе загрузки модуля (telegram_admin_subscribers тоже шлёт
+        # запросы и в будущем может тянуть этот модуль).
+        from backend.utils.telegram_admin_subscribers import get_active_chat_ids
+
+        async with SessionLocal() as db:
+            ids = await get_active_chat_ids(db)
+        if ids:
+            return ids
+    except Exception:
+        logger.exception("Failed to read telegram subscribers from DB")
+
+    return [str(item) for item in settings.TELEGRAM_ADMIN_CHAT_IDS if item]
+
+
 async def notify_admins(
     text: str,
     *,
     buttons: Iterable[InlineButton] = (),
     chat_ids: Sequence[str] | None = None,
 ) -> None:
-    """Шлёт ``text`` всем настроенным chat_id.
+    """Шлёт ``text`` всем активным подписчикам.
 
     :param buttons: список ``(label, url)`` для inline-клавиатуры.
         Каждая кнопка занимает свой ряд.
-    :param chat_ids: переопределение получателей. Если ``None``, берутся
-        из настроек.
+    :param chat_ids: переопределение получателей. Если ``None``,
+        берутся из БД (или CSV-fallback из настроек).
     """
 
     if not settings.TELEGRAM_ADMIN_BOT_TOKEN:
         logger.debug("Telegram admin notifications skipped: no bot token")
         return
 
-    targets = list(chat_ids if chat_ids is not None else settings.TELEGRAM_ADMIN_CHAT_IDS)
+    if chat_ids is not None:
+        targets = list(chat_ids)
+    else:
+        targets = await _resolve_chat_ids()
+
     if not targets:
-        logger.debug("Telegram admin notifications skipped: no chat ids")
+        logger.debug("Telegram admin notifications skipped: no recipients")
         return
 
     reply_markup = _build_reply_markup(tuple(buttons))

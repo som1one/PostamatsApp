@@ -71,7 +71,7 @@ class TelegramNotifyTests(unittest.IsolatedAsyncioTestCase):
             raise AssertionError("HTTP client must not be instantiated when token is missing")
 
         with patch("backend.utils.telegram_bot.httpx.AsyncClient", factory):
-            await notify_admins("test")
+            await notify_admins("test", chat_ids=["123"])
 
         self.assertEqual(calls, [])
 
@@ -83,7 +83,7 @@ class TelegramNotifyTests(unittest.IsolatedAsyncioTestCase):
             raise AssertionError("HTTP client must not be instantiated without chats")
 
         with patch("backend.utils.telegram_bot.httpx.AsyncClient", factory):
-            await notify_admins("test")
+            await notify_admins("test", chat_ids=[])
 
     async def test_sends_one_message_per_chat_id_with_button(self) -> None:
         settings.TELEGRAM_ADMIN_BOT_TOKEN = "111:secret"
@@ -97,6 +97,7 @@ class TelegramNotifyTests(unittest.IsolatedAsyncioTestCase):
         with patch("backend.utils.telegram_bot.httpx.AsyncClient", factory):
             await notify_admins(
                 "<b>Заявка</b>",
+                chat_ids=["100", "200"],
                 buttons=[("Открыть", "https://example.com/admin/?section=verification")],
             )
 
@@ -136,7 +137,7 @@ class TelegramNotifyTests(unittest.IsolatedAsyncioTestCase):
 
         with patch("backend.utils.telegram_bot.httpx.AsyncClient", factory):
             # Должно не упасть.
-            await notify_admins("hello")
+            await notify_admins("hello", chat_ids=["100"])
 
         # Один вызов был, но ошибка проглочена.
         self.assertEqual(len(calls), 1)
@@ -151,7 +152,7 @@ class TelegramNotifyTests(unittest.IsolatedAsyncioTestCase):
             return _FakeAsyncClient(calls, _FakeResponse(403, "forbidden"))
 
         with patch("backend.utils.telegram_bot.httpx.AsyncClient", factory):
-            await notify_admins("hello")
+            await notify_admins("hello", chat_ids=["100"])
 
         self.assertEqual(len(calls), 1)
 

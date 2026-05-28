@@ -81,6 +81,7 @@
             <button class="nav-link" type="button" data-section="cities">Города</button>
             <button class="nav-link" type="button" data-section="catalog">Каталог</button>
             <button class="nav-link" type="button" data-section="ideas">Идеи</button>
+            <button class="nav-link" type="button" data-section="notifications">Уведомления</button>
             <button class="nav-link" type="button" data-section="audit">Аудит</button>
           </nav>
 
@@ -498,6 +499,73 @@
                 </table>
               </div>
               <div id="ideas-empty" class="empty-state hidden">Идей пока нет.</div>
+            </article>
+          </section>
+
+          <section class="section-panel hidden" data-section-panel="notifications">
+            <div class="section-top">
+              <div>
+                <p class="section-kicker">Уведомления</p>
+                <h2>Telegram-подписчики</h2>
+              </div>
+              <div class="section-top-actions">
+                <p id="telegram-subscribers-count" class="section-meta">0 подписчиков</p>
+                <button type="button" class="ghost-button" id="telegram-subscribers-resync">
+                  Обновить связи
+                </button>
+              </div>
+            </div>
+
+            <article class="surface form-surface">
+              <p class="muted-inline" style="margin-top: 0">
+                Добавьте Telegram-юзернейм без @. Подписчик начнёт получать уведомления,
+                как только нажмёт <strong>/start</strong> у бота и вы нажмёте «Обновить связи».
+              </p>
+              <form id="telegram-subscribers-form" class="form-row">
+                <label class="field">
+                  <span>Юзернейм Telegram</span>
+                  <input
+                    id="telegram-subscribers-username"
+                    name="username"
+                    type="text"
+                    placeholder="som1ones"
+                    autocomplete="off"
+                    required
+                    maxlength="64"
+                  />
+                </label>
+                <label class="field">
+                  <span>Заметка (необязательно)</span>
+                  <input
+                    id="telegram-subscribers-note"
+                    name="note"
+                    type="text"
+                    placeholder="например, основной"
+                    maxlength="200"
+                  />
+                </label>
+                <button type="submit" class="primary-button">Добавить</button>
+              </form>
+            </article>
+
+            <article class="surface table-surface">
+              <div class="table-scroll">
+                <table class="data-table data-table-compact">
+                  <thead>
+                    <tr>
+                      <th>Юзернейм</th>
+                      <th>Связь</th>
+                      <th>Уведомления</th>
+                      <th>Заметка</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="telegram-subscribers-table-body"></tbody>
+                </table>
+              </div>
+              <div id="telegram-subscribers-empty" class="empty-state hidden">
+                Подписчиков пока нет. Добавьте юзернейм выше.
+              </div>
             </article>
           </section>
 
