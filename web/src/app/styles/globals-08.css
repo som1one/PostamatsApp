@@ -319,7 +319,7 @@
   margin-top: 16px;
 }.product-hero {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(320px, 0.8fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.7fr);
   gap: 22px;
   align-items: stretch;
 }.product-gallery {
