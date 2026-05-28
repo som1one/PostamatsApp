@@ -26,6 +26,7 @@ from backend.routers.admin.product_filters import router as admin_product_filter
 from backend.routers.admin.products import router as admin_products_router
 from backend.routers.admin.rentals import router as admin_rentals_router
 from backend.routers.admin.rental_ideas import router as admin_rental_ideas_router
+from backend.routers.admin.telegram_subscribers import router as admin_telegram_subscribers_router
 from backend.routers.admin.uploads import router as admin_uploads_router
 from backend.routers.admin.users import router as admin_users_router
 from backend.routers.admin.verification_queue import router as admin_verification_queue_router
@@ -103,6 +104,7 @@ app.include_router(admin_lockers_router)
 app.include_router(admin_inventory_router)
 app.include_router(admin_rentals_router)
 app.include_router(admin_rental_ideas_router)
+app.include_router(admin_telegram_subscribers_router)
 app.include_router(admin_audit_router)
 app.include_router(admin_product_categories_router)
 app.include_router(admin_product_filters_router)
@@ -125,6 +127,21 @@ async def startup_event():
     global esi_reconcile_worker, esi_reconcile_stop_event
     await init_db()
     await init_redis()
+    # Сидируем дефолтных Telegram-подписчиков (пока что один som1ones).
+    try:
+        from backend.core.database import SessionLocal
+        from backend.utils.telegram_admin_subscribers import (
+            ensure_default_subscribers,
+        )
+
+        async with SessionLocal() as db:
+            await ensure_default_subscribers(db)
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "failed to seed default telegram subscribers"
+        )
     loop = asyncio.get_running_loop()
     featured_product_worker, featured_product_stop_event = start_featured_product_scheduler(loop)
     reservation_expiry_worker, reservation_expiry_stop_event = start_reservation_expiry_scheduler(loop)

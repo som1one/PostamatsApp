@@ -106,6 +106,7 @@ async def init_db():
         "backend.models.rental_idea",
         "backend.models.return_request",
         "backend.models.reservation",
+        "backend.models.telegram_admin_subscriber",
         "backend.models.user",
         "backend.models.verification_request",
     ):

@@ -56,8 +56,64 @@ from backend.utils.products_utils import load_media_files_by_ids, public_media_u
 from backend.utils.rental_return_flow import ReturnRequestError, start_rental_return
 from backend.utils.rental_serialization import serialize_rental_detail, serialize_rental_list_item
 from backend.utils.reservation_utils import calculate_planned_end_at, ensure_utc
+from backend.utils.telegram_bot import escape_html, fire_and_forget_notify
+from backend.core.settings import settings
 
 router = APIRouter(prefix="/me", tags=["me"])
+
+
+def _build_verification_admin_link(user_id: UUID) -> str | None:
+    base = settings.ADMIN_PANEL_URL
+    if not base:
+        return None
+    return f"{base.rstrip('/')}/?section=verification&user={user_id}"
+
+
+def _build_verification_notification(
+    user: User,
+    verification_request: VerificationRequest,
+) -> tuple[str, list[tuple[str, str]]]:
+    """Формирует HTML-текст уведомления и список inline-кнопок.
+
+    Безопасно ко всем пользовательским полям: они проходят через
+    ``escape_html``. Если админский deep-link недоступен, кнопок не
+    будет — текст всё равно отправится.
+    """
+
+    full_name = " ".join(
+        part for part in (user.last_name, user.first_name) if part
+    ).strip()
+    display_name = full_name or "Без имени"
+    phone = user.phone or "—"
+    document_type = (
+        verification_request.document_type.value
+        if verification_request.document_type
+        else "—"
+    )
+    document_label = (
+        verification_request.document_name
+        or document_type
+    )
+
+    lines = [
+        "🆕 <b>Новая заявка на верификацию</b>",
+        f"👤 {escape_html(display_name)}",
+        f"📞 {escape_html(phone)}",
+        f"📄 {escape_html(document_label)}",
+    ]
+    if verification_request.document_number:
+        lines.append(
+            f"№ {escape_html(verification_request.document_number)}"
+        )
+
+    text = "\n".join(lines)
+
+    buttons: list[tuple[str, str]] = []
+    admin_link = _build_verification_admin_link(user.id)
+    if admin_link:
+        buttons.append(("Открыть в админке", admin_link))
+
+    return text, buttons
 
 _RETURN_REQUEST_ERRORS: dict[str, tuple[int, str]] = {
     "INVALID_RENTAL_STATUS": (409, "INVALID_RENTAL_STATUS"),
@@ -216,6 +272,11 @@ async def create_verification_request(
     except Exception as exc:
         await db.rollback()
         raise HTTPException(status_code=500, detail="Failed to save verification request") from exc
+
+    notification_text, notification_buttons = _build_verification_notification(
+        user, verification_request
+    )
+    fire_and_forget_notify(notification_text, buttons=notification_buttons)
 
     return {
         "data": {
