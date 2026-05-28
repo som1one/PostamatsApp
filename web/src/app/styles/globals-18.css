@@ -21,10 +21,6 @@
     border-radius: 14px;
   }
 
-  .hero-service-highlights {
-    gap: 6px 8px;
-  }
-
   .hero-service-actions {
     grid-template-columns: minmax(0, 1fr);
   }

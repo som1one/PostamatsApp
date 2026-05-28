@@ -173,16 +173,6 @@
     margin-top: 8px;
   }
 
-  .hero-service-highlights {
-    flex-wrap: wrap;
-    gap: 6px 10px;
-  }
-
-  .hero-service-highlights span {
-    font-size: 10px;
-    white-space: nowrap;
-  }
-
   .hero-cta-button {
     min-height: 40px;
     font-size: 12px;

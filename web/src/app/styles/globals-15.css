@@ -284,34 +284,6 @@
     margin-top: 10px;
   }
 
-  .hero-service-highlights {
-    display: flex;
-    align-items: center;
-    flex-wrap: nowrap;
-    gap: 8px;
-    overflow-x: auto;
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-
-  .hero-service-highlights::-webkit-scrollbar {
-    display: none;
-  }
-
-  .hero-service-highlights span {
-    flex: 0 0 auto;
-    min-height: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 800;
-    white-space: nowrap;
-  }
-
   .hero-service-actions {
     display: grid;
     grid-column: 1 / -1;
