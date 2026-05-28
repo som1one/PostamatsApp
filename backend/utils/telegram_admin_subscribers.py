@@ -271,3 +271,171 @@ async def resync_chat_ids(db: AsyncSession) -> dict:
         "missing": missing,
         "updatesSeen": len(chats),
     }
+
+
+# ---------------------------------------------------------------------------
+# Inbound webhook from Telegram (handles /start)
+# ---------------------------------------------------------------------------
+
+
+WELCOME_MESSAGE = (
+    "👋 Готово, ты в подписке на админ-уведомления Naprokatberu.\n"
+    "Сюда будут приходить новые заявки на верификацию и другие события.\n\n"
+    "Управление подписчиками — в разделе «Уведомления» в админке."
+)
+
+NOT_ALLOWED_MESSAGE = (
+    "Привет. Этот бот рассылает админ-уведомления Naprokatberu.\n"
+    "Доступ выдаёт администратор по @username — попроси добавить тебя."
+)
+
+
+async def _send_message(chat_id: int, text: str) -> None:
+    token = settings.TELEGRAM_ADMIN_BOT_TOKEN
+    if not token:
+        return
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    timeout = max(1.0, settings.TELEGRAM_API_TIMEOUT_SECONDS)
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "disable_web_page_preview": True,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(url, json=payload)
+        if response.status_code >= 400:
+            logger.warning(
+                "Telegram sendMessage non-2xx for chat %s: %s %s",
+                chat_id,
+                response.status_code,
+                response.text[:200],
+            )
+    except httpx.RequestError:
+        logger.exception("Telegram sendMessage failed for chat %s", chat_id)
+
+
+async def handle_telegram_update(db: AsyncSession, update: dict) -> dict:
+    """Обрабатывает входящий апдейт от Telegram.
+
+    Сейчас интересует только ``/start`` в личке: если username уже
+    добавлен админом — связываем chat_id, отвечаем приветствием. Если
+    нет — отвечаем «попроси добавить тебя», запись в БД не создаём,
+    чтобы рандомные люди не плодили подписчиков.
+    """
+
+    message = update.get("message") or update.get("edited_message") or {}
+    text = (message.get("text") or "").strip()
+    chat = message.get("chat") or {}
+    chat_id = chat.get("id")
+    username = (chat.get("username") or "").lower()
+
+    if chat_id is None:
+        return {"handled": False, "reason": "no_chat"}
+
+    is_start = text == "/start" or text.startswith("/start ")
+    if not is_start:
+        return {"handled": False, "reason": "not_start"}
+
+    if not username:
+        # Без username админ не сможет добавить, отвечаем понятным текстом.
+        await _send_message(
+            int(chat_id),
+            "Чтобы получать уведомления, поставь себе @username в Telegram "
+            "и попроси администратора добавить его в список подписчиков.",
+        )
+        return {"handled": True, "reason": "no_username"}
+
+    subscriber = (
+        await db.execute(
+            select(TelegramAdminSubscriber).where(
+                TelegramAdminSubscriber.username == username
+            )
+        )
+    ).scalar_one_or_none()
+
+    if subscriber is None:
+        await _send_message(int(chat_id), NOT_ALLOWED_MESSAGE)
+        return {"handled": True, "reason": "not_in_allowlist"}
+
+    changed = False
+    if subscriber.chat_id != int(chat_id):
+        subscriber.chat_id = int(chat_id)
+        changed = True
+    if changed:
+        await db.commit()
+
+    await _send_message(int(chat_id), WELCOME_MESSAGE)
+    return {"handled": True, "reason": "linked"}
+
+
+# ---------------------------------------------------------------------------
+# Webhook lifecycle helpers
+# ---------------------------------------------------------------------------
+
+
+async def _telegram_post(method: str, payload: dict) -> dict:
+    token = settings.TELEGRAM_ADMIN_BOT_TOKEN
+    if not token:
+        raise SubscriberError("TELEGRAM_BOT_TOKEN_NOT_CONFIGURED", 503)
+    url = f"https://api.telegram.org/bot{token}/{method}"
+    timeout = max(1.0, settings.TELEGRAM_API_TIMEOUT_SECONDS)
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(url, json=payload)
+    except httpx.RequestError as exc:
+        logger.warning("Telegram %s network error: %s", method, exc)
+        raise SubscriberError("TELEGRAM_API_NETWORK_ERROR", 502) from exc
+
+    if response.status_code >= 400:
+        logger.warning(
+            "Telegram %s non-2xx: %s %s",
+            method,
+            response.status_code,
+            response.text[:200],
+        )
+        raise SubscriberError("TELEGRAM_API_ERROR", 502)
+
+    data = response.json()
+    if not isinstance(data, dict) or not data.get("ok"):
+        raise SubscriberError("TELEGRAM_API_ERROR", 502)
+    return data
+
+
+def _webhook_url(public_origin: str | None) -> str:
+    secret = settings.TELEGRAM_WEBHOOK_SECRET
+    if not secret:
+        raise SubscriberError("TELEGRAM_WEBHOOK_SECRET_NOT_CONFIGURED", 503)
+    base = (public_origin or "").rstrip("/")
+    if not base:
+        # Фолбэк: используем тот же домен, что у админки, без /admin.
+        admin = (settings.ADMIN_PANEL_URL or "").rstrip("/")
+        if admin.endswith("/admin"):
+            base = admin[: -len("/admin")]
+        else:
+            base = admin
+    if not base:
+        raise SubscriberError("TELEGRAM_WEBHOOK_BASE_URL_REQUIRED", 503)
+    return f"{base}/telegram/webhook/{secret}"
+
+
+async def set_telegram_webhook(public_origin: str | None = None) -> dict:
+    url = _webhook_url(public_origin)
+    payload = {
+        "url": url,
+        "allowed_updates": ["message"],
+        "drop_pending_updates": False,
+        "secret_token": settings.TELEGRAM_WEBHOOK_SECRET,
+    }
+    data = await _telegram_post("setWebhook", payload)
+    return {"url": url, "result": data.get("result")}
+
+
+async def delete_telegram_webhook() -> dict:
+    data = await _telegram_post("deleteWebhook", {"drop_pending_updates": False})
+    return {"result": data.get("result")}
+
+
+async def get_telegram_webhook_info() -> dict:
+    data = await _telegram_post("getWebhookInfo", {})
+    return {"info": data.get("result")}

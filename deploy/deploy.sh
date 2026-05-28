@@ -6,6 +6,33 @@ set -euo pipefail
 # обновлениях. Все параметры (APP_DOMAIN, креды Postgres, Yandex Maps API key)
 # берутся из deploy/.env, секреты бэкенда — из backend/.env.production.
 
+# Ингрешн опциональных секретов из окружения деплоя в backend/.env.production.
+# Это нужно, чтобы не возить секреты руками по SSH — autodeploy подкладывает
+# их из GitHub Secrets в env workflow, а здесь мы аккуратно их апсёртим.
+# Не трогаем строки, если переменная окружения пустая.
+inject_env_var() {
+  local key="$1"
+  local value="${2-}"
+  local file="backend/.env.production"
+  if [ -z "${value}" ]; then
+    return 0
+  fi
+  if [ ! -f "${file}" ]; then
+    echo "[deploy] WARNING: ${file} is missing, cannot inject ${key}" >&2
+    return 0
+  fi
+  # Удаляем существующую строку с этим ключом (если была) и добавляем заново.
+  # sed -i работает на linux runner-е и на VPS (gnu sed).
+  sed -i "/^${key}=/d" "${file}"
+  printf '%s=%s\n' "${key}" "${value}" >> "${file}"
+  echo "[deploy] injected ${key} into ${file}"
+}
+
+inject_env_var "TELEGRAM_ADMIN_BOT_TOKEN" "${TELEGRAM_ADMIN_BOT_TOKEN-}"
+inject_env_var "TELEGRAM_API_TIMEOUT_SECONDS" "${TELEGRAM_API_TIMEOUT_SECONDS-}"
+inject_env_var "TELEGRAM_WEBHOOK_SECRET" "${TELEGRAM_WEBHOOK_SECRET-}"
+inject_env_var "ADMIN_PANEL_URL" "${ADMIN_PANEL_URL-}"
+
 COMPOSE_ARGS=(--env-file deploy/.env -f deploy/docker-compose.beget.yml)
 
 docker compose "${COMPOSE_ARGS[@]}" build
