@@ -121,17 +121,15 @@ class DeleteTarget:
 
 
 TARGETS: tuple[TargetState, ...] = (
-    # СПб Невский — оставляем как фейковый seed-постамат в статусе OFFLINE.
-    # У LockerLocation нет поля is_active; фильтр на фронте/бэке
-    # скрывает все не-ONLINE точки из выдачи доступных постаматов,
-    # поэтому в Питере при выборе товара покажется EmptyState
-    # «Нет постаматов с этим товаром».
+    # СПб Невский — фейковая витрина: статус MAINTENANCE, чтобы товары
+    # отображались в каталоге Питера, но кнопка «Оформить аренду» была
+    # заблокирована (бэкенд при reservation вернёт LOCKER_NOT_BOOKABLE).
     TargetState(
         match_provider="seed",
         match_external_id="seed-spb-nevsky",
         new_provider="seed",
         new_external_id="seed-spb-nevsky",
-        new_status=LockerStatus.OFFLINE,
+        new_status=LockerStatus.MAINTENANCE,
         new_partner_name="Dev Seed",
     ),
     # В.Новгород Центр — настоящий ESI PST_0980. Серийник у провайдера
