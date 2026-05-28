@@ -25,7 +25,7 @@ import {
   fetchPublicStats,
 } from "@/shared/api/endpoints";
 import type { City, Locker, ProductListItem } from "@/shared/api/types";
-import { formatCountRu, pluralizeRu } from "@/shared/format";
+import { pluralizeRu } from "@/shared/format";
 
 function categoryLabel(product: ProductListItem, index: number) {
   const byName = product.categoryName?.trim();
@@ -195,24 +195,6 @@ export function HomeClient() {
 
   const totalLockerCount = allLockers.length || lockers.length;
   const totalProductCount = products.length;
-  const heroHighlights = [
-    {
-      icon: MapPinned,
-      label: cities.length
-        ? formatCountRu(cities.length, ["город", "города", "городов"])
-        : "города загружаются",
-    },
-    {
-      icon: PackageSearch,
-      label: totalLockerCount
-        ? formatCountRu(totalLockerCount, ["постамат", "постамата", "постаматов"])
-        : "ищем постаматы",
-    },
-    {
-      icon: ShieldCheck,
-      label: "Код после оплаты",
-    },
-  ];
 
   const stats = [
     {
@@ -264,23 +246,9 @@ export function HomeClient() {
               </div>
               <div className="hero-service-summary">
                 <p className="hero-service-description">
-                  Выберите технику в каталоге, найдите ближайший постамат и получите код
-                  для аренды за пару минут.
+                  Выберите технику в каталоге и оформите аренду за пару минут — без
+                  залога и долгих анкет.
                 </p>
-                <div
-                  className="hero-service-highlights"
-                  aria-label="Ключевые преимущества сервиса"
-                >
-                  {heroHighlights.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <span key={item.label}>
-                        <Icon size={14} />
-                        {item.label}
-                      </span>
-                    );
-                  })}
-                </div>
               </div>
               <div className="hero-service-actions">
                 <Link

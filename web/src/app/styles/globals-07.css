@@ -118,26 +118,6 @@
   font-size: 16px;
 }.hero-cta-button svg {
   flex: 0 0 auto;
-}.hero-service-highlights {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}.hero-service-highlights span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid rgba(234, 223, 206, 0.92);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--text-soft);
-  font-size: 12px;
-  font-weight: 850;
-  box-shadow: var(--shadow-sm);
-}.hero-service-highlights svg {
-  flex: 0 0 auto;
-  color: var(--primary);
 }.hero-service-cta {
   display: grid;
   gap: 10px;
