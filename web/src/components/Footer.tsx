@@ -13,7 +13,7 @@ export function Footer() {
             </span>
             <span>naprokatberu</span>
           </Link>
-          <p className="footer-copy">Аренда техники и вещей рядом с вами.</p>
+          <p className="footer-copy">Сервис аренды вещей</p>
         </div>
         <nav className="footer-section" aria-label="Разделы">
           <strong>Сервис</strong>
