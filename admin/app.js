@@ -4809,4 +4809,25 @@ if (inventoryServiceSubmit) {
       }
     });
   }
+
+  const webhookButton = document.getElementById("telegram-subscribers-webhook");
+  if (webhookButton) {
+    webhookButton.addEventListener("click", async () => {
+      webhookButton.disabled = true;
+      try {
+        await authorizedRequest("/api/admin/telegram-subscribers/webhook", {
+          method: "POST",
+        });
+        showToast(
+          "success",
+          "Webhook включён. Теперь /start будет связывать пользователей автоматически.",
+        );
+      } catch (error) {
+        console.error(error);
+        showToast("error", describeError(error));
+      } finally {
+        webhookButton.disabled = false;
+      }
+    });
+  }
 })();

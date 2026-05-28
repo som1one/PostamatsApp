@@ -228,3 +228,113 @@ class TelegramSubscribersDbTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# Webhook /start handler
+# ---------------------------------------------------------------------------
+
+
+class TelegramStartHandlerTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self.engine = create_async_engine(TEST_DB_URL, echo=False)
+        async with self.engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        self.SessionLocal = async_sessionmaker(
+            bind=self.engine,
+            class_=AsyncSession,
+            autoflush=False,
+            expire_on_commit=False,
+        )
+        self._old_token = settings.TELEGRAM_ADMIN_BOT_TOKEN
+        settings.TELEGRAM_ADMIN_BOT_TOKEN = "111:secret"
+
+    async def asyncTearDown(self) -> None:
+        settings.TELEGRAM_ADMIN_BOT_TOKEN = self._old_token
+        await self.engine.dispose()
+
+    async def _run(self, db, update):
+        from backend.utils.telegram_admin_subscribers import (
+            handle_telegram_update,
+        )
+
+        sent: list[tuple[int, str]] = []
+
+        async def fake_send(chat_id: int, text: str) -> None:
+            sent.append((chat_id, text))
+
+        with patch(
+            "backend.utils.telegram_admin_subscribers._send_message",
+            side_effect=fake_send,
+        ):
+            result = await handle_telegram_update(db, update)
+        return result, sent
+
+    async def test_start_links_existing_subscriber_and_replies(self) -> None:
+        async with self.SessionLocal() as db:
+            sub = await create_subscriber(db, username="som1ones")
+            self.assertIsNone(sub.chat_id)
+
+        update = {
+            "message": {
+                "text": "/start",
+                "chat": {"id": 123456, "username": "Som1Ones", "type": "private"},
+            }
+        }
+        async with self.SessionLocal() as db:
+            result, sent = await self._run(db, update)
+
+        self.assertEqual(result["handled"], True)
+        self.assertEqual(result["reason"], "linked")
+        self.assertEqual(sent, [(123456, _import_welcome_message())])
+
+        async with self.SessionLocal() as db:
+            rows = await list_subscribers(db)
+        self.assertEqual(rows[0].chat_id, 123456)
+
+    async def test_start_for_unknown_username_does_not_create(self) -> None:
+        update = {
+            "message": {
+                "text": "/start",
+                "chat": {"id": 999, "username": "stranger", "type": "private"},
+            }
+        }
+        async with self.SessionLocal() as db:
+            result, sent = await self._run(db, update)
+
+        self.assertEqual(result["reason"], "not_in_allowlist")
+        self.assertEqual(len(sent), 1)
+
+        async with self.SessionLocal() as db:
+            rows = await list_subscribers(db)
+        self.assertEqual(rows, [])
+
+    async def test_non_start_message_is_ignored(self) -> None:
+        update = {
+            "message": {
+                "text": "привет",
+                "chat": {"id": 111, "username": "som1ones", "type": "private"},
+            }
+        }
+        async with self.SessionLocal() as db:
+            result, sent = await self._run(db, update)
+        self.assertEqual(result["handled"], False)
+        self.assertEqual(sent, [])
+
+    async def test_start_without_username_replies_with_hint(self) -> None:
+        update = {
+            "message": {
+                "text": "/start",
+                "chat": {"id": 222, "type": "private"},
+            }
+        }
+        async with self.SessionLocal() as db:
+            result, sent = await self._run(db, update)
+        self.assertEqual(result["reason"], "no_username")
+        self.assertEqual(len(sent), 1)
+
+
+def _import_welcome_message() -> str:
+    from backend.utils.telegram_admin_subscribers import WELCOME_MESSAGE
+
+    return WELCOME_MESSAGE

@@ -18,9 +18,12 @@ from backend.utils.telegram_admin_subscribers import (
     SubscriberError,
     create_subscriber,
     delete_subscriber,
+    delete_telegram_webhook,
+    get_telegram_webhook_info,
     list_subscribers,
     resync_chat_ids,
     serialize_subscriber,
+    set_telegram_webhook,
     update_subscriber,
 )
 
@@ -131,3 +134,44 @@ async def resync_telegram_subscribers(
             "items": [serialize_subscriber(row) for row in items],
         }
     }
+
+
+@router.post("/webhook")
+async def setup_telegram_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Регистрирует webhook-URL у Telegram. URL берётся из ADMIN_PANEL_URL."""
+
+    await get_current_admin(request, db)
+    try:
+        result = await set_telegram_webhook(public_origin=None)
+    except SubscriberError as exc:
+        raise _to_http(exc) from exc
+    return {"data": result}
+
+
+@router.get("/webhook")
+async def get_webhook_info(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    await get_current_admin(request, db)
+    try:
+        result = await get_telegram_webhook_info()
+    except SubscriberError as exc:
+        raise _to_http(exc) from exc
+    return {"data": result}
+
+
+@router.delete("/webhook")
+async def remove_telegram_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    await get_current_admin(request, db)
+    try:
+        result = await delete_telegram_webhook()
+    except SubscriberError as exc:
+        raise _to_http(exc) from exc
+    return {"data": result}

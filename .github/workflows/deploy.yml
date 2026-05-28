@@ -84,6 +84,15 @@ jobs:
           chmod 600 ~/.ssh/known_hosts
 
       - name: Deploy on VPS
+        env:
+          # Опциональные секреты бэкенда. Если в репозитории они заданы как
+          # GitHub Secrets — попадут в backend/.env.production через
+          # inject_env_var в deploy.sh. Если не заданы — переменные пустые,
+          # deploy.sh ничего не трогает.
+          TELEGRAM_ADMIN_BOT_TOKEN: ${{ secrets.TELEGRAM_ADMIN_BOT_TOKEN }}
+          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+          TELEGRAM_API_TIMEOUT_SECONDS: ${{ vars.TELEGRAM_API_TIMEOUT_SECONDS }}
+          ADMIN_PANEL_URL: ${{ vars.ADMIN_PANEL_URL }}
         run: |
           set -euo pipefail
 
@@ -94,6 +103,10 @@ jobs:
           # переменная DEPLOY_PATH явно пробрасывается в окружение
           # удалённой сессии, чтобы внутри heredoc не было подстановки
           # на стороне runner-а.
+          # Опциональные секреты (TELEGRAM_*, ADMIN_PANEL_URL) тоже
+          # пробрасываются, чтобы deploy.sh мог апсёртнуть их в
+          # backend/.env.production. Если секрет не задан — пробрасываем
+          # пустую строку, deploy.sh такие пропускает.
           ssh \
             -i ~/.ssh/deploy_key \
             -o ConnectTimeout=30 \
@@ -103,7 +116,12 @@ jobs:
             -o StrictHostKeyChecking=yes \
             -p "${DEPLOY_PORT}" \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'REMOTE_EOF' || ssh_status=$?
+            "DEPLOY_PATH='${DEPLOY_PATH}' \
+             TELEGRAM_ADMIN_BOT_TOKEN='${TELEGRAM_ADMIN_BOT_TOKEN}' \
+             TELEGRAM_WEBHOOK_SECRET='${TELEGRAM_WEBHOOK_SECRET}' \
+             TELEGRAM_API_TIMEOUT_SECONDS='${TELEGRAM_API_TIMEOUT_SECONDS}' \
+             ADMIN_PANEL_URL='${ADMIN_PANEL_URL}' \
+             bash -s" <<'REMOTE_EOF' || ssh_status=$?
           set -euo pipefail
 
           if [ ! -d "${DEPLOY_PATH}" ]; then

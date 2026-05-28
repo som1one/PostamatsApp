@@ -150,6 +150,15 @@ class Settings:
         self.TELEGRAM_API_TIMEOUT_SECONDS = float(
             ENV_VALUES.get("TELEGRAM_API_TIMEOUT_SECONDS", "10")
         )
+        # Секрет, которым валидируем входящие webhook-апдейты от Telegram.
+        # Telegram включает его в URL вебхука и в заголовок
+        # X-Telegram-Bot-Api-Secret-Token, мы проверяем оба, чтобы
+        # никто кроме телеги не мог дёргать /telegram/webhook.
+        # Если не задан — webhook отключён, бот работает только на
+        # исходящие уведомления.
+        self.TELEGRAM_WEBHOOK_SECRET = (
+            (ENV_VALUES.get("TELEGRAM_WEBHOOK_SECRET") or "").strip() or None
+        )
         # Базовый URL админки для deep-link'ов из уведомлений. Если не
         # задан — берём из WEB_APP_ORIGIN + "/admin", чтобы dev и прод
         # работали без отдельного значения.

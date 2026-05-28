@@ -40,6 +40,7 @@ from backend.routers.reservation import router as reservation_router
 from backend.routers.payments import router as payments_router, yookassa_webhook_router
 from backend.routers.public_stats import router as public_stats_router
 from backend.routers.rental_ideas import router as rental_ideas_router
+from backend.routers.telegram_webhook import router as telegram_webhook_router
 from backend.routers.webhooks_esi import router as webhooks_esi_router
 from backend.utils.featured_product import (
     start_featured_product_scheduler,
@@ -94,6 +95,7 @@ app.include_router(payments_router)
 app.include_router(yookassa_webhook_router)
 app.include_router(public_stats_router)
 app.include_router(rental_ideas_router)
+app.include_router(telegram_webhook_router)
 app.include_router(webhooks_esi_router)
 app.include_router(admin_auth_router)
 app.include_router(admin_dashboard_router)
