@@ -166,6 +166,8 @@ function CheckoutContent() {
           setError(
             "Постамат сейчас офлайн. Попробуйте чуть позже — в ночные часы устройство может уходить в режим обслуживания.",
           );
+        } else if (err.code === "LOCKER_NOT_BOOKABLE") {
+          setError("Аренда недоступна в этом постамате. Выберите другую точку выдачи.");
         } else if (err.code === "LOCKER_NOT_CONFIGURED") {
           setError("Постамат пока не привязан к серверу. Обратитесь в поддержку.");
         } else if (err.code === "ESI_RESERVE_FAILED" || err.code === "ESI_HTTP_ERROR") {

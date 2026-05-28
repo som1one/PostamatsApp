@@ -461,6 +461,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                 product={product}
                 lockerName={selectedLocker?.name}
                 lockerAddress={selectedLocker?.address}
+                lockerStatus={selectedLocker?.status}
                 plan={selectedPlan}
                 pricing={pricing}
                 startDateTime={startDateTime}

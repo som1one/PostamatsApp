@@ -7,6 +7,7 @@ export function OrderSummary({
   product,
   lockerName,
   lockerAddress,
+  lockerStatus,
   plan,
   pricing,
   startDateTime,
@@ -19,6 +20,9 @@ export function OrderSummary({
   product: ProductDetail;
   lockerName?: string;
   lockerAddress?: string;
+  /** Статус выбранного постамата. Если не "online" — рендерим
+   * предупреждение и блокируем кнопку «Оформить аренду». */
+  lockerStatus?: string | null;
   plan?: PricePlan | null;
   pricing?: PricingQuote | null;
   startDateTime?: string;
@@ -29,6 +33,10 @@ export function OrderSummary({
   showProduct?: boolean;
 }) {
   const isCompact = variant === "compact";
+  const lockerNotBookable = Boolean(
+    lockerName && lockerStatus && lockerStatus !== "online",
+  );
+  const effectiveCanCheckout = canCheckout && !lockerNotBookable;
 
   return (
     <aside className={`surface order-summary ${isCompact ? "order-summary-compact" : "sticky-panel"}`}>
@@ -81,12 +89,18 @@ export function OrderSummary({
         <div className="alert alert-warn">Выберите постамат с доступным товаром.</div>
       )}
 
-      {canCheckout && isAuthed ? (
+      {lockerNotBookable ? (
+        <div className="alert alert-warn">
+          Аренда недоступна в этом постамате. Выберите другую точку выдачи.
+        </div>
+      ) : null}
+
+      {effectiveCanCheckout && isAuthed ? (
         <Link className="button button-primary summary-action" href={checkoutHref}>
           <PackageCheck size={18} />
           Оформить аренду
         </Link>
-      ) : canCheckout ? (
+      ) : effectiveCanCheckout ? (
         isCompact ? (
           <div className="summary-auth-actions">
             <Link className="button button-primary summary-action" href="/login">

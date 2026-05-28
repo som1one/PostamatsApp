@@ -75,8 +75,13 @@ async def _get_locker(locker_id: UUID, db: AsyncSession) -> LockerLocation:
     locker = await db.get(LockerLocation, locker_id)
     if not locker:
         raise HTTPException(status_code=404, detail="LOCKER_NOT_FOUND")
-    if locker.status != LockerStatus.ONLINE:
+    if locker.status == LockerStatus.OFFLINE:
         raise HTTPException(status_code=409, detail="LOCKER_OFFLINE")
+    if locker.status != LockerStatus.ONLINE:
+        # MAINTENANCE / DEGRADED — постамат отображается на витрине, но
+        # бронирование сейчас невозможно. Фронт показывает «Аренда
+        # недоступна в этом постамате» вместо общей ошибки.
+        raise HTTPException(status_code=409, detail="LOCKER_NOT_BOOKABLE")
     return locker
 
 
@@ -428,8 +433,10 @@ async def confirm_reservation(
     locker = await db.get(LockerLocation, reservation.locker_id)
     if locker is None:
         raise HTTPException(status_code=404, detail="LOCKER_NOT_FOUND")
-    if locker.status != LockerStatus.ONLINE:
+    if locker.status == LockerStatus.OFFLINE:
         raise HTTPException(status_code=409, detail="LOCKER_OFFLINE")
+    if locker.status != LockerStatus.ONLINE:
+        raise HTTPException(status_code=409, detail="LOCKER_NOT_BOOKABLE")
 
     now = datetime.now(timezone.utc)
     if ensure_utc(reservation.expires_at) <= now:

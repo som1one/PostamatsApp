@@ -32,7 +32,11 @@ async def aggregate_available_in_city(
         .join(LockerLocation, LockerCell.locker_id == LockerLocation.id)
         .where(
             LockerLocation.city_id == city_id,
-            LockerLocation.status == LockerStatus.ONLINE,
+            # Витрина показывает товары и для постаматов на обслуживании
+            # (`MAINTENANCE`/`DEGRADED`) — пользователь видит карточки,
+            # но при попытке оформить аренду reservation вернёт
+            # ``LOCKER_NOT_BOOKABLE``. Полностью скрываем только OFFLINE.
+            LockerLocation.status != LockerStatus.OFFLINE,
             InventoryUnit.status == InventoryStatus.AVAILABLE,
             LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
         )
@@ -60,7 +64,10 @@ async def aggregate_available_globally(
         .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
         .join(LockerLocation, LockerCell.locker_id == LockerLocation.id)
         .where(
-            LockerLocation.status == LockerStatus.ONLINE,
+            # См. комментарий в aggregate_available_in_city — допускаем
+            # MAINTENANCE/DEGRADED, чтобы товары не пропадали с витрины,
+            # пока постамат на обслуживании.
+            LockerLocation.status != LockerStatus.OFFLINE,
             InventoryUnit.status == InventoryStatus.AVAILABLE,
             LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
         )
@@ -157,7 +164,9 @@ async def load_available_lockers_for_product(
             InventoryUnit.product_id == product_id,
             InventoryUnit.status == InventoryStatus.AVAILABLE,
             LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
-            LockerLocation.status == LockerStatus.ONLINE,
+            # Скрываем только OFFLINE; MAINTENANCE/DEGRADED показываем
+            # с пометкой статуса — фронт делает кнопку «оформить» серой.
+            LockerLocation.status != LockerStatus.OFFLINE,
         )
         .group_by(
             LockerLocation.id,

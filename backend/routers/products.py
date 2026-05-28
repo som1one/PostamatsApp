@@ -337,8 +337,10 @@ async def get_product_pricing(
     locker = await db.get(LockerLocation, locker_uuid)
     if not locker:
         raise HTTPException(status_code=404, detail="LOCKER_NOT_FOUND")
-    if locker.status != LockerStatus.ONLINE:
+    if locker.status == LockerStatus.OFFLINE:
         raise HTTPException(status_code=409, detail="LOCKER_OFFLINE")
+    if locker.status != LockerStatus.ONLINE:
+        raise HTTPException(status_code=409, detail="LOCKER_NOT_BOOKABLE")
 
     filter_plan = find_effective_filter_price_plan(product_filter, durationType, durationValue)
     plan = await find_price_plan(db, product_id, durationType, durationValue)
