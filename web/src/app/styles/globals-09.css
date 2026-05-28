@@ -1,10 +1,13 @@
 .product-gallery-main img,
 .product-gallery-thumb img {
-  width: 100% !important;
-  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
   display: block;
   object-fit: contain !important;
   object-position: center;
+  margin: auto;
 }.product-gallery-thumbs {
   display: grid;
   grid-auto-flow: column;

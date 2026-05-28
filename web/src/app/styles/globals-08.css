@@ -328,10 +328,11 @@
 }.product-gallery-main {
   position: relative;
   display: grid;
-  aspect-ratio: 16 / 11;
-  min-height: 360px;
+  aspect-ratio: 4 / 3;
+  max-height: 520px;
   place-items: center;
   overflow: hidden;
+  padding: 24px;
   border: 1px solid var(--line);
   border-radius: 24px;
   background: var(--surface-muted);
