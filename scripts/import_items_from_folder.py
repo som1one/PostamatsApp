@@ -334,21 +334,28 @@ async def _ensure_product_images(
 ) -> None:
     if reset:
         # Сносим текущую обложку и всю галерею — потом перезальём.
+        # Порядок важен из-за FK product_images.file_id → media_files.id
+        # и products.cover_file_id → media_files.id: сначала отвязываем
+        # cover и удаляем строки product_images, делаем flush, и только
+        # потом удаляем сами MediaFile.
+        media_ids_to_delete: list[UUID] = []
         if product.cover_file_id is not None:
-            old_cover_id = product.cover_file_id
+            media_ids_to_delete.append(product.cover_file_id)
             product.cover_file_id = None
-            await session.flush()
-            old_cover = await session.get(MediaFile, old_cover_id)
-            if old_cover is not None:
-                await session.delete(old_cover)
         existing_images = (
             await session.scalars(
                 select(ProductImage).where(ProductImage.product_id == product.id)
             )
         ).all()
         for image in existing_images:
-            old_media = await session.get(MediaFile, image.file_id)
+            media_ids_to_delete.append(image.file_id)
             await session.delete(image)
+        # Flush — чтобы UPDATE products.cover_file_id=NULL и DELETE
+        # FROM product_images ушли в БД до того, как мы попытаемся
+        # удалить MediaFile.
+        await session.flush()
+        for media_id in media_ids_to_delete:
+            old_media = await session.get(MediaFile, media_id)
             if old_media is not None:
                 await session.delete(old_media)
         await session.flush()
