@@ -134,12 +134,13 @@ TARGETS: tuple[TargetState, ...] = (
         new_status=LockerStatus.OFFLINE,
         new_partner_name="Dev Seed",
     ),
-    # В.Новгород Центр — настоящий ESI 0980.
+    # В.Новгород Центр — настоящий ESI PST_0980. Серийник у провайдера
+    # хранится с префиксом `PST_`, без префикса ESI отвечает 404.
     TargetState(
         match_provider="seed",
         match_external_id="seed-vn-center",
         new_provider="esi",
-        new_external_id="0980",
+        new_external_id="PST_0980",
         new_status=LockerStatus.ONLINE,
         new_partner_name="ESI",
         new_name="Великий Новгород Центр",
