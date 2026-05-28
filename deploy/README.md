@@ -1,56 +1,70 @@
 # Deploy
 
-Репозиторий уже подготовлен под Docker Compose с двумя вариантами:
+Репозиторий подготовлен под Docker Compose с двумя вариантами:
 
-- `deploy/docker-compose.beget.yml` для домена с `Caddyfile`
-- `deploy/docker-compose.ip.yml` для запуска по IP без HTTPS
+- `deploy/docker-compose.beget.yml` — основной, доменный, с HTTPS через
+  Caddy и автоматическими сертификатами Let's Encrypt. Используется на
+  проде (`https://naprokatberu.ru`).
+- `deploy/docker-compose.ip.yml` — без TLS, для запуска по голому IP в
+  деве/стейдже.
 
 ## Файлы окружения
 
-1. На сервере создайте `deploy/.env` из `deploy/.env.example` для доменного деплоя.
-2. Или создайте `deploy/.env.ip` из `deploy/.env.ip.example` для деплоя по IP.
+1. На сервере создайте `deploy/.env` из `deploy/.env.example` для
+   доменного деплоя.
+2. Или создайте `deploy/.env.ip` из `deploy/.env.ip.example` для деплоя
+   по IP.
 3. Создайте `backend/.env.production` из `backend/.env.production.example`.
-4. Для файловых загрузок используется volume `backend_uploads`, поэтому отдельный S3/MinIO не нужен.
+4. Для файловых загрузок используется volume `backend_uploads`, поэтому
+   отдельный S3/MinIO не нужен.
 
 Никогда не коммитьте реальные секреты в git.
 
-## Доменный деплой
+## Доменный деплой (прод)
 
 ```bash
 cp deploy/.env.example deploy/.env
 cp backend/.env.production.example backend/.env.production
-docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml build
-docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml run --rm migrate
-docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml up -d
+bash deploy/deploy.sh
 docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml ps
 ```
+
+`deploy/deploy.sh` сам делает `build`, `migrate`, `up -d` и запускает
+идемпотентный `scripts.migrate_lockers_to_real`.
 
 ## Деплой по IP
 
 ```bash
 cp deploy/.env.ip.example deploy/.env.ip
 cp backend/.env.production.example backend/.env.production
-docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml build
-docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml run --rm migrate
-docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml up -d
+bash deploy/deploy-ip.sh
 docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml ps
 ```
 
 ## Обновление после `git pull`
 
+Доменный сценарий:
+
 ```bash
 git pull origin main
-docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml build
-docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml run --rm migrate
-docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml up -d
+bash deploy/deploy.sh
+```
+
+IP-сценарий:
+
+```bash
+git pull origin main
+bash deploy/deploy-ip.sh
 ```
 
 ## Разовая миграция постаматов в боевую конфигурацию
 
-Перевод сидовых демо-точек в реальную раскладку (СПб — оба OFFLINE,
-В.Новгород Центр — настоящий ESI `0980`, В.Новгород Западный — OFFLINE)
-делается одной командой. Скрипт идемпотентный, можно запускать
-повторно — он только приводит каждую точку к целевому состоянию.
+Перевод сидовых демо-точек в реальную раскладку (СПб Невский — фейковый
+seed/OFFLINE, СПб Петроградская — удаляется, ВН Центр — настоящий ESI
+`0980`, ВН Запад — seed/OFFLINE) встроен прямо в `deploy/deploy.sh` и
+`deploy/deploy-ip.sh` — каждый деплой повторно прогоняет
+`scripts.migrate_lockers_to_real` (скрипт идемпотентный, повторные
+запуски просто проверяют, что каждая точка уже в нужном состоянии).
 
 Через GitHub Actions (рекомендуется): в репозитории открыть
 **Actions → Migrate lockers to real config → Run workflow**. Доступны
@@ -58,8 +72,7 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml up -d
 
 - `dryRun=false` (по умолчанию) — реально применит миграцию.
 - `dryRun=true` — только распечатает текущее состояние постаматов в
-  БД, не меняя данные. Удобно проверить, что workflow видит ожидаемый
-  набор точек до запуска самой миграции.
+  БД, не меняя данные.
 
 Workflow использует те же секреты SSH, что и основной деплой
 (`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PORT`, `DEPLOY_PATH`,
@@ -69,7 +82,7 @@ Workflow использует те же секреты SSH, что и основ
 Альтернативно — вручную с VPS:
 
 ```bash
-docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml \
+docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml \
     exec backend python -m scripts.migrate_lockers_to_real
 ```
 
@@ -79,9 +92,19 @@ docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml \
 
 ## Проверка
 
+Доменный:
+
 ```bash
 docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml logs -f backend
 docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml logs -f web
+docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml logs -f caddy
+curl -sI https://naprokatberu.ru/
+curl -sI https://api.naprokatberu.ru/health
+```
+
+IP:
+
+```bash
 curl http://127.0.0.1:8000/health
 ```
 
@@ -107,15 +130,17 @@ Workflow [.github/workflows/deploy.yml](../.github/workflows/deploy.yml)
    runner-е, считывает host key VPS через `ssh-keyscan`.
 3. Подключается по SSH, делает `git fetch origin` и
    `git reset --hard origin/main` в `DEPLOY_PATH`.
-4. Запускает `bash deploy/deploy-ip.sh`
-   (`docker compose build` → `migrate` → `up -d`).
+4. Запускает `bash deploy/deploy.sh`
+   (`docker compose build` → `migrate` → `up -d` → idempotent locker
+   migration), используя доменный compose (`docker-compose.beget.yml`).
 5. Ждёт до 60 секунд, что контейнеры `web` и `backend` перейдут в
    состояние `running`.
 6. Удаляет приватный ключ с runner-а.
 
-Volume `backend_uploads` и файлы `deploy/.env.ip`,
-`backend/.env.production` на VPS не трогаются — они вне индекса git и
-переживают `git reset --hard`.
+Volume `backend_uploads`, `caddy_data`, `caddy_config` и файлы
+`deploy/.env`, `backend/.env.production` на VPS не трогаются — они
+вне индекса git и переживают `git reset --hard`. Сертификаты Let's
+Encrypt живут в `caddy_data` и пересоздавать их не нужно.
 
 ### Первичная настройка SSH-доступа
 
@@ -185,7 +210,11 @@ GitHub Variables и не передаётся через workflow. Если SSH-
 - Установлены `docker`, плагин `docker compose`, `git`.
 - В `DEPLOY_PATH` развёрнут клон репозитория с remote
   `https://github.com/som1one/PostamatsApp` и веткой `main`.
-- Лежат заполненные `deploy/.env.ip` и `backend/.env.production`
-  (см. соответствующие `*.example`).
+- Лежат заполненные `deploy/.env` (для доменного автодеплоя) и
+  `backend/.env.production` (см. соответствующие `*.example`).
 - Публичный ключ из `DEPLOY_SSH_KEY` добавлен в
   `~/.ssh/authorized_keys` пользователя `DEPLOY_USER`.
+- Открыты порты 80 и 443 в firewall — нужны Caddy для ACME-валидации
+  и обслуживания HTTPS.
+- В DNS-зоне домена `APP_DOMAIN` (и `API_DOMAIN`, если используется)
+  стоят A-записи на IP VPS — иначе Let's Encrypt не выдаст сертификат.

@@ -292,8 +292,14 @@ FILTER_IMAGE_SEEDS = {
     },
 }
 
+# Базовый URL для картинок товаров.
+# Приоритет: MEDIA_PUBLIC_BASE_URL > WEB_APP_ORIGIN/assets > относительный
+# /assets. Относительный путь — самый безопасный fallback: он не привязан
+# к схеме (http/https) и не вызывает mixed content при HTTPS-проде.
 ASSET_PUBLIC_BASE_URL = (
-    (settings.MEDIA_PUBLIC_BASE_URL or ((settings.WEB_APP_ORIGIN or "http://127.0.0.1:8000").rstrip("/") + "/assets")).rstrip("/")
+    (settings.MEDIA_PUBLIC_BASE_URL
+        or (settings.WEB_APP_ORIGIN.rstrip("/") + "/assets" if settings.WEB_APP_ORIGIN else "/assets")
+    ).rstrip("/")
     + "/uploads/items"
 )
 

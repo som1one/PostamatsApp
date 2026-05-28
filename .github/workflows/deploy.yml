@@ -2,8 +2,9 @@ name: Deploy to VPS
 
 # Auto-deploy: push в main или ручной запуск через workflow_dispatch.
 # Подключается по SSH к VPS и переразворачивает контейнеры через
-# deploy/deploy-ip.sh. Все параметры доступа — только в GitHub Secrets,
-# никаких литералов IP/пользователей/путей в этом файле быть не должно.
+# deploy/deploy.sh (доменный compose с HTTPS через Caddy + Let's Encrypt).
+# Все параметры доступа — только в GitHub Secrets, никаких литералов
+# IP/пользователей/путей в этом файле быть не должно.
 
 on:
   push:
@@ -112,7 +113,7 @@ jobs:
           cd "${DEPLOY_PATH}"
 
           # Требование 8.3: env-файлы должны существовать ДО git reset.
-          for f in deploy/.env.ip backend/.env.production; do
+          for f in deploy/.env backend/.env.production; do
             if [ ! -f "$f" ]; then
               echo "::error::Required env file missing on VPS: $f"
               exit 1
@@ -126,14 +127,14 @@ jobs:
           echo "[deploy] git reset --hard origin/main"
           git reset --hard origin/main
 
-          echo "[deploy] running deploy/deploy-ip.sh"
-          bash deploy/deploy-ip.sh
+          echo "[deploy] running deploy/deploy.sh"
+          bash deploy/deploy.sh
 
           echo "[deploy] verifying web and backend reach running state"
           deadline=$(( $(date +%s) + 60 ))
           while :; do
-            web_id=$(docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml ps -q web 2>/dev/null || true)
-            backend_id=$(docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml ps -q backend 2>/dev/null || true)
+            web_id=$(docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml ps -q web 2>/dev/null || true)
+            backend_id=$(docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml ps -q backend 2>/dev/null || true)
 
             if [ -n "${web_id}" ]; then
               web_state=$(docker inspect -f '{{.State.Status}}' "${web_id}" 2>/dev/null || echo "missing")
@@ -151,7 +152,7 @@ jobs:
             fi
             if [ "$(date +%s)" -ge "${deadline}" ]; then
               echo "::error::web or backend did not reach running state within 60s"
-              docker compose --env-file deploy/.env.ip -f deploy/docker-compose.ip.yml ps || true
+              docker compose --env-file deploy/.env -f deploy/docker-compose.beget.yml ps || true
               exit 1
             fi
             sleep 3
