@@ -159,6 +159,10 @@ function OrderDetailContent({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [returnConfirmId, setReturnConfirmId] = useState<string | null>(null);
+  // Подтверждение открытия ячейки: пользователь должен быть рядом с
+  // постаматом. Кнопка «Открыть» в подтверждении загорается через 3 с.
+  const [openConfirmId, setOpenConfirmId] = useState<string | null>(null);
+  const [openCountdown, setOpenCountdown] = useState(0);
   const confirmResolveRef = useRef<((ok: boolean) => void) | null>(null);
   const [returnLockers, setReturnLockers] = useState<Locker[]>([]);
   const [returnLockerId, setReturnLockerId] = useState("");
@@ -231,6 +235,19 @@ function OrderDetailContent({ id }: { id: string }) {
     }, 60_000);
     return () => window.clearInterval(timer);
   }, []);
+
+  // Обратный отсчёт для кнопки «Открыть» в подтверждении: пока > 0,
+  // кнопка остаётся заблокированной, чтобы пользователь успел подойти
+  // к ячейке.
+  useEffect(() => {
+    if (openConfirmId === null || openCountdown <= 0) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setOpenCountdown((value) => Math.max(0, value - 1));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [openConfirmId, openCountdown]);
 
   useEffect(() => {
     returnLockerIdRef.current = returnLockerId;
@@ -311,6 +328,18 @@ function OrderDetailContent({ id }: { id: string }) {
     }
   }
 
+  function startOpenCellConfirm(rentalId: string) {
+    setError("");
+    setMessage("");
+    setOpenConfirmId(rentalId);
+    setOpenCountdown(3);
+  }
+
+  function cancelOpenCellConfirm() {
+    setOpenConfirmId(null);
+    setOpenCountdown(0);
+  }
+
   async function handleOpenCell(rentalId: string) {
     setBusy(true);
     setMessage("");
@@ -322,6 +351,7 @@ function OrderDetailContent({ id }: { id: string }) {
       setMessage("Отправляем команду в постамат…");
       await openRentalCell(rentalId);
       setMessage("Ячейка открыта. Заберите товар.");
+      cancelOpenCellConfirm();
       await load();
     } catch (err) {
       // Команда не подтвердилась — гасим промежуточное сообщение, чтобы
@@ -669,15 +699,47 @@ function OrderDetailContent({ id }: { id: string }) {
                         ? `Получение запланировано на ${dateLabel}. Кнопка станет активной за час до этого времени.`
                         : "Подойдите к постамату и нажмите «Открыть ячейку». Когда заберёте товар, нажмите «Я забрал» — аренда начнётся."}
                     </p>
-                    <button
-                      className="button button-primary"
-                      type="button"
-                      disabled={busy || tooEarly}
-                      onClick={() => handleOpenCell(order.data.id)}
-                    >
-                      <Key size={18} />
-                      Открыть ячейку
-                    </button>
+                    {openConfirmId === order.data.id ? (
+                      <div className="pickup-open-confirm" role="alert">
+                        <div className="pickup-open-confirm-head">
+                          <AlertTriangle size={18} />
+                          <strong>Будьте рядом с постаматом</strong>
+                        </div>
+                        <p className="pickup-open-confirm-text">
+                          Ячейка откроется сразу после нажатия. Убедитесь, что
+                          вы стоите у постамата и готовы забрать товар.
+                        </p>
+                        <div className="pickup-open-confirm-actions">
+                          <button
+                            className="button button-primary"
+                            type="button"
+                            disabled={busy || openCountdown > 0}
+                            onClick={() => handleOpenCell(order.data.id)}
+                          >
+                            <Key size={18} />
+                            {openCountdown > 0 ? `Открыть (${openCountdown})` : "Открыть"}
+                          </button>
+                          <button
+                            className="button button-secondary"
+                            type="button"
+                            disabled={busy}
+                            onClick={cancelOpenCellConfirm}
+                          >
+                            Отмена
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        className="button button-primary"
+                        type="button"
+                        disabled={busy || tooEarly}
+                        onClick={() => startOpenCellConfirm(order.data.id)}
+                      >
+                        <Key size={18} />
+                        Открыть ячейку
+                      </button>
+                    )}
                     <button
                       className="button button-secondary"
                       type="button"
