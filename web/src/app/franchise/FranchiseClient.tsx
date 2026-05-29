@@ -267,15 +267,15 @@ export function FranchiseClient() {
           <form className="franchise-form" onSubmit={handleSubmit}>
             <label className="field">
               <span>Как к вам обращаться</span>
-              <input name="name" type="text" required placeholder="Имя" maxLength={120} />
+              <input className="input" name="name" type="text" required placeholder="Имя" maxLength={120} />
             </label>
             <label className="field">
               <span>Телефон</span>
-              <input name="phone" type="tel" required placeholder="+7 900 000-00-00" maxLength={32} />
+              <input className="input" name="phone" type="tel" required placeholder="+7 900 000-00-00" maxLength={32} />
             </label>
             <label className="field">
               <span>Город</span>
-              <input name="city" type="text" placeholder="Город размещения" maxLength={120} />
+              <input className="input" name="city" type="text" placeholder="Город размещения" maxLength={120} />
             </label>
             <button className="button button-primary" type="submit">
               Получить консультацию
