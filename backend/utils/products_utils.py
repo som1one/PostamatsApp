@@ -15,6 +15,7 @@ from backend.utils.lockers_utils import (
     LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY,
     price_plan_to_minor_units,
 )
+from backend.utils.reservation_utils import calculate_planned_end_at
 
 
 async def aggregate_available_in_city(
@@ -80,6 +81,79 @@ async def aggregate_available_globally(
         units_map[row.product_id] = int(row.units)
         lockers_map[row.product_id] = int(row.lockers)
     return units_map, lockers_map
+
+
+# Статусы инвентаря, означающие, что единица физически размещена в
+# постамате и относится к каталогу, даже если прямо сейчас занята бронью
+# или арендой. Используются для видимости товара в каталоге: товар не
+# должен исчезать, пока его экземпляр стоит в ячейке — занятость
+# отражается в календаре отдельными датами.
+PLACED_INVENTORY_STATUSES = (
+    InventoryStatus.AVAILABLE,
+    InventoryStatus.RESERVED,
+    InventoryStatus.RENTED,
+    InventoryStatus.RETURN_PENDING,
+)
+
+
+async def aggregate_placed_in_city(
+    db: AsyncSession,
+    city_id: UUID,
+) -> set[UUID]:
+    """Множество product_id, у которых есть размещённый инвентарь в городе.
+
+    В отличие от ``aggregate_available_in_city`` учитывает не только
+    свободные единицы, но и занятые бронью/арендой — чтобы товар не
+    пропадал из каталога, пока экземпляр физически в постамате.
+    """
+
+    stmt = (
+        select(func.distinct(InventoryUnit.product_id))
+        .select_from(InventoryUnit)
+        .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
+        .join(LockerLocation, LockerCell.locker_id == LockerLocation.id)
+        .where(
+            LockerLocation.city_id == city_id,
+            LockerLocation.status != LockerStatus.OFFLINE,
+            InventoryUnit.status.in_(PLACED_INVENTORY_STATUSES),
+            LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
+        )
+    )
+    return {row for row in (await db.scalars(stmt)).all()}
+
+
+async def aggregate_placed_globally(db: AsyncSession) -> set[UUID]:
+    stmt = (
+        select(func.distinct(InventoryUnit.product_id))
+        .select_from(InventoryUnit)
+        .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
+        .join(LockerLocation, LockerCell.locker_id == LockerLocation.id)
+        .where(
+            LockerLocation.status != LockerStatus.OFFLINE,
+            InventoryUnit.status.in_(PLACED_INVENTORY_STATUSES),
+            LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
+        )
+    )
+    return {row for row in (await db.scalars(stmt)).all()}
+
+
+async def aggregate_placed_at_locker(
+    db: AsyncSession,
+    locker_id: UUID,
+) -> set[UUID]:
+    stmt = (
+        select(func.distinct(InventoryUnit.product_id))
+        .select_from(InventoryUnit)
+        .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
+        .join(LockerLocation, LockerCell.locker_id == LockerLocation.id)
+        .where(
+            LockerCell.locker_id == locker_id,
+            LockerLocation.status != LockerStatus.OFFLINE,
+            InventoryUnit.status.in_(PLACED_INVENTORY_STATUSES),
+            LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
+        )
+    )
+    return {row for row in (await db.scalars(stmt)).all()}
 
 
 async def load_media_files_by_ids(
@@ -234,3 +308,112 @@ def serialize_product_list_item(
         "availableLockerCount": available_locker_count,
         "availableUnitCount": unit_count,
     }
+
+
+async def compute_busy_dates_for_product(
+    db: AsyncSession,
+    product_id: UUID,
+    *,
+    locker_id: UUID | None = None,
+) -> list[str]:
+    """Возвращает отсортированный список занятых дат (YYYY-MM-DD, локальный
+    московский день) для товара.
+
+    Дата считается занятой, если на неё приходится активная бронь или
+    аренда экземпляра этого товара. Если передан ``locker_id`` — считаем
+    занятость только по этому постамату (товар в разных постаматах
+    независим). Эти даты фронт делает недоступными в календаре, при этом
+    сам товар остаётся в каталоге.
+
+    Важно: метод не отвечает за защиту от двойного бронирования (она
+    обеспечивается статусом инвентаря на этапе создания брони). Это лишь
+    подсказка для UI, какие дни заняты.
+    """
+
+    from datetime import date, datetime, time, timedelta, timezone
+
+    from backend.models.inventory_unit import InventoryUnit
+    from backend.models.locker_cell import LockerCell
+    from backend.models.rental import Rental
+    from backend.models.reservation import Reservation
+    from backend.models.enums import RentalStatus, ReservationStatus
+
+    local_tz = timezone(timedelta(hours=3))
+
+    def _to_local_date(value: datetime) -> date:
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(local_tz).date()
+
+    busy: set[date] = set()
+
+    # 1) Брони, занимающие даты: ещё не отменённые/не истёкшие.
+    active_res_statuses = (
+        ReservationStatus.CREATED,
+        ReservationStatus.AWAITING_PAYMENT,
+        ReservationStatus.PAYMENT_AUTHORIZED,
+        ReservationStatus.CONFIRMED,
+    )
+    res_conditions = [
+        Reservation.product_id == product_id,
+        Reservation.status.in_(active_res_statuses),
+    ]
+    if locker_id is not None:
+        res_conditions.append(Reservation.locker_id == locker_id)
+    reservations = list((await db.scalars(select(Reservation).where(*res_conditions))).all())
+
+    # 2) Аренды, занимающие даты: ещё не завершённые/не отменённые.
+    # Аренду связываем с товаром через её inventory_unit (reservation_id
+    # может быть NULL для ручных/служебных кейсов).
+    busy_rental_statuses = (
+        RentalStatus.PICKUP_READY,
+        RentalStatus.PICKUP_OPENED,
+        RentalStatus.ACTIVE,
+        RentalStatus.OVERDUE,
+        RentalStatus.RETURN_IN_PROGRESS,
+        RentalStatus.INCIDENT,
+    )
+    rental_conditions = [
+        Rental.status.in_(busy_rental_statuses),
+        InventoryUnit.product_id == product_id,
+    ]
+    if locker_id is not None:
+        rental_conditions.append(Rental.pickup_locker_id == locker_id)
+    rentals = list(
+        (
+            await db.scalars(
+                select(Rental)
+                .join(InventoryUnit, Rental.inventory_unit_id == InventoryUnit.id)
+                .where(*rental_conditions)
+            )
+        ).all()
+    )
+
+    def _mark_range(start: datetime | None, end: datetime | None) -> None:
+        if start is None or end is None:
+            return
+        start_d = _to_local_date(start)
+        end_d = _to_local_date(end)
+        if end_d < start_d:
+            return
+        cur = start_d
+        # Защита от аномально больших диапазонов (например, кривой
+        # planned_end_at) — не строим больше года дат.
+        for _ in range(366):
+            busy.add(cur)
+            if cur >= end_d:
+                break
+            cur = cur + timedelta(days=1)
+
+    for res in reservations:
+        start = res.pickup_at or res.created_at
+        end = calculate_planned_end_at(
+            start, res.duration_type, res.duration_value
+        )
+        _mark_range(start, end)
+
+    for rental in rentals:
+        start = rental.starts_at or rental.created_at
+        _mark_range(start, rental.planned_end_at)
+
+    return sorted(d.isoformat() for d in busy)

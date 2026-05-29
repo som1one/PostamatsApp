@@ -310,6 +310,21 @@ export async function fetchProductPricing(
   );
 }
 
+export async function fetchProductBusyDates(
+  productId: string,
+  lockerId?: string,
+): Promise<string[]> {
+  const params = new URLSearchParams();
+  if (lockerId) {
+    params.set("lockerId", lockerId);
+  }
+  const qs = params.toString();
+  const data = await requestJson<{ productId: string; busyDates: string[] }>(
+    `/products/${productId}/busy-dates${qs ? `?${qs}` : ""}`,
+  );
+  return Array.isArray(data?.busyDates) ? data.busyDates : [];
+}
+
 export async function createReservationQuote(payload: {
   productId: string;
   lockerId: string;

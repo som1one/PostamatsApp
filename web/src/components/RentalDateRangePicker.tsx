@@ -118,6 +118,7 @@ export function RentalDateRangePicker({
   currency,
   maxDays = 30,
   mode = "range",
+  disabledDates,
 }: {
   value: DateRangeValue;
   onChange: (next: DateRangeValue) => void;
@@ -130,6 +131,9 @@ export function RentalDateRangePicker({
   currency: string;
   maxDays?: number;
   mode?: "range" | "single";
+  // Список дат (YYYY-MM-DD), занятых бронью/арендой. Эти дни нельзя
+  // выбрать; внутри диапазона они тоже блокируют выбор «через занятое».
+  disabledDates?: readonly string[];
 }) {
   const today = useMemo(() => {
     const now = new Date();
@@ -181,8 +185,37 @@ export function RentalDateRangePicker({
   }, [maxDays, today]);
   const maxSelectableISO = toInputDate(maxSelectableDate);
 
+  const disabledSet = useMemo(
+    () => new Set(disabledDates ?? []),
+    [disabledDates],
+  );
+
+  // Есть ли занятая дата строго между a и b (исключая концы) — нужно,
+  // чтобы нельзя было выбрать диапазон «поверх» занятых дней.
+  const hasBusyBetween = useMemo(
+    () =>
+      function check(startISO: string, endISO: string): boolean {
+        if (!startISO || !endISO || disabledSet.size === 0) return false;
+        const start = parseInputDate(startISO);
+        const end = parseInputDate(endISO);
+        if (!start || !end) return false;
+        const cursor = new Date(start);
+        cursor.setDate(cursor.getDate() + 1);
+        while (toInputDate(cursor) < endISO) {
+          if (disabledSet.has(toInputDate(cursor))) return true;
+          cursor.setDate(cursor.getDate() + 1);
+        }
+        return end > start ? disabledSet.has(endISO) : false;
+      },
+    [disabledSet],
+  );
+
+  function isCellDisabled(iso: string): boolean {
+    return iso < minSelectableISO || iso > maxSelectableISO || disabledSet.has(iso);
+  }
+
   function handleCellClick(cell: CalendarCell) {
-    if (cell.iso < minSelectableISO || cell.iso > maxSelectableISO) {
+    if (isCellDisabled(cell.iso)) {
       return;
     }
     if (mode === "single") {
@@ -198,6 +231,12 @@ export function RentalDateRangePicker({
     if (pendingEdge === "end" && startDateObj) {
       if (cell.iso < value.startDate) {
         // Кликнули раньше старта — начинаем заново с этой даты.
+        onChange({ startDate: cell.iso, endDate: cell.iso });
+        setPendingEdge("end");
+        return;
+      }
+      // Нельзя замкнуть диапазон поверх занятых дней.
+      if (hasBusyBetween(value.startDate, cell.iso)) {
         onChange({ startDate: cell.iso, endDate: cell.iso });
         setPendingEdge("end");
         return;
@@ -314,8 +353,10 @@ export function RentalDateRangePicker({
 
         <div className="rental-range-grid" role="grid">
           {monthGrid.map((cell) => {
-            const disabled =
+            const outOfWindow =
               cell.iso < minSelectableISO || cell.iso > maxSelectableISO;
+            const isBusy = disabledSet.has(cell.iso);
+            const disabled = outOfWindow || isBusy;
             const isStart = startDateObj
               ? isSameDay(cell.date, startDateObj)
               : false;
@@ -330,6 +371,7 @@ export function RentalDateRangePicker({
               "rental-range-day",
               cell.inMonth ? "" : "is-outside",
               disabled ? "is-disabled" : "",
+              isBusy ? "is-busy" : "",
               isStart ? "is-start" : "",
               isEnd ? "is-end" : "",
               inRange && !isStart && !isEnd ? "is-in-range" : "",
@@ -346,7 +388,7 @@ export function RentalDateRangePicker({
                 role="gridcell"
                 disabled={disabled}
                 aria-current={isStart || isEnd ? "date" : undefined}
-                aria-label={`${cell.date.getDate()} ${MONTHS_GENITIVE[cell.date.getMonth()]} ${cell.date.getFullYear()}`}
+                aria-label={`${cell.date.getDate()} ${MONTHS_GENITIVE[cell.date.getMonth()]} ${cell.date.getFullYear()}${isBusy ? ", занято" : ""}`}
                 onClick={() => handleCellClick(cell)}
               >
                 {cell.date.getDate()}
