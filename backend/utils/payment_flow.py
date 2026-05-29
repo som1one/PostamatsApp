@@ -204,9 +204,15 @@ async def process_yookassa_webhook(
         elif new_status == PaymentStatus.PENDING:
             payment.status = PaymentStatus.PENDING
 
-    if payment.status == PaymentStatus.AUTHORIZED and payment.reservation_id:
+    if (
+        payment.status in (PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED)
+        and payment.reservation_id
+    ):
         res = await db.get(Reservation, payment.reservation_id)
         if res is not None and res.status == ReservationStatus.AWAITING_PAYMENT:
+            # Одностадийная оплата: succeeded → CAPTURED сразу подтверждает
+            # бронь. Двухстадийная (waiting_for_capture → AUTHORIZED) тоже
+            # поддержана для совместимости.
             res.status = ReservationStatus.PAYMENT_AUTHORIZED
 
     try:

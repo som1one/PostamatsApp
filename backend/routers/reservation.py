@@ -424,9 +424,9 @@ async def confirm_reservation(
             or payment.user_id != user.id
         ):
             raise HTTPException(status_code=404, detail="PAYMENT_NOT_FOUND")
-        if (
-            payment.type != PaymentType.PREAUTH
-            or payment.status != PaymentStatus.AUTHORIZED
+        if payment.type != PaymentType.PREAUTH or payment.status not in (
+            PaymentStatus.AUTHORIZED,
+            PaymentStatus.CAPTURED,
         ):
             raise HTTPException(status_code=409, detail="PAYMENT_NOT_AUTHORIZED")
 

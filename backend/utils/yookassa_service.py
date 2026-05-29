@@ -44,10 +44,13 @@ def _create_payment_sync(
     value_str = format(amount_value.quantize(Decimal("0.01")), "f")
     body: dict[str, Any] = {
         "amount": {"value": value_str, "currency": currency},
-        "capture": False,
+        # Одностадийная оплата: деньги списываются сразу при подтверждении
+        # платежа клиентом (без отдельного шага capture). Возврат денег —
+        # через refund.
+        "capture": True,
         "confirmation": {"type": "redirect", "return_url": return_url},
         "metadata": metadata,
-        "description": "Бронирование: предавторизация",
+        "description": "Аренда: оплата",
     }
     idempotency_key = str(uuid.uuid4())
     payment = Payment.create(body, idempotency_key)
@@ -70,6 +73,25 @@ def _cancel_payment_sync(provider_payment_id: str) -> dict[str, Any]:
     return {"status": payment.status}
 
 
+def _refund_payment_sync(
+    provider_payment_id: str,
+    *,
+    amount_value: Decimal,
+    currency: str,
+) -> dict[str, Any]:
+    from yookassa import Configuration, Refund
+
+    Configuration.configure(settings.YOOKASSA_SHOP_ID, settings.YOOKASSA_SECRET_KEY)
+    value_str = format(amount_value.quantize(Decimal("0.01")), "f")
+    body = {
+        "payment_id": provider_payment_id,
+        "amount": {"value": value_str, "currency": currency},
+    }
+    idempotency_key = str(uuid.uuid4())
+    refund = Refund.create(body, idempotency_key)
+    return {"status": getattr(refund, "status", None), "refund_id": getattr(refund, "id", None)}
+
+
 async def cancel_yookassa_payment(provider_payment_id: str) -> dict[str, Any]:
     if settings.YOOKASSA_DEV_STUB:
         return {"status": "canceled"}
@@ -79,6 +101,32 @@ async def cancel_yookassa_payment(provider_payment_id: str) -> dict[str, Any]:
     return await loop.run_in_executor(
         None,
         lambda: _cancel_payment_sync(provider_payment_id),
+    )
+
+
+async def refund_yookassa_payment(
+    provider_payment_id: str,
+    *,
+    amount_value: Decimal,
+    currency: str = "RUB",
+) -> dict[str, Any]:
+    """Возврат уже списанных денег (полный возврат на сумму платежа).
+
+    В stub-режиме возвращает успешный фейковый ответ. На реальном ключе
+    дёргает YooKassa Refund API.
+    """
+    if settings.YOOKASSA_DEV_STUB:
+        return {"status": "succeeded", "refund_id": f"stub-refund-{uuid.uuid4()}"}
+    if not settings.YOOKASSA_SHOP_ID or not settings.YOOKASSA_SECRET_KEY:
+        raise RuntimeError("YooKassa is not configured")
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None,
+        lambda: _refund_payment_sync(
+            provider_payment_id,
+            amount_value=amount_value,
+            currency=currency,
+        ),
     )
 
 
