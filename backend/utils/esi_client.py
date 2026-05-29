@@ -241,6 +241,20 @@ async def _esi_post(path: str, *, payload: dict | None = None, timeout: float | 
         if "offline" in body_text:
             raise EsiOpenError("ESI_MACHINE_OFFLINE")
 
+    if response.status_code == 404:
+        # ESI вернул 404 на команду: либо serial машины неизвестен
+        # провайдеру, либо у неё нет ячейки с таким external_cell_id.
+        # Это конфигурационный рассинхрон (наши id не совпадают с ESI),
+        # а не «постамат отклонил команду». Выносим отдельным кодом,
+        # чтобы оператор видел понятную причину и не считал, что
+        # сломалось железо.
+        logger.warning(
+            "ESI POST %s -> 404 (unknown machine serial or cell id): %s",
+            path,
+            response.text,
+        )
+        raise EsiOpenError("ESI_CELL_OR_MACHINE_NOT_FOUND")
+
     if response.status_code >= 400:
         logger.warning("ESI POST %s failed: %s %s", path, response.status_code, response.text)
         raise EsiOpenError("ESI_OPEN_FAILED")
