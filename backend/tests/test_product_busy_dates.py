@@ -218,13 +218,8 @@ class ProductBusyDatesTests(unittest.IsolatedAsyncioTestCase):
             placed_city = await aggregate_placed_in_city(db, ids["city_id"])
             placed_global = await aggregate_placed_globally(db)
         # Товар занят (RENTED), но всё равно числится размещённым → виден.
-        # SQLite может вернуть UUID как hex без дефисов, поэтому сравниваем
-        # по нормализованному hex.
-        expected_hex = ids["product_id"].hex
-        city_hex = {getattr(p, "hex", str(p).replace("-", "")) for p in placed_city}
-        global_hex = {getattr(p, "hex", str(p).replace("-", "")) for p in placed_global}
-        self.assertIn(expected_hex, city_hex)
-        self.assertIn(expected_hex, global_hex)
+        self.assertIn(ids["product_id"], placed_city)
+        self.assertIn(ids["product_id"], placed_global)
 
 
 if __name__ == "__main__":

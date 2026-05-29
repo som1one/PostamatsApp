@@ -108,7 +108,7 @@ async def aggregate_placed_in_city(
     """
 
     stmt = (
-        select(func.distinct(InventoryUnit.product_id))
+        select(InventoryUnit.product_id)
         .select_from(InventoryUnit)
         .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
         .join(LockerLocation, LockerCell.locker_id == LockerLocation.id)
@@ -118,13 +118,14 @@ async def aggregate_placed_in_city(
             InventoryUnit.status.in_(PLACED_INVENTORY_STATUSES),
             LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
         )
+        .distinct()
     )
     return {row for row in (await db.scalars(stmt)).all()}
 
 
 async def aggregate_placed_globally(db: AsyncSession) -> set[UUID]:
     stmt = (
-        select(func.distinct(InventoryUnit.product_id))
+        select(InventoryUnit.product_id)
         .select_from(InventoryUnit)
         .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
         .join(LockerLocation, LockerCell.locker_id == LockerLocation.id)
@@ -133,6 +134,7 @@ async def aggregate_placed_globally(db: AsyncSession) -> set[UUID]:
             InventoryUnit.status.in_(PLACED_INVENTORY_STATUSES),
             LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
         )
+        .distinct()
     )
     return {row for row in (await db.scalars(stmt)).all()}
 
@@ -142,7 +144,7 @@ async def aggregate_placed_at_locker(
     locker_id: UUID,
 ) -> set[UUID]:
     stmt = (
-        select(func.distinct(InventoryUnit.product_id))
+        select(InventoryUnit.product_id)
         .select_from(InventoryUnit)
         .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
         .join(LockerLocation, LockerCell.locker_id == LockerLocation.id)
@@ -152,6 +154,7 @@ async def aggregate_placed_at_locker(
             InventoryUnit.status.in_(PLACED_INVENTORY_STATUSES),
             LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
         )
+        .distinct()
     )
     return {row for row in (await db.scalars(stmt)).all()}
 
