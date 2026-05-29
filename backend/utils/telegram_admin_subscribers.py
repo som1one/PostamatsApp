@@ -406,14 +406,15 @@ def _webhook_url(public_origin: str | None) -> str:
     secret = settings.TELEGRAM_WEBHOOK_SECRET
     if not secret:
         raise SubscriberError("TELEGRAM_WEBHOOK_SECRET_NOT_CONFIGURED", 503)
-    base = (public_origin or "").rstrip("/")
+
+    # Приоритет: явный ADMIN_PANEL_URL (чистый домен без портов) →
+    # затем origin текущего запроса (фолбэк, если переменная не задана).
+    base = ""
+    admin = (settings.ADMIN_PANEL_URL or "").rstrip("/")
+    if admin:
+        base = admin[: -len("/admin")] if admin.endswith("/admin") else admin
     if not base:
-        # Фолбэк: используем тот же домен, что у админки, без /admin.
-        admin = (settings.ADMIN_PANEL_URL or "").rstrip("/")
-        if admin.endswith("/admin"):
-            base = admin[: -len("/admin")]
-        else:
-            base = admin
+        base = (public_origin or "").rstrip("/")
     if not base:
         raise SubscriberError("TELEGRAM_WEBHOOK_BASE_URL_REQUIRED", 503)
     return f"{base}/telegram/webhook/{secret}"

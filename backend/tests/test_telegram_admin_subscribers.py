@@ -338,3 +338,46 @@ def _import_welcome_message() -> str:
     from backend.utils.telegram_admin_subscribers import WELCOME_MESSAGE
 
     return WELCOME_MESSAGE
+
+
+class WebhookUrlTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._old_secret = settings.TELEGRAM_WEBHOOK_SECRET
+        self._old_admin = settings.ADMIN_PANEL_URL
+
+    def tearDown(self) -> None:
+        settings.TELEGRAM_WEBHOOK_SECRET = self._old_secret
+        settings.ADMIN_PANEL_URL = self._old_admin
+
+    def test_prefers_admin_panel_url_and_strips_admin_suffix(self) -> None:
+        from backend.utils.telegram_admin_subscribers import _webhook_url
+
+        settings.TELEGRAM_WEBHOOK_SECRET = "sek"
+        settings.ADMIN_PANEL_URL = "https://api.example.ru/admin"
+        url = _webhook_url("https://ignored.example/")
+        self.assertEqual(url, "https://api.example.ru/telegram/webhook/sek")
+
+    def test_falls_back_to_request_origin_when_admin_url_empty(self) -> None:
+        from backend.utils.telegram_admin_subscribers import _webhook_url
+
+        settings.TELEGRAM_WEBHOOK_SECRET = "sek"
+        settings.ADMIN_PANEL_URL = None
+        url = _webhook_url("https://api.example.ru/")
+        self.assertEqual(url, "https://api.example.ru/telegram/webhook/sek")
+
+    def test_raises_without_secret(self) -> None:
+        from backend.utils.telegram_admin_subscribers import _webhook_url
+
+        settings.TELEGRAM_WEBHOOK_SECRET = None
+        with self.assertRaises(SubscriberError) as ctx:
+            _webhook_url("https://api.example.ru/")
+        self.assertEqual(ctx.exception.code, "TELEGRAM_WEBHOOK_SECRET_NOT_CONFIGURED")
+
+    def test_raises_without_any_base(self) -> None:
+        from backend.utils.telegram_admin_subscribers import _webhook_url
+
+        settings.TELEGRAM_WEBHOOK_SECRET = "sek"
+        settings.ADMIN_PANEL_URL = None
+        with self.assertRaises(SubscriberError) as ctx:
+            _webhook_url(None)
+        self.assertEqual(ctx.exception.code, "TELEGRAM_WEBHOOK_BASE_URL_REQUIRED")
