@@ -42,7 +42,7 @@ from backend.schemas.me_schemas import (
 )
 from backend.utils.auth_utils import get_current_client_user
 from backend.utils.document_numbers import normalize_document_number
-from backend.utils.yookassa_service import cancel_yookassa_payment
+from backend.utils.yookassa_service import cancel_yookassa_payment, refund_yookassa_payment
 from backend.utils.me_utils import (
     UPDATE_ME_FIELD_MAP,
     VerificationFileResolveError,
@@ -454,37 +454,62 @@ async def cancel_my_reservation(
 
     now = datetime.now(timezone.utc)
 
-    # Если платёж уже авторизован — сначала отменяем его в Юкасса
+    # Возврат денег при отмене оплаченной брони. Одностадийная оплата =
+    # деньги уже списаны (CAPTURED) → нужен refund. Если платёж только
+    # захолдирован (AUTHORIZED, двухстадийная схема) → cancel холда.
     payment_id: UUID | None = None
     provider_payment_id: str | None = None
+    final_payment_status: PaymentStatus | None = None
     if reservation.status == ReservationStatus.PAYMENT_AUTHORIZED:
         payment_row = (
             await db.execute(
-                select(Payment.id, Payment.provider_payment_id)
+                select(
+                    Payment.id,
+                    Payment.provider_payment_id,
+                    Payment.status,
+                    Payment.amount,
+                    Payment.currency,
+                )
                 .where(
                     Payment.reservation_id == reservation.id,
-                    Payment.status.in_(("AUTHORIZED", "authorized")),
+                    Payment.status.in_(
+                        ("AUTHORIZED", "authorized", "CAPTURED", "captured")
+                    ),
                     Payment.type.in_(("PREAUTH", "preauth")),
                 )
                 .limit(1)
             )
         ).first()
         if payment_row is not None:
-            payment_id, provider_payment_id = payment_row
-        if provider_payment_id:
-            try:
-                await cancel_yookassa_payment(provider_payment_id)
-            except Exception as exc:
-                raise HTTPException(
-                    status_code=502, detail="YOOKASSA_CANCEL_FAILED"
-                ) from exc
+            payment_id, provider_payment_id, pay_status, pay_amount, pay_currency = payment_row
+            is_captured = str(pay_status).lower() == "captured"
+            if provider_payment_id:
+                try:
+                    if is_captured:
+                        await refund_yookassa_payment(
+                            provider_payment_id,
+                            amount_value=pay_amount,
+                            currency=pay_currency or "RUB",
+                        )
+                        final_payment_status = PaymentStatus.REFUNDED
+                    else:
+                        await cancel_yookassa_payment(provider_payment_id)
+                        final_payment_status = PaymentStatus.CANCELLED
+                except Exception as exc:
+                    raise HTTPException(
+                        status_code=502, detail="YOOKASSA_REFUND_FAILED"
+                    ) from exc
+            else:
+                final_payment_status = (
+                    PaymentStatus.REFUNDED if is_captured else PaymentStatus.CANCELLED
+                )
 
     try:
-        if payment_id is not None:
+        if payment_id is not None and final_payment_status is not None:
             await db.execute(
                 update(Payment)
                 .where(Payment.id == payment_id)
-                .values(status=PaymentStatus.CANCELLED, processed_at=now)
+                .values(status=final_payment_status, processed_at=now)
             )
 
         await db.execute(
