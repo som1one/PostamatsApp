@@ -141,11 +141,17 @@ async def setup_telegram_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """Регистрирует webhook-URL у Telegram. URL берётся из ADMIN_PANEL_URL."""
+    """Регистрирует webhook-URL у Telegram.
+
+    База берётся из ADMIN_PANEL_URL, а если он не задан — из публичного
+    origin текущего запроса (на проде это домен админки за Caddy).
+    """
 
     await get_current_admin(request, db)
+    # request.base_url учитывает X-Forwarded-* за обратным прокси Caddy.
+    origin = str(request.base_url).rstrip("/") if request.base_url else None
     try:
-        result = await set_telegram_webhook(public_origin=None)
+        result = await set_telegram_webhook(public_origin=origin)
     except SubscriberError as exc:
         raise _to_http(exc) from exc
     return {"data": result}
