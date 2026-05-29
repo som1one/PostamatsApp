@@ -192,6 +192,20 @@
   opacity: 0.55;
 }
 
+.rental-range-day.is-busy {
+  /* Занятые бронью/арендой дни: перечёркнуты, чтобы было видно, что
+     день недоступен именно из-за занятости, а не вне окна выбора. */
+  color: var(--muted);
+  text-decoration: line-through;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(196, 4, 4, 0.06),
+    rgba(196, 4, 4, 0.06) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
 .rental-range-day.is-today:not(.is-start):not(.is-end) {
   border-color: rgba(196, 4, 4, 0.32);
   color: var(--primary);

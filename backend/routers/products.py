@@ -21,6 +21,10 @@ from backend.utils.lockers_utils import (
 from backend.utils.products_utils import (
     aggregate_available_globally,
     aggregate_available_in_city,
+    aggregate_placed_at_locker,
+    aggregate_placed_globally,
+    aggregate_placed_in_city,
+    compute_busy_dates_for_product,
     find_price_plan,
     load_available_lockers_for_product,
     load_media_files_by_ids,
@@ -157,6 +161,11 @@ async def get_products(
     unit_counts: dict[UUID, int] = {}
     locker_counts: dict[UUID, int] = {}
     candidate_ids: set[UUID] | None = None
+    # Множество товаров, у которых инвентарь физически размещён (включая
+    # занятый бронью/арендой). Используется для видимости в каталоге —
+    # товар не исчезает, пока экземпляр в постамате, занятость уходит в
+    # календарь.
+    placed_ids: set[UUID] | None = None
 
     try:
         if locker_uuid is not None:
@@ -164,13 +173,16 @@ async def get_products(
                 db, locker_uuid, None
             )
             locker_counts = {pid: 1 for pid in unit_counts if unit_counts[pid] > 0}
-            candidate_ids = set(unit_counts.keys())
+            placed_ids = await aggregate_placed_at_locker(db, locker_uuid)
+            candidate_ids = set(placed_ids)
         elif city_uuid is not None:
             unit_counts, locker_counts = await aggregate_available_in_city(db, city_uuid)
-            candidate_ids = set(unit_counts.keys())
+            placed_ids = await aggregate_placed_in_city(db, city_uuid)
+            candidate_ids = set(placed_ids)
         else:
             unit_counts, locker_counts = await aggregate_available_globally(db)
-            candidate_ids = set(unit_counts.keys())
+            placed_ids = await aggregate_placed_globally(db)
+            candidate_ids = set(placed_ids)
     except HTTPException:
         raise
     except Exception as exc:
@@ -310,6 +322,27 @@ async def get_featured_product(
             "activeDate": state.active_date.isoformat(),
         }
     }
+
+
+@router.get("/{product_id}/busy-dates")
+async def get_product_busy_dates(
+    product_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    lockerId: str | None = Query(None),
+):
+    """Список занятых дат (YYYY-MM-DD) для товара.
+
+    Эти даты фронт делает недоступными в календаре выбора периода. Сам
+    товар при этом остаётся в каталоге. Если передан ``lockerId`` —
+    занятость считается только по этому постамату.
+    """
+    product = await db.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="PRODUCT_NOT_FOUND")
+
+    locker_uuid = _parse_uuid_param(lockerId, "INVALID_LOCKER_ID")
+    busy = await compute_busy_dates_for_product(db, product_id, locker_id=locker_uuid)
+    return {"data": {"productId": str(product_id), "busyDates": busy}}
 
 
 @router.get("/{product_id}/pricing")

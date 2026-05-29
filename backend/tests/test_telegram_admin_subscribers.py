@@ -39,6 +39,20 @@ from backend.utils.telegram_admin_subscribers import (
     update_subscriber,
 )
 
+# Создаём только таблицу подписчиков, чтобы при совместном прогоне с
+# другими тестами не тянуть весь граф моделей (у media_files есть FK на
+# admin_users, которую мы здесь не регистрируем).
+SUBSCRIBER_TABLES = [TelegramAdminSubscriber.__table__]
+
+
+async def _create_subscriber_tables(engine) -> None:
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            lambda sync_conn: Base.metadata.create_all(
+                sync_conn, tables=SUBSCRIBER_TABLES
+            )
+        )
+
 
 TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -95,8 +109,7 @@ class NormalizeUsernameTests(unittest.TestCase):
 class TelegramSubscribersDbTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.engine = create_async_engine(TEST_DB_URL, echo=False)
-        async with self.engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        await _create_subscriber_tables(self.engine)
         self.SessionLocal = async_sessionmaker(
             bind=self.engine,
             class_=AsyncSession,
@@ -238,8 +251,7 @@ if __name__ == "__main__":
 class TelegramStartHandlerTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.engine = create_async_engine(TEST_DB_URL, echo=False)
-        async with self.engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        await _create_subscriber_tables(self.engine)
         self.SessionLocal = async_sessionmaker(
             bind=self.engine,
             class_=AsyncSession,

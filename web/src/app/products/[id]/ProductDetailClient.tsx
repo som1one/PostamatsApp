@@ -23,6 +23,7 @@ import {
   fetchCities,
   fetchAllLockers,
   fetchProductPricing,
+  fetchProductBusyDates,
   resolveProductBySlugOrId,
 } from "@/shared/api/endpoints";
 import type { City, Locker, PricePlan, PricingQuote, ProductDetail } from "@/shared/api/types";
@@ -94,6 +95,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
   const [date, setDate] = useState(todayInputValue);
   const [endDate, setEndDate] = useState(todayInputValue);
   const [pricing, setPricing] = useState<PricingQuote | null>(null);
+  const [busyDates, setBusyDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [pricingLoading, setPricingLoading] = useState(false);
   const [error, setError] = useState("");
@@ -417,6 +419,29 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
     };
   }, [lockerId, product, rescheduleReservationId, selectedPlan]);
 
+  // Занятые даты для календаря: зависят от товара и выбранного постамата.
+  // Свой reschedule-резерв исключаем на бэке через статусы (он CONFIRMED,
+  // но это редкий кейс; для UX блокировки достаточно общей картины).
+  useEffect(() => {
+    if (!product) {
+      setBusyDates([]);
+      return;
+    }
+    let active = true;
+    fetchProductBusyDates(product.id, lockerId || undefined)
+      .then((dates) => {
+        if (active) setBusyDates(dates);
+      })
+      .catch(() => {
+        // Занятость — вспомогательная подсказка. При ошибке просто не
+        // блокируем даты, чекаут всё равно проверит доступность.
+        if (active) setBusyDates([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [product, lockerId]);
+
   return (
     <PageChrome>
       <Link className="button button-ghost button-inline product-back-link" href="/catalog">
@@ -497,6 +522,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                   totalMinor={rangeTotalMinor}
                   discountPercent={rangeDiscountPercent}
                   currency={baseDayPlan?.currency || "RUB"}
+                  disabledDates={busyDates}
                 />
                 {dayPlans.length ? (
                   <>
