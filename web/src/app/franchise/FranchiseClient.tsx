@@ -14,6 +14,7 @@ import {
   PackageCheck,
   RefreshCw,
   ShieldCheck,
+  ShoppingCart,
   Store,
   Timer,
   TrendingUp,
@@ -26,12 +27,12 @@ import { PageChrome } from "@/components/PageChrome";
 const CONTACT_EMAIL = "info@naprokatberu.ru";
 
 const metrics = [
-  { value: "от 350 000 ₽", label: "стартовые вложения", note: "* возможен лизинг от партнёра" },
+  { value: "от 550 000 ₽", label: "стартовые вложения", note: "* возможен лизинг от партнёра" },
   { value: "до 2,7 млн ₽", label: "выручка в год" },
   { value: "0 ₽", label: "затраты на персонал" },
-  { value: "от 85 000 ₽", label: "прибыль в месяц" },
-  { value: "~18 месяцев", label: "окупаемость" },
-  { value: "≈ 3 700 ₽", label: "средний чек" },
+  { value: "от 55 000 ₽", label: "прибыль в месяц с одного постамата" },
+  { value: "7–12 месяцев", label: "окупаемость" },
+  { value: "1490 ₽", label: "средний чек" },
 ];
 
 const advantages = [
@@ -70,6 +71,7 @@ const placements = [
   { icon: GraduationCap, title: "Студенческие общежития", text: "Высокий спрос на технику и вещи на короткий срок." },
   { icon: Hotel, title: "Гостиницы и апарт-отели", text: "Дополнительный сервис для гостей без расходов на штат." },
   { icon: Truck, title: "ПВЗ и коворкинги", text: "Точки выдачи маркетплейсов и рабочие пространства." },
+  { icon: ShoppingCart, title: "Торговые центры и гипермаркеты", text: "Высокий пеший трафик и готовая аудитория покупателей рядом с точкой." },
 ];
 
 export function FranchiseClient() {
@@ -206,7 +208,7 @@ export function FranchiseClient() {
               <Wallet size={20} />
             </span>
             <strong>Низкий порог входа</strong>
-            <p>Старт от 350 000 ₽, возможен лизинг оборудования от партнёра.</p>
+            <p>Старт от 550 000 ₽, возможен лизинг оборудования от партнёра.</p>
           </article>
           <article className="benefit-card">
             <span className="icon-badge">

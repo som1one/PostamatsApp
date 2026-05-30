@@ -17,6 +17,7 @@ import {
   Menu,
   PackageCheck,
   ShoppingBag,
+  Store,
   X,
 } from "lucide-react";
 import {
@@ -50,6 +51,11 @@ const nav = [
     href: "/faq",
     label: "Вопрос-ответ",
     icon: HelpCircle,
+  },
+  {
+    href: "/franchise",
+    label: "Франшиза",
+    icon: Store,
   },
   {
     href: "/ideas",
