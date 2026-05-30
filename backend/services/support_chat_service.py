@@ -12,11 +12,13 @@ This module hosts the authoritative support-chat domain logic:
 * operator conversation listing with per-operator unread, latest-message
   preview, and assignee resolution (``list_conversations``), the per-operator
   unread computation (``compute_unread``), and the read-marker upsert
-  (``mark_read``).
+  (``mark_read``);
+* assignment self-assign/self-release and status mutations (``assign``,
+  ``set_status``);
+* the operator-facing client info card (``build_client_info_card``) reporting the
+  owning client's phone plus their most recent reservations and rentals.
 
-The remaining database-backed methods (assignment / status mutations and the
-client info card) are added in later tasks. The validators perform no I/O;
-importing this module performs no database work.
+The validators perform no I/O; importing this module performs no database work.
 """
 
 from __future__ import annotations
@@ -30,7 +32,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.admin_account import AdminAccount
-from backend.models.enums import ConversationStatus, MessageAuthorType
+from backend.models.enums import ConversationStatus, MessageAuthorType, RentalStatus, ReservationStatus
+from backend.models.inventory_unit import InventoryUnit
+from backend.models.product import Product
+from backend.models.rental import Rental
+from backend.models.reservation import Reservation
 from backend.models.support_conversation import SupportConversation
 from backend.models.support_conversation_read import SupportConversationRead
 from backend.models.support_message import SupportMessage
@@ -42,6 +48,10 @@ MAX_MESSAGE_LENGTH = 4000
 # Default and maximum number of messages returned by a single history page.
 DEFAULT_PAGE_LIMIT = 50
 MAX_PAGE_LIMIT = 100
+
+# Maximum number of recent reservations/rentals included in the client info card
+# (Requirement 13.3).
+CLIENT_INFO_CARD_LIMIT = 10
 
 
 class MessageValidationError(Exception):
@@ -173,6 +183,80 @@ class ConversationSummaryData:
     last_message_preview: str | None
     last_message_at: datetime | None
     unread_count: int
+
+
+@dataclass(frozen=True)
+class ReservationSummaryData:
+    """A computed recent-reservation entry for the client info card.
+
+    Transport-agnostic value object: ``build_client_info_card`` returns these and
+    the operator router maps each onto
+    :class:`backend.schemas.support_schemas.ReservationSummary` (fields map by
+    name in camelCase: ``product_name`` -> ``productName``, ``pickup_at`` ->
+    ``pickupAt``, ``created_at`` -> ``createdAt``).
+
+    Attributes:
+        id: the reservation id.
+        product_name: the reserved product's display name, or ``None`` when it
+            cannot be resolved.
+        status: the reservation's :class:`ReservationStatus`.
+        pickup_at: the scheduled pickup time, or ``None`` when unset.
+        created_at: when the reservation was created.
+    """
+
+    id: UUID
+    product_name: str | None
+    status: ReservationStatus
+    pickup_at: datetime | None
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class RentalSummaryData:
+    """A computed recent-rental entry for the client info card.
+
+    Transport-agnostic value object mapped by the operator router onto
+    :class:`backend.schemas.support_schemas.RentalSummary` (``product_name`` ->
+    ``productName``, ``starts_at`` -> ``startsAt``, ``planned_end_at`` ->
+    ``plannedEndAt``).
+
+    Attributes:
+        id: the rental id.
+        product_name: the rented product's display name (resolved via the
+            rental's inventory unit), or ``None`` when it cannot be resolved.
+        status: the rental's :class:`RentalStatus`.
+        starts_at: the rental start time, or ``None`` when unset.
+        planned_end_at: the planned rental end time.
+        created_at: when the rental was created (used only for ordering).
+    """
+
+    id: UUID
+    product_name: str | None
+    status: RentalStatus
+    starts_at: datetime | None
+    planned_end_at: datetime
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class ClientInfoCardData:
+    """The operator-facing profile summary for a conversation's owning client.
+
+    Transport-agnostic value object: ``build_client_info_card`` returns this and
+    the operator router maps it onto
+    :class:`backend.schemas.support_schemas.ClientInfoCard`. The two lists are
+    capped at the 10 most recent of each, ordered newest -> oldest, and are empty
+    (never ``None``) when the client has none (Requirements 13.2, 13.3, 13.4).
+
+    Attributes:
+        phone: the owning client's phone number (Requirement 13.1).
+        recent_reservations: up to 10 most recent reservations, newest -> oldest.
+        recent_rentals: up to 10 most recent rentals, newest -> oldest.
+    """
+
+    phone: str
+    recent_reservations: list[ReservationSummaryData]
+    recent_rentals: list[RentalSummaryData]
 
 
 async def get_or_create_conversation(db: AsyncSession, user: User) -> SupportConversation:
@@ -570,6 +654,159 @@ async def mark_read(
     return max_seq
 
 
+async def assign(
+    db: AsyncSession,
+    operator: AdminAccount,
+    conversation_id: UUID,
+    assign: bool,
+) -> SupportConversation:
+    """Self-assign or self-release a conversation for ``operator``.
+
+    Loads the conversation by id (raising :class:`ConversationNotFoundError`
+    when it does not exist) and then either records or clears the assignee:
+
+    * ``assign=True``  -> ``assigned_operator_id = operator.id`` (self-assign,
+      Requirement 11.1);
+    * ``assign=False`` -> ``assigned_operator_id = None`` (self-release,
+      Requirement 11.4).
+
+    Operator authorization is enforced upstream (``get_current_operator`` at the
+    router/gateway layer); this function only verifies existence and applies the
+    mutation. The updated conversation is flushed and returned.
+
+    Implements Requirements 11.1, 11.4.
+    """
+    conversation = await db.get(SupportConversation, conversation_id)
+    if conversation is None:
+        raise ConversationNotFoundError()
+
+    conversation.assigned_operator_id = operator.id if assign else None
+    await db.flush()
+
+    return conversation
+
+
+async def set_status(
+    db: AsyncSession,
+    operator: AdminAccount,
+    conversation_id: UUID,
+    status: ConversationStatus,
+) -> SupportConversation:
+    """Set a conversation's status to ``status``.
+
+    Loads the conversation by id (raising :class:`ConversationNotFoundError`
+    when it does not exist) and persists the target :class:`ConversationStatus`.
+    Operator authorization is enforced upstream (``get_current_operator``); this
+    function only verifies existence and applies the mutation. The updated
+    conversation is flushed and returned, so a subsequent reload reports the
+    exact status that was set (Requirement 12.3).
+
+    Implements Requirement 12.3.
+    """
+    conversation = await db.get(SupportConversation, conversation_id)
+    if conversation is None:
+        raise ConversationNotFoundError()
+
+    conversation.status = status
+    await db.flush()
+
+    return conversation
+
+
+async def build_client_info_card(
+    db: AsyncSession,
+    conversation_id: UUID,
+) -> ClientInfoCardData:
+    """Build the operator-facing client info card for a conversation.
+
+    Resolves the conversation by id (raising :class:`ConversationNotFoundError`
+    when it does not exist), then loads the owning :class:`User` to report their
+    phone (Requirement 13.1) alongside their most recent reservations and rentals
+    (Requirement 13.2). Each list is capped at the 10 most recent rows ordered
+    newest -> oldest by ``created_at`` (Requirement 13.3) and is empty (never
+    ``None``) when the client has none (Requirement 13.4).
+
+    Product names are resolved in batch to avoid N+1 queries: reservations carry
+    ``product_id`` directly, while rentals reach a product through their
+    ``inventory_unit_id`` -> :class:`InventoryUnit` -> ``product_id``. All
+    referenced product ids are collected and resolved with a single ``IN`` query.
+
+    Implements Requirements 13.1, 13.2, 13.3, 13.4.
+    """
+    conversation = await db.get(SupportConversation, conversation_id)
+    if conversation is None:
+        raise ConversationNotFoundError()
+
+    user = await db.get(User, conversation.user_id)
+    if user is None:  # pragma: no cover - FK guarantees the owning user exists
+        raise ConversationNotFoundError()
+
+    reservations = list(
+        (
+            await db.execute(
+                select(Reservation)
+                .where(Reservation.user_id == user.id)
+                .order_by(Reservation.created_at.desc())
+                .limit(CLIENT_INFO_CARD_LIMIT)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    rentals = list(
+        (
+            await db.execute(
+                select(Rental)
+                .where(Rental.user_id == user.id)
+                .order_by(Rental.created_at.desc())
+                .limit(CLIENT_INFO_CARD_LIMIT)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    (
+        product_name_by_product_id,
+        product_id_by_inventory_unit_id,
+    ) = await _resolve_product_names(db, reservations, rentals)
+
+    recent_reservations = [
+        ReservationSummaryData(
+            id=reservation.id,
+            product_name=product_name_by_product_id.get(reservation.product_id),
+            status=reservation.status,
+            pickup_at=reservation.pickup_at,
+            created_at=reservation.created_at,
+        )
+        for reservation in reservations
+    ]
+
+    recent_rentals = []
+    for rental in rentals:
+        product_id = product_id_by_inventory_unit_id.get(rental.inventory_unit_id)
+        product_name = (
+            product_name_by_product_id.get(product_id) if product_id is not None else None
+        )
+        recent_rentals.append(
+            RentalSummaryData(
+                id=rental.id,
+                product_name=product_name,
+                status=rental.status,
+                starts_at=rental.starts_at,
+                planned_end_at=rental.planned_end_at,
+                created_at=rental.created_at,
+            )
+        )
+
+    return ClientInfoCardData(
+        phone=user.phone,
+        recent_reservations=recent_reservations,
+        recent_rentals=recent_rentals,
+    )
+
+
 async def _next_message_seq(db: AsyncSession) -> int:
     """Draw the next globally monotonic message ordering key.
 
@@ -607,6 +844,53 @@ def _bound_limit(limit: int) -> int:
     if limit > MAX_PAGE_LIMIT:
         return MAX_PAGE_LIMIT
     return limit
+
+
+async def _resolve_product_names(
+    db: AsyncSession,
+    reservations: list[Reservation],
+    rentals: list[Rental],
+) -> tuple[dict[UUID, str], dict[UUID, UUID]]:
+    """Batch-resolve product names for the client info card (no N+1).
+
+    Reservations reference a product directly via ``product_id``; rentals reach a
+    product indirectly via ``inventory_unit_id`` -> :class:`InventoryUnit` ->
+    ``product_id``. This helper resolves both with at most two ``IN`` queries:
+
+    1. one over :class:`InventoryUnit` to map each rental's inventory-unit id to
+       its product id;
+    2. one over :class:`Product` to map every referenced product id (from
+       reservations and from the resolved inventory units) to its name.
+
+    Returns a tuple ``(product_name_by_product_id, product_id_by_inventory_unit_id)``.
+    Both maps omit ids that cannot be resolved, so callers treat a missing entry
+    as an unresolved (``None``) product name.
+    """
+    inventory_unit_ids = {
+        rental.inventory_unit_id for rental in rentals if rental.inventory_unit_id is not None
+    }
+    product_id_by_inventory_unit_id: dict[UUID, UUID] = {}
+    if inventory_unit_ids:
+        unit_rows = await db.execute(
+            select(InventoryUnit.id, InventoryUnit.product_id).where(
+                InventoryUnit.id.in_(inventory_unit_ids)
+            )
+        )
+        product_id_by_inventory_unit_id = {row[0]: row[1] for row in unit_rows.all()}
+
+    product_ids: set[UUID] = {
+        reservation.product_id for reservation in reservations if reservation.product_id is not None
+    }
+    product_ids.update(product_id_by_inventory_unit_id.values())
+
+    product_name_by_product_id: dict[UUID, str] = {}
+    if product_ids:
+        product_rows = await db.execute(
+            select(Product.id, Product.name).where(Product.id.in_(product_ids))
+        )
+        product_name_by_product_id = {row[0]: row[1] for row in product_rows.all()}
+
+    return product_name_by_product_id, product_id_by_inventory_unit_id
 
 
 async def _load_conversation_by_user(
