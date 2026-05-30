@@ -70,7 +70,7 @@
   aspect-ratio: 1054 / 1492;
   overflow: hidden;
   border: 1px solid rgba(234, 223, 206, 0.95);
-  border-radius: 24px;
+  border-radius: 0;
   background: linear-gradient(180deg, rgba(255, 252, 248, 0.98), rgba(255, 247, 240, 0.96));
   box-shadow: 0 22px 44px rgba(63, 42, 24, 0.16);
 }.hero-service-media-image {
