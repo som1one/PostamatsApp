@@ -6,11 +6,13 @@ This module hosts the authoritative support-chat domain logic:
   (``normalize_message_body`` / ``validate_message_body``);
 * the database-backed conversation lifecycle, ownership-scoped reads, and
   history pagination (``get_or_create_conversation``, ``get_owned_conversation``,
-  ``list_messages``).
+  ``list_messages``);
+* message posting with monotonic ordering and reopen-on-message
+  (``post_client_message``, ``post_operator_message``).
 
-The remaining database-backed methods (message posting, conversation listing /
-unread, assignment / status mutations, and the client info card) are added in
-later tasks. The validators perform no I/O; importing this module performs no
+The remaining database-backed methods (conversation listing / unread,
+assignment / status mutations, and the client info card) are added in later
+tasks. The validators perform no I/O; importing this module performs no
 database work.
 """
 
@@ -19,11 +21,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models.enums import ConversationStatus
+from backend.models.admin_account import AdminAccount
+from backend.models.enums import ConversationStatus, MessageAuthorType
 from backend.models.support_conversation import SupportConversation
 from backend.models.support_message import SupportMessage
 from backend.models.user import User
@@ -258,6 +261,129 @@ async def list_owned_messages(
         before_seq=before_seq,
         limit=limit,
     )
+
+
+async def post_client_message(
+    db: AsyncSession,
+    user: User,
+    body: str,
+) -> SupportMessage:
+    """Validate, persist, and order a client-authored message.
+
+    The flow is durable-storage-first (Requirement 14.1): the body is validated,
+    the caller's conversation is resolved (created on first contact), a globally
+    monotonic ``seq`` is drawn, and the message is flushed so its ``seq`` and
+    server-assigned ``created_at`` are populated before the row is returned.
+
+    The conversation's denormalized activity markers
+    (``last_message_at`` / ``last_message_seq``) are updated to this message, and
+    a ``closed`` conversation is reopened (``closed`` -> ``open``); conversations
+    in any other status keep their status (Requirement 12.4).
+
+    Implements Requirements 2.1, 2.2, 12.4, 14.1, 14.2.
+    """
+    validated = validate_message_body(body)
+    conversation = await get_or_create_conversation(db, user)
+
+    seq = await _next_message_seq(db)
+    message = SupportMessage(
+        conversation_id=conversation.id,
+        seq=seq,
+        author_type=MessageAuthorType.CLIENT,
+        author_user_id=user.id,
+        body=validated,
+    )
+    db.add(message)
+    # Flush + refresh so `seq` and the server-default `created_at` are populated
+    # on the instance before we read them below and before returning.
+    await db.flush()
+    await db.refresh(message)
+
+    conversation.last_message_at = message.created_at
+    conversation.last_message_seq = message.seq
+    # Reopen-on-message: only a client message reopens a closed conversation.
+    if conversation.status == ConversationStatus.CLOSED:
+        conversation.status = ConversationStatus.OPEN
+    await db.flush()
+
+    return message
+
+
+async def post_operator_message(
+    db: AsyncSession,
+    operator: AdminAccount,
+    conversation_id: UUID,
+    body: str,
+) -> SupportMessage:
+    """Validate, persist, and order an operator-authored reply.
+
+    The conversation must already exist (operators reply to existing client
+    conversations); a missing conversation raises
+    :class:`ConversationNotFoundError`. Operator authorization is enforced at the
+    router/gateway layer (``get_current_operator``); this function only verifies
+    existence.
+
+    A monotonic ``seq`` is drawn from the same source as client messages and the
+    row is flushed so ``seq`` / ``created_at`` are populated before returning.
+    The conversation activity markers are updated, but an operator message never
+    reopens a closed conversation (only client messages do; Requirement 12.4).
+
+    Implements Requirements 2.1, 2.2, 10.2, 14.1, 14.2.
+    """
+    validated = validate_message_body(body)
+
+    conversation = await db.get(SupportConversation, conversation_id)
+    if conversation is None:
+        raise ConversationNotFoundError()
+
+    seq = await _next_message_seq(db)
+    message = SupportMessage(
+        conversation_id=conversation.id,
+        seq=seq,
+        author_type=MessageAuthorType.OPERATOR,
+        author_admin_id=operator.id,
+        body=validated,
+    )
+    db.add(message)
+    await db.flush()
+    await db.refresh(message)
+
+    conversation.last_message_at = message.created_at
+    conversation.last_message_seq = message.seq
+    # Operator replies never reopen a conversation.
+    await db.flush()
+
+    return message
+
+
+async def _next_message_seq(db: AsyncSession) -> int:
+    """Draw the next globally monotonic message ordering key.
+
+    On PostgreSQL the value comes from the dedicated ``support_message_seq``
+    sequence (created by the Alembic migration), which is globally monotonic and
+    gap-tolerant, giving a total order even across conversations and identical
+    ``created_at`` timestamps (Requirement 14.2).
+
+    Sequences do not exist on SQLite (used by the test/dev databases), so we fall
+    back to ``max(seq) + 1`` across ``support_messages``. Because each posted
+    message is flushed before the next ``seq`` is drawn, this stays unique and
+    strictly increasing within a transaction.
+    """
+    if _dialect_name(db) == "postgresql":
+        result = await db.execute(select(func.nextval("support_message_seq")))
+        return int(result.scalar_one())
+
+    result = await db.execute(select(func.coalesce(func.max(SupportMessage.seq), 0)))
+    current_max = int(result.scalar_one())
+    return current_max + 1
+
+
+def _dialect_name(db: AsyncSession) -> str:
+    """Return the bound dialect name (e.g. ``postgresql``/``sqlite``), or ``""``."""
+    bind = db.bind
+    if bind is None:
+        return ""
+    return bind.dialect.name
 
 
 def _bound_limit(limit: int) -> int:
