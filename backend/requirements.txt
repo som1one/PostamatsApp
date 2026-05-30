@@ -13,3 +13,4 @@ yookassa
 httpx
 redis
 tzdata
+hypothesis

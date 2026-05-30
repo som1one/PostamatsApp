@@ -1,0 +1,245 @@
+/* Стили панели оператора (/helperpanel). Визуально отделены от клиентского
+   сайта: тёмная нейтральная тема, без клиентской «тёплой» палитры. */
+
+.helperpanel-root {
+  --hp-bg: #0f172a;
+  --hp-surface: #1e293b;
+  --hp-surface-soft: #273449;
+  --hp-border: #334155;
+  --hp-text: #e2e8f0;
+  --hp-text-soft: #94a3b8;
+  --hp-accent: #2563eb;
+  --hp-accent-dark: #1d4ed8;
+  --hp-danger: #f87171;
+
+  min-height: 100vh;
+  background: var(--hp-bg);
+  color: var(--hp-text);
+  font-family:
+    Manrope, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+}
+
+/* --- Загрузка --- */
+.helperpanel-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  color: var(--hp-text-soft);
+  font-weight: 600;
+}
+
+/* --- Экран входа --- */
+.helperpanel-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.helperpanel-login-card {
+  width: min(380px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 28px;
+  background: var(--hp-surface);
+  border: 1px solid var(--hp-border);
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+}
+
+.helperpanel-login-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.helperpanel-login-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--hp-accent);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.helperpanel-login-head strong {
+  display: block;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.helperpanel-login-head small {
+  display: block;
+  margin-top: 2px;
+  color: var(--hp-text-soft);
+  font-size: 13px;
+}
+
+.helperpanel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.helperpanel-field span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hp-text-soft);
+}
+
+.helperpanel-field input {
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1px solid var(--hp-border);
+  background: var(--hp-surface-soft);
+  color: var(--hp-text);
+  font-size: 15px;
+}
+
+.helperpanel-field input:focus {
+  outline: 2px solid var(--hp-accent);
+  outline-offset: 1px;
+}
+
+.helperpanel-login-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--hp-danger);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.helperpanel-login-submit {
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--hp-accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.helperpanel-login-submit:hover:not(:disabled) {
+  background: var(--hp-accent-dark);
+}
+
+.helperpanel-login-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --- Аутентифицированная оболочка --- */
+.helperpanel-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.helperpanel-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 22px;
+  background: var(--hp-surface);
+  border-bottom: 1px solid var(--hp-border);
+}
+
+.helperpanel-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.helperpanel-brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--hp-accent);
+  color: #fff;
+}
+
+.helperpanel-brand-copy strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.helperpanel-brand-copy small {
+  display: block;
+  color: var(--hp-text-soft);
+  font-size: 12px;
+}
+
+.helperpanel-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.helperpanel-operator-id {
+  color: var(--hp-text-soft);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.helperpanel-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--hp-border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--hp-text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.helperpanel-logout:hover:not(:disabled) {
+  background: var(--hp-surface-soft);
+  border-color: var(--hp-text-soft);
+}
+
+.helperpanel-logout:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.helperpanel-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.helperpanel-placeholder {
+  margin: auto;
+  text-align: center;
+  color: var(--hp-text-soft);
+}
+
+.helperpanel-placeholder p {
+  margin: 4px 0;
+}
+
+.helperpanel-placeholder-hint {
+  font-size: 13px;
+}

@@ -140,3 +140,14 @@ class ReturnRequestStatus(str, Enum):
     AWAITING_CLOSE = "awaiting_close"
     COMPLETED = "completed"
     FAILED = "failed"
+
+
+class ConversationStatus(str, Enum):
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    CLOSED = "closed"
+
+
+class MessageAuthorType(str, Enum):
+    CLIENT = "client"
+    OPERATOR = "operator"
