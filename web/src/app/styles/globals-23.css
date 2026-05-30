@@ -48,28 +48,22 @@
 }
 .franchise-step {
   position: relative;
-  display: grid;
-  grid-template-columns: auto auto;
-  grid-template-areas:
-    "index icon"
-    "body  body";
-  justify-content: start;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   column-gap: 10px;
-  row-gap: 10px;
+  row-gap: 12px;
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--surface);
 }
 .franchise-step-index {
-  grid-area: index;
   font-size: 13px;
   font-weight: 900;
   color: var(--muted);
 }
 .franchise-step-icon {
-  grid-area: icon;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -80,7 +74,7 @@
   color: var(--primary);
 }
 .franchise-step > span:last-child {
-  grid-area: body;
+  flex: 0 0 100%;
 }
 .franchise-step strong {
   display: block;
