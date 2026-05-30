@@ -92,10 +92,14 @@
 
   .product-grid,
   .skeleton-grid,
-  .benefit-grid,
   .workflow-grid,
   .stats-grid {
     align-items: start;
+  }
+
+  .benefit-grid {
+    align-items: stretch;
+    grid-auto-rows: 1fr;
   }
 
   .product-grid,

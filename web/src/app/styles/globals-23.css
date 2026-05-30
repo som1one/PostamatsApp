@@ -122,9 +122,14 @@
   justify-items: start;
   color: var(--text-soft);
 }
+.franchise-downloads .benefit-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .franchise-downloads .benefit-card .button {
   width: fit-content;
-  margin-top: 6px;
+  margin-top: auto;
 }
 
 @media (max-width: 980px) {

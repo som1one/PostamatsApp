@@ -343,6 +343,9 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+}.benefit-grid {
+  align-items: stretch;
+  grid-auto-rows: 1fr;
 }.workflow-grid {
   width: min(100%, 980px);
   max-width: 100%;
