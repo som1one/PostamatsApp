@@ -29,7 +29,7 @@ from backend.utils.auth_utils import (
     verify_access_token,
 )
 from backend.utils.phone_utils import normalize_phone_for_storage
-from backend.utils.sms_ru import SmsRuError, send_auth_code
+from backend.utils.sms_ru import AuthChannelResult, SmsRuError, send_auth_code
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])  # reload trigger
@@ -53,6 +53,13 @@ AUTH_LOGOUT_FAILED = "AUTH_LOGOUT_FAILED"
 
 # Minimum interval between successive request-code calls for the same phone.
 RESEND_MIN_INTERVAL_SECONDS = 30
+
+# DEV/TEST: один захардкоженный аккаунт для входа без реальной SMS.
+# Для этого номера code-флоу не дёргает sms.ru, а код всегда фиксированный.
+# ВНИМАНИЕ: это бэкдор в один конкретный аккаунт — не храните на нём ничего
+# чувствительного и удалите этот блок, когда тестовый доступ больше не нужен.
+TEST_LOGIN_PHONE = "+79990000000"
+TEST_LOGIN_CODE = "0760"
 
 
 def auth_error(status_code: int, code: str) -> HTTPException:
@@ -130,6 +137,10 @@ async def request_code(
             raise auth_error(429, AUTH_RESEND_TOO_SOON)
 
     code = generate_code()
+    is_test_login = normalized_phone == TEST_LOGIN_PHONE
+    if is_test_login:
+        # Захардкоженный тестовый аккаунт: фиксированный код, без отправки SMS.
+        code = TEST_LOGIN_CODE
     hashed_code = hash_code(code)
     verification_session = AuthVerificationSession(
         phone=normalized_phone,
@@ -145,7 +156,11 @@ async def request_code(
     try:
         db.add(verification_session)
         await db.flush()
-        delivery = await send_auth_code(normalized_phone, code)
+        if is_test_login:
+            # Не дёргаем sms.ru для тестового номера — код уже известен.
+            delivery = AuthChannelResult(channel="sms", provider_id=None)
+        else:
+            delivery = await send_auth_code(normalized_phone, code)
         if delivery.channel == "call" and delivery.code:
             # При авторизации звонком sms.ru сам решает, какой код
             # увидит пользователь (последние 4 цифры исходящего

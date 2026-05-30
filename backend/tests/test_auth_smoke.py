@@ -147,6 +147,24 @@ class AuthSmokeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("refreshToken", data)
         self.assertEqual(data["user"]["phone"], phone)
 
+    async def test_hardcoded_test_login(self):
+        """The test-login phone uses a fixed code and never calls sms.ru."""
+        phone = "+79990000000"
+        req = await self.client.post("/auth/request-code", json={"phone": phone})
+        self.assertEqual(req.status_code, 200)
+        # sms.ru sender must NOT be called for the hardcoded test phone.
+        self.mock_send_auth_code.assert_not_awaited()
+        session_id = req.json()["data"]["verificationSessionId"]
+
+        response = await self.client.post(
+            "/auth/confirm-code",
+            json={"verificationSessionId": session_id, "code": "0760"},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertIn("accessToken", data)
+        self.assertEqual(data["user"]["phone"], phone)
+
     async def test_confirm_code_wrong_code(self):
         """An incorrect code returns 401 AUTH_CODE_INVALID and increments attempt_count."""
         phone = "+79991110002"
