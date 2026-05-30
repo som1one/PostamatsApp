@@ -218,7 +218,7 @@ property test lives in its own test module so independent tests can run in paral
     - Login prompt for unauthenticated visitors, connection-state indicator, and disconnected-send indicator
     - _Requirements: 3.1, 3.2, 6.1, 6.4_
 
-- [ ] 8. Implement the operator panel at /helperpanel
+- [x] 8. Implement the operator panel at /helperpanel
   - [x] 8.1 Create the `/helperpanel` route group, layout, and login screen
     - `web/src/app/helperpanel/layout.tsx` that does NOT wrap children in `PageShell` (no `AppHeader`/`Footer`/`SupportWidget`), plus a login screen reusing the existing admin auth endpoints (`/api/admin/auth/login`, `/refresh`, `/logout`, `/me`)
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
@@ -227,11 +227,11 @@ property test lives in its own test module so independent tests can run in paral
     - REST client for `/api/admin/support/*` and an operator WebSocket client for `/ws/helperpanel` (list-level + conversation-scoped events) under `web/src/app/helperpanel/`
     - _Requirements: 9.1, 9.3, 10.3, 11.2, 12.3_
 
-  - [ ] 8.3 Implement the conversation list with status filter and unread badges
+  - [x] 8.3 Implement the conversation list with status filter and unread badges
     - Conversation list ordered newest-first, status filter control, unread badges, and live `unread.update`/`conversation.updated` handling
     - _Requirements: 9.1, 9.2, 9.3, 12.6_
 
-  - [ ] 8.4 Implement the conversation view
+  - [x] 8.4 Implement the conversation view
     - Message thread (reusing the merge reducer), reply box, client info card, assign/release control with current-assignee display, and status control with optimistic apply + non-blocking "not yet saved" badge on failure
     - _Requirements: 10.1, 10.2, 10.4, 11.1, 11.3, 11.4, 12.3, 12.5, 13.1, 13.2_
 
@@ -242,8 +242,8 @@ property test lives in its own test module so independent tests can run in paral
 - [ ] 9. Checkpoint - Ensure frontend tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 10. Integration, wiring, and verification
-  - [ ] 10.1 Final wiring pass
+- [x] 10. Integration, wiring, and verification
+  - [x] 10.1 Final wiring pass
     - Confirm the client widget and operator panel consume the live REST/WS contracts, the widget is mounted in the client `PageShell` while `/helperpanel` stays excluded, and there is no orphaned/unintegrated code
     - _Requirements: 3.1, 4.1, 7.1, 15.2_
 
