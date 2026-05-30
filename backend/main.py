@@ -30,8 +30,12 @@ from backend.routers.admin.telegram_subscribers import router as admin_telegram_
 from backend.routers.admin.uploads import router as admin_uploads_router
 from backend.routers.admin.users import router as admin_users_router
 from backend.routers.admin.verification_queue import router as admin_verification_queue_router
+from backend.routers.admin.support import router as admin_support_router
 from backend.routers.auth import router as auth_router
 from backend.routers.me import router as me_router
+from backend.routers.support import router as support_router
+from backend.realtime.chat_gateway import router as support_ws_router
+from backend.realtime.connection_hub import get_connection_hub
 from backend.routers.cities import router as cities_router
 from backend.routers.lockers import router as lockers_router
 from backend.routers.uploads import router as uploads_router
@@ -112,6 +116,11 @@ app.include_router(admin_product_categories_router)
 app.include_router(admin_product_filters_router)
 app.include_router(admin_products_router)
 app.include_router(admin_uploads_router)
+app.include_router(admin_support_router)
+
+# Client support chat REST + the WebSocket gateway (client + operator sockets).
+app.include_router(support_router)
+app.include_router(support_ws_router)
 
 admin_frontend_dir = ROOT_DIR / "admin"
 assets_dir = ROOT_DIR / "assets"
@@ -150,6 +159,8 @@ async def startup_event():
     rental_pickup_expiry_worker, rental_pickup_expiry_stop_event = start_rental_pickup_expiry_scheduler(loop)
     rental_overdue_worker_handle, rental_overdue_stop_event = start_rental_overdue_scheduler(loop)
     esi_reconcile_worker, esi_reconcile_stop_event = start_esi_reconcile_scheduler(loop)
+    # Start the per-worker support-chat Redis subscriber for cross-worker fan-out.
+    get_connection_hub().start()
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -173,6 +184,8 @@ async def shutdown_event():
     await stop_esi_reconcile_scheduler(esi_reconcile_worker, esi_reconcile_stop_event)
     esi_reconcile_worker = None
     esi_reconcile_stop_event = None
+    # Stop the support-chat Redis subscriber before tearing down Redis.
+    await get_connection_hub().stop()
     await close_redis()
     await close_db()
 
