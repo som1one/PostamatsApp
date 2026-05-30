@@ -103,6 +103,9 @@ export function FranchiseClient() {
             постамат в проходном месте, а сервис, каталог, оплата и поддержка клиентов работают
             автоматически. Доход идёт круглосуточно, штат держать не нужно.
           </p>
+          <div className="franchise-hero-banner">
+            <img src="/franchise-hero.jpg" alt="Постамат naprokatberu с вещами в аренду" />
+          </div>
           <a className="button button-primary" href="#consultation">
             Стать партнёром
             <ArrowRight size={18} />

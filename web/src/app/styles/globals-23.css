@@ -10,6 +10,20 @@
   width: fit-content;
   margin-top: 22px;
 }
+.franchise-hero-banner {
+  margin-top: 22px;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+.franchise-hero-banner img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
 .franchise-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
