@@ -8,17 +8,21 @@ This module hosts the authoritative support-chat domain logic:
   history pagination (``get_or_create_conversation``, ``get_owned_conversation``,
   ``list_messages``);
 * message posting with monotonic ordering and reopen-on-message
-  (``post_client_message``, ``post_operator_message``).
+  (``post_client_message``, ``post_operator_message``);
+* operator conversation listing with per-operator unread, latest-message
+  preview, and assignee resolution (``list_conversations``), the per-operator
+  unread computation (``compute_unread``), and the read-marker upsert
+  (``mark_read``).
 
-The remaining database-backed methods (conversation listing / unread,
-assignment / status mutations, and the client info card) are added in later
-tasks. The validators perform no I/O; importing this module performs no
-database work.
+The remaining database-backed methods (assignment / status mutations and the
+client info card) are added in later tasks. The validators perform no I/O;
+importing this module performs no database work.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -28,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.models.admin_account import AdminAccount
 from backend.models.enums import ConversationStatus, MessageAuthorType
 from backend.models.support_conversation import SupportConversation
+from backend.models.support_conversation_read import SupportConversationRead
 from backend.models.support_message import SupportMessage
 from backend.models.user import User
 
@@ -134,6 +139,40 @@ class MessagePage:
     messages: list[SupportMessage]
     has_more: bool
     oldest_seq: int | None
+
+
+@dataclass(frozen=True)
+class ConversationSummaryData:
+    """A computed conversation summary for the operator conversation list.
+
+    This is a transport-agnostic value object: ``list_conversations`` returns
+    these (ORM-derived id/status plus computed fields) and the operator router
+    maps each one onto the :class:`backend.schemas.support_schemas.ConversationSummary`
+    Pydantic model (``assigned_operator_id`` + ``assigned_operator_name`` ->
+    ``assignedOperator``; the remaining fields map by name in camelCase).
+
+    Attributes:
+        id: the conversation's id.
+        status: the conversation's current :class:`ConversationStatus`.
+        assigned_operator_id: the assignee's admin-account id, or ``None`` when
+            the conversation is unassigned.
+        assigned_operator_name: the assignee's display name, resolved from
+            ``AdminAccount.name``; ``None`` when unassigned.
+        last_message_preview: the body of the conversation's most recent message,
+            or ``None`` when the conversation has no messages yet.
+        last_message_at: timestamp of the most recent message activity (the
+            conversation's denormalized ``last_message_at``), or ``None``.
+        unread_count: count of client-authored messages newer than the
+            requesting operator's ``last_read_seq`` (Requirements 9.1, 9.3).
+    """
+
+    id: UUID
+    status: ConversationStatus
+    assigned_operator_id: UUID | None
+    assigned_operator_name: str | None
+    last_message_preview: str | None
+    last_message_at: datetime | None
+    unread_count: int
 
 
 async def get_or_create_conversation(db: AsyncSession, user: User) -> SupportConversation:
@@ -356,6 +395,181 @@ async def post_operator_message(
     return message
 
 
+async def list_conversations(
+    db: AsyncSession,
+    operator: AdminAccount,
+    *,
+    status: ConversationStatus | None = None,
+) -> list[ConversationSummaryData]:
+    """Return operator-facing summaries for all conversations.
+
+    Each :class:`ConversationSummaryData` carries the conversation's status, its
+    resolved assignee (id + display name, or ``None`` when unassigned), the body
+    of its most recent message as a preview (``None`` when empty), the activity
+    timestamp, and the per-operator unread count for ``operator`` (count of
+    client-authored messages newer than this operator's ``last_read_seq``;
+    Requirements 9.1, 9.3).
+
+    Results are ordered by ``last_message_at`` descending with ``last_message_seq``
+    descending as a deterministic tiebreak (newest activity first); conversations
+    with no activity yet sort last (Requirement 9.2). When ``status`` is provided,
+    only conversations in that status are returned (Requirement 12.6).
+
+    The query avoids per-conversation round trips: assignee names, last-message
+    previews, and unread counts are each resolved in a single batched query.
+
+    Implements Requirements 9.1, 9.2, 9.3, 12.6.
+    """
+    conv_stmt = select(SupportConversation)
+    if status is not None:
+        conv_stmt = conv_stmt.where(SupportConversation.status == status)
+    conv_stmt = conv_stmt.order_by(
+        SupportConversation.last_message_at.desc().nullslast(),
+        SupportConversation.last_message_seq.desc().nullslast(),
+    )
+    conversations = list((await db.execute(conv_stmt)).scalars().all())
+    if not conversations:
+        return []
+
+    # Resolve assignee display names in one query (avoid N+1).
+    operator_ids = {
+        c.assigned_operator_id
+        for c in conversations
+        if c.assigned_operator_id is not None
+    }
+    operator_names: dict[UUID, str] = {}
+    if operator_ids:
+        name_rows = await db.execute(
+            select(AdminAccount.id, AdminAccount.name).where(
+                AdminAccount.id.in_(operator_ids)
+            )
+        )
+        operator_names = {row[0]: row[1] for row in name_rows.all()}
+
+    # Resolve last-message previews in one query. `seq` is globally unique, so a
+    # single `seq IN (...)` lookup maps each conversation's last_message_seq to
+    # its body.
+    last_seqs = {
+        c.last_message_seq
+        for c in conversations
+        if c.last_message_seq is not None
+    }
+    preview_by_seq: dict[int, str] = {}
+    if last_seqs:
+        preview_rows = await db.execute(
+            select(SupportMessage.seq, SupportMessage.body).where(
+                SupportMessage.seq.in_(last_seqs)
+            )
+        )
+        preview_by_seq = {int(row[0]): row[1] for row in preview_rows.all()}
+
+    # Per-operator unread counts for every conversation in one grouped query.
+    unread_by_conversation = await _unread_counts_for_operator(db, operator.id)
+
+    summaries: list[ConversationSummaryData] = []
+    for conversation in conversations:
+        assigned_id = conversation.assigned_operator_id
+        preview = (
+            preview_by_seq.get(conversation.last_message_seq)
+            if conversation.last_message_seq is not None
+            else None
+        )
+        summaries.append(
+            ConversationSummaryData(
+                id=conversation.id,
+                status=conversation.status,
+                assigned_operator_id=assigned_id,
+                assigned_operator_name=(
+                    operator_names.get(assigned_id) if assigned_id is not None else None
+                ),
+                last_message_preview=preview,
+                last_message_at=conversation.last_message_at,
+                unread_count=unread_by_conversation.get(conversation.id, 0),
+            )
+        )
+    return summaries
+
+
+async def compute_unread(
+    db: AsyncSession,
+    conversation_id: UUID,
+    operator_id: UUID,
+) -> int:
+    """Count unread client messages in a conversation for one operator.
+
+    Unread is the number of **client-authored** messages whose ``seq`` is
+    strictly greater than this operator's ``last_read_seq`` for the conversation
+    (default ``0`` when the operator has never opened it). An operator's own
+    replies are never counted as unread (Requirement 9.3).
+
+    Implements Requirements 9.1, 9.3.
+    """
+    last_read_seq = await _operator_last_read_seq(db, conversation_id, operator_id)
+    result = await db.execute(
+        select(func.count())
+        .select_from(SupportMessage)
+        .where(SupportMessage.conversation_id == conversation_id)
+        .where(SupportMessage.author_type == MessageAuthorType.CLIENT)
+        .where(SupportMessage.seq > last_read_seq)
+    )
+    return int(result.scalar_one())
+
+
+async def mark_read(
+    db: AsyncSession,
+    operator: AdminAccount,
+    conversation_id: UUID,
+) -> int:
+    """Reset this operator's unread for a conversation to zero.
+
+    Upserts the :class:`SupportConversationRead` row for
+    ``(conversation_id, operator.id)``, setting ``last_read_seq`` to the
+    conversation's current maximum message ``seq`` (``0`` when the conversation
+    has no messages). Because unread counts only messages with ``seq`` greater
+    than this marker, the requesting operator's unread becomes zero while every
+    other operator's read marker — and therefore their unread — is untouched
+    (Requirement 9.4).
+
+    The upsert is done portably (works on SQLite and PostgreSQL): the existing
+    read row is selected; if present it is updated, otherwise a new row is
+    inserted. Returns the new ``last_read_seq``.
+
+    Raises:
+        ConversationNotFoundError: if no conversation has ``conversation_id``.
+
+    Implements Requirement 9.4.
+    """
+    conversation = await db.get(SupportConversation, conversation_id)
+    if conversation is None:
+        raise ConversationNotFoundError()
+
+    max_seq_result = await db.execute(
+        select(func.coalesce(func.max(SupportMessage.seq), 0)).where(
+            SupportMessage.conversation_id == conversation_id
+        )
+    )
+    max_seq = int(max_seq_result.scalar_one())
+
+    existing = await db.execute(
+        select(SupportConversationRead)
+        .where(SupportConversationRead.conversation_id == conversation_id)
+        .where(SupportConversationRead.operator_id == operator.id)
+    )
+    read_row = existing.scalar_one_or_none()
+    if read_row is None:
+        read_row = SupportConversationRead(
+            conversation_id=conversation_id,
+            operator_id=operator.id,
+            last_read_seq=max_seq,
+        )
+        db.add(read_row)
+    else:
+        read_row.last_read_seq = max_seq
+    await db.flush()
+
+    return max_seq
+
+
 async def _next_message_seq(db: AsyncSession) -> int:
     """Draw the next globally monotonic message ordering key.
 
@@ -404,3 +618,66 @@ async def _load_conversation_by_user(
         select(SupportConversation).where(SupportConversation.user_id == user_id)
     )
     return result.scalar_one_or_none()
+
+
+async def _operator_last_read_seq(
+    db: AsyncSession,
+    conversation_id: UUID,
+    operator_id: UUID,
+) -> int:
+    """Return this operator's ``last_read_seq`` for a conversation.
+
+    Defaults to ``0`` when no read marker exists yet, so every client message is
+    unread until the operator first opens / marks the conversation read.
+    """
+    result = await db.execute(
+        select(SupportConversationRead.last_read_seq)
+        .where(SupportConversationRead.conversation_id == conversation_id)
+        .where(SupportConversationRead.operator_id == operator_id)
+    )
+    last_read_seq = result.scalar_one_or_none()
+    return int(last_read_seq) if last_read_seq is not None else 0
+
+
+async def _unread_counts_for_operator(
+    db: AsyncSession,
+    operator_id: UUID,
+) -> dict[UUID, int]:
+    """Compute per-conversation unread counts for one operator in one query.
+
+    Returns a mapping ``{conversation_id: unread_count}`` covering every
+    conversation that has at least one unread client-authored message for this
+    operator. Conversations absent from the mapping have an unread count of ``0``.
+
+    The count for a conversation is the number of client-authored messages whose
+    ``seq`` exceeds the operator's ``last_read_seq`` (``0`` when the operator has
+    no read marker for that conversation). This is expressed as a single grouped
+    query with a LEFT JOIN onto this operator's read markers so a missing marker
+    is treated as ``last_read_seq = 0`` (Requirements 9.1, 9.3).
+    """
+    read_for_operator = (
+        select(
+            SupportConversationRead.conversation_id.label("conversation_id"),
+            SupportConversationRead.last_read_seq.label("last_read_seq"),
+        )
+        .where(SupportConversationRead.operator_id == operator_id)
+        .subquery()
+    )
+
+    effective_last_read = func.coalesce(read_for_operator.c.last_read_seq, 0)
+    stmt = (
+        select(
+            SupportMessage.conversation_id,
+            func.count().label("unread"),
+        )
+        .select_from(SupportMessage)
+        .outerjoin(
+            read_for_operator,
+            read_for_operator.c.conversation_id == SupportMessage.conversation_id,
+        )
+        .where(SupportMessage.author_type == MessageAuthorType.CLIENT)
+        .where(SupportMessage.seq > effective_last_read)
+        .group_by(SupportMessage.conversation_id)
+    )
+    rows = await db.execute(stmt)
+    return {row[0]: int(row[1]) for row in rows.all()}
