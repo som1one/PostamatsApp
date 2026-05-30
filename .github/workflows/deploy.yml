@@ -64,21 +64,43 @@ jobs:
           printf '%s\n' "${DEPLOY_SSH_KEY}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-          attempt_start=$(date +%s.%1N)
-          if ! ssh-keyscan -T 10 -p "${DEPLOY_PORT}" "${DEPLOY_HOST}" \
-                >> ~/.ssh/known_hosts 2> /tmp/ssh-keyscan.err; then
+          # ssh-keyscan бывает флаки: сервер быстро отдаёт баннер, но обмен
+          # ключами идёт медленно (например, VPS под нагрузкой после тяжёлой
+          # сборки), и одной попытки с коротким таймаутом не хватает. Делаем
+          # несколько попыток с увеличенным таймаутом и проверяем, что реально
+          # получили строку ключа (stdout), а не только баннер (stderr).
+          scan_ok=0
+          last_err=""
+          last_duration="0.0"
+          for attempt in 1 2 3 4 5; do
+            attempt_start=$(date +%s.%1N)
+            : > /tmp/ssh-keyscan.out
+            ssh-keyscan -T 30 -p "${DEPLOY_PORT}" "${DEPLOY_HOST}" \
+                > /tmp/ssh-keyscan.out 2> /tmp/ssh-keyscan.err || true
             attempt_end=$(date +%s.%1N)
-            duration=$(awk "BEGIN{printf \"%.1f\", ${attempt_end}-${attempt_start}}")
-            err_text=$(cat /tmp/ssh-keyscan.err || true)
+            last_duration=$(awk "BEGIN{printf \"%.1f\", ${attempt_end}-${attempt_start}}")
+            last_err=$(cat /tmp/ssh-keyscan.err || true)
+            # Непустой stdout означает, что получена хотя бы одна строка ключа.
+            if [ -s /tmp/ssh-keyscan.out ]; then
+              cat /tmp/ssh-keyscan.out >> ~/.ssh/known_hosts
+              scan_ok=1
+              echo "ssh-keyscan succeeded on attempt ${attempt} (${last_duration}s)"
+              break
+            fi
+            echo "ssh-keyscan attempt ${attempt} got no host key (${last_duration}s); retrying…"
+            sleep $(( attempt * 5 ))
+          done
+
+          if [ "${scan_ok}" -ne 1 ]; then
             category="unknown"
-            case "${err_text}" in
+            case "${last_err}" in
               *"Connection timed out"*|*"timed out"*) category="timeout" ;;
               *"Connection refused"*)                category="connection refused" ;;
               *"Could not resolve hostname"*|*"Name or service not known"*)
                                                      category="unknown host" ;;
             esac
-            echo "::error::SSH keyscan failed host=*** port=${DEPLOY_PORT} category=${category} duration=${duration}s"
-            echo "${err_text}"
+            echo "::error::SSH keyscan failed host=*** port=${DEPLOY_PORT} category=${category} duration=${last_duration}s"
+            echo "${last_err}"
             exit 1
           fi
           chmod 600 ~/.ssh/known_hosts
