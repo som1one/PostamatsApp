@@ -1,0 +1,410 @@
+/* Стили окна диалога оператор-панели (ConversationView).
+ *
+ * НАМЕРЕННО вынесены в отдельный файл (не в helperpanel.css), чтобы задача 8.4
+ * не конфликтовала по записи с задачами 8.1/8.3 и существующим
+ * HelperPanelClient. Используем те же CSS-переменные --hp-*, которые объявлены
+ * на предке `.helperpanel-root` (см. helperpanel.css): этот вид всегда
+ * рендерится внутри панели оператора, поэтому переменные доступны по каскаду.
+ */
+
+.cv-root {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* --- Колонка диалога --- */
+.cv-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--hp-border);
+}
+
+.cv-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background: var(--hp-surface);
+  border-bottom: 1px solid var(--hp-border);
+}
+
+.cv-header-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+/* --- Контрол статуса (сегментированный) --- */
+.cv-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cv-status-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hp-text-soft);
+}
+
+.cv-status-group {
+  display: inline-flex;
+  border: 1px solid var(--hp-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.cv-status-btn {
+  padding: 6px 12px;
+  border: none;
+  background: var(--hp-surface-soft);
+  color: var(--hp-text-soft);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.cv-status-btn + .cv-status-btn {
+  border-left: 1px solid var(--hp-border);
+}
+
+.cv-status-btn:hover:not(:disabled) {
+  color: var(--hp-text);
+}
+
+.cv-status-btn.is-active {
+  background: var(--hp-accent);
+  color: #fff;
+}
+
+.cv-status-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* «не сохранено» — неблокирующий бейдж (Requirement 12.5) */
+.cv-status-unsaved {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--hp-danger);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* --- Контрол назначения --- */
+.cv-assign {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cv-assign-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--hp-text-soft);
+}
+
+.cv-assign-info strong {
+  color: var(--hp-text);
+  font-weight: 700;
+}
+
+.cv-assign-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--hp-border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--hp-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.cv-assign-btn:hover:not(:disabled) {
+  background: var(--hp-surface-soft);
+  border-color: var(--hp-text-soft);
+}
+
+.cv-assign-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --- Лента сообщений --- */
+.cv-thread {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.cv-load-older {
+  align-self: center;
+  padding: 7px 14px;
+  border: 1px solid var(--hp-border);
+  border-radius: 999px;
+  background: var(--hp-surface);
+  color: var(--hp-text-soft);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-load-older:hover:not(:disabled) {
+  color: var(--hp-text);
+}
+
+.cv-load-older:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cv-info {
+  margin: auto;
+  text-align: center;
+  color: var(--hp-text-soft);
+  font-size: 14px;
+}
+
+.cv-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 72%;
+}
+
+.cv-msg.is-operator {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.cv-msg.is-client {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.cv-bubble {
+  padding: 9px 13px;
+  border-radius: 14px;
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cv-msg.is-operator .cv-bubble {
+  background: var(--hp-accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.cv-msg.is-client .cv-bubble {
+  background: var(--hp-surface-soft);
+  color: var(--hp-text);
+  border-bottom-left-radius: 4px;
+}
+
+.cv-msg.is-pending .cv-bubble {
+  opacity: 0.75;
+}
+
+.cv-meta {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--hp-text-soft);
+}
+
+.cv-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: var(--hp-danger);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* --- Окно ввода ответа --- */
+.cv-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  color: var(--hp-danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-closed-note {
+  padding: 6px 18px;
+  color: var(--hp-text-soft);
+  font-size: 12px;
+}
+
+.cv-reply {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--hp-border);
+  background: var(--hp-surface);
+}
+
+.cv-reply-input {
+  flex: 1;
+  resize: none;
+  max-height: 140px;
+  padding: 10px 13px;
+  border-radius: 12px;
+  border: 1px solid var(--hp-border);
+  background: var(--hp-surface-soft);
+  color: var(--hp-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.cv-reply-input:focus {
+  outline: 2px solid var(--hp-accent);
+  outline-offset: 1px;
+}
+
+.cv-reply-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 12px;
+  background: var(--hp-accent);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cv-reply-send:hover:not(:disabled) {
+  background: var(--hp-accent-dark);
+}
+
+.cv-reply-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cv-reply-len-error {
+  padding: 0 18px 10px;
+  color: var(--hp-danger);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* --- Карточка клиента (Requirements 13.1, 13.2) --- */
+.cv-aside {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px;
+  overflow-y: auto;
+  background: var(--hp-bg);
+}
+
+.cv-card-section h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--hp-text-soft);
+}
+
+.cv-phone {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--hp-text);
+}
+
+.cv-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cv-activity-item {
+  padding: 10px 12px;
+  border: 1px solid var(--hp-border);
+  border-radius: 10px;
+  background: var(--hp-surface);
+}
+
+.cv-activity-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hp-text);
+}
+
+.cv-activity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--hp-text-soft);
+}
+
+.cv-activity-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--hp-surface-soft);
+  color: var(--hp-text);
+  font-weight: 600;
+}
+
+.cv-empty {
+  font-size: 13px;
+  color: var(--hp-text-soft);
+}
+
+.cv-placeholder {
+  margin: auto;
+  text-align: center;
+  color: var(--hp-text-soft);
+}

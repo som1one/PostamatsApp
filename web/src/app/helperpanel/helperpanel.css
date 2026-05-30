@@ -243,3 +243,32 @@
 .helperpanel-placeholder-hint {
   font-size: 13px;
 }
+
+/* --- Рабочая область: список обращений + окно диалога --- */
+.helperpanel-workspace {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  width: 100%;
+}
+
+.helperpanel-list-pane {
+  width: 340px;
+  flex-shrink: 0;
+  display: flex;
+  min-height: 0;
+  border-right: 1px solid var(--hp-border);
+}
+
+.helperpanel-view-pane {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+@media (max-width: 860px) {
+  .helperpanel-list-pane {
+    width: 260px;
+  }
+}

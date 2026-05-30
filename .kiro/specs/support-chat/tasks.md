@@ -18,29 +18,29 @@ property test lives in its own test module so independent tests can run in paral
 
 ## Tasks
 
-- [ ] 1. Foundation: data models, enums, migration, schemas, and pure helpers
-  - [ ] 1.1 Add chat enums to `backend/models/enums.py`
+- [x] 1. Foundation: data models, enums, migration, schemas, and pure helpers
+  - [x] 1.1 Add chat enums to `backend/models/enums.py`
     - Add `ConversationStatus` (`open`, `in_progress`, `closed`) and `MessageAuthorType` (`client`, `operator`) string enums
     - _Requirements: 12.1, 14.2_
 
-  - [ ] 1.2 Create ORM models and register them with `init_db`
+  - [x] 1.2 Create ORM models and register them with `init_db`
     - Create `backend/models/support_conversation.py` (`SupportConversation`: UUID pk, unique `user_id` FK→`users.id`, `status` enum default `open`, nullable `assigned_operator_id` FK→`admin_accounts.id`, indexed nullable `last_message_at`, nullable `last_message_seq` bigint, timestamps)
     - Create `backend/models/support_message.py` (`SupportMessage`: UUID pk, `conversation_id` FK, not-null `seq` bigint, `author_type` enum, nullable `author_user_id`/`author_admin_id`, not-null `body`, `created_at`; composite index `(conversation_id, seq)`)
     - Create `backend/models/support_conversation_read.py` (`SupportConversationRead`: UUID pk, `conversation_id` FK, `operator_id` FK, not-null `last_read_seq` bigint default 0, `updated_at`; unique `(conversation_id, operator_id)`)
     - Add the three modules to the `init_db()` import list so dev/test DBs get the tables
     - _Requirements: 1.2, 1.3, 9.1, 11.1, 12.1, 14.1, 14.2_
 
-  - [ ] 1.3 Create the Alembic migration
+  - [x] 1.3 Create the Alembic migration
     - New revision in `alembic/versions/` with `down_revision = "d9e2b4f5c601"`
     - `upgrade`: `CREATE SEQUENCE support_message_seq`; create the `conversation_status` and `message_author_type` enum types via `postgresql.ENUM(...).create(bind, checkfirst=True)`; create the three tables with the unique `user_id` index, the `(conversation_id, seq)` index, the `last_message_at` index, and the `(conversation_id, operator_id)` unique constraint
     - `downgrade`: drop tables (reverse order), then the two enums, then the sequence
     - _Requirements: 14.1, 14.2_
 
-  - [ ] 1.4 Create Pydantic schemas in `backend/schemas/support_schemas.py`
+  - [x] 1.4 Create Pydantic schemas in `backend/schemas/support_schemas.py`
     - Request/response models: serialized `Message` (`id, conversationId, seq, authorType, authorName, body, createdAt`), `ConversationSummary` (status, assignee, last preview, unread), conversation + messages page payloads, `ClientInfoCard` (`phone`, `recentReservations[≤10]`, `recentRentals[≤10]`), and message-send request bodies
     - _Requirements: 9.1, 10.1, 13.1, 13.2_
 
-  - [ ] 1.5 Implement pure message-body validators in `backend/services/support_chat_service.py`
+  - [x] 1.5 Implement pure message-body validators in `backend/services/support_chat_service.py`
     - Add `MAX_MESSAGE_LENGTH = 4000`, `normalize_message_body(raw)`, `validate_message_body(raw)`, and `EmptyMessageError` / `MessageTooLongError`
     - Add `hypothesis` to `backend/requirements.txt` for the property tests that follow
     - _Requirements: 2.3, 2.4, 10.5_
@@ -50,7 +50,7 @@ property test lives in its own test module so independent tests can run in paral
     - Own test module (e.g. `backend/tests/test_support_prop03_validation.py`); assert accept/reject is independent of author kind
     - **Validates: Requirements 2.3, 2.4, 10.5**
 
-  - [ ] 1.7 Implement WS auth helpers and operator-role guard in `backend/utils/support_auth.py`
+  - [x] 1.7 Implement WS auth helpers and operator-role guard in `backend/utils/support_auth.py`
     - `operator_has_access(role)` pure predicate (true iff `OPERATOR` or `SUPER_ADMIN`), `get_current_operator` dependency (calls `get_current_admin` then asserts role, else 403), and WS token verifiers reusing `verify_access_token` / `verify_admin_access_token` for `?token=` handshakes
     - _Requirements: 3.3, 7.6, 8.2, 8.4, 8.5_
 
@@ -59,8 +59,8 @@ property test lives in its own test module so independent tests can run in paral
     - Own test module; iterate over every `AdminRole` value
     - **Validates: Requirements 7.6, 8.2**
 
-- [ ] 2. Implement Support_Chat_Service domain logic
-  - [ ] 2.1 Implement conversation lifecycle, ownership-scoped reads, and history pagination
+- [x] 2. Implement Support_Chat_Service domain logic
+  - [x] 2.1 Implement conversation lifecycle, ownership-scoped reads, and history pagination
     - In `support_chat_service.py`: `get_or_create_conversation` (idempotent upsert on unique `user_id`, new conversations default `open`) and `list_messages` keyset pagination (`WHERE conversation_id=? AND seq<? ORDER BY seq DESC LIMIT n`), always scoped by `conversation.user_id` for client callers
     - _Requirements: 1.1, 1.2, 1.3, 5.1, 5.2, 5.3, 8.3, 10.1, 12.2_
 
@@ -79,7 +79,7 @@ property test lives in its own test module so independent tests can run in paral
     - Own test module; concatenate successive `beforeSeq` pages and assert no gaps/dupes/overlaps
     - **Validates: Requirements 5.3**
 
-  - [ ] 2.5 Implement message posting with monotonic ordering and reopen-on-message
+  - [x] 2.5 Implement message posting with monotonic ordering and reopen-on-message
     - In `support_chat_service.py`: `post_client_message` and `post_operator_message` — validate body, draw `seq` from `support_message_seq`, set `author_type`/author id columns, persist before returning, update `last_message_at`/`last_message_seq`, and flip `closed`→`open` on a client message
     - _Requirements: 2.1, 2.2, 10.2, 12.4, 14.1, 14.2_
 
@@ -98,7 +98,7 @@ property test lives in its own test module so independent tests can run in paral
     - Own test module; non-closed statuses must be preserved
     - **Validates: Requirements 12.4**
 
-  - [ ] 2.9 Implement conversation listing, unread computation, and mark-read
+  - [x] 2.9 Implement conversation listing, unread computation, and mark-read
     - In `support_chat_service.py`: `list_conversations` (summaries with status, assignee, latest preview, per-operator unread; ordered by `last_message_at` desc with `last_message_seq` tiebreak; optional status filter) and `mark_read` (upsert `last_read_seq` to the conversation max for that operator only); unread = count of client-authored messages with `seq > last_read_seq`
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 12.6_
 
@@ -122,7 +122,7 @@ property test lives in its own test module so independent tests can run in paral
     - Own test module
     - **Validates: Requirements 12.6**
 
-  - [ ] 2.14 Implement assignment and status mutations
+  - [x] 2.14 Implement assignment and status mutations
     - In `support_chat_service.py`: `assign` (record/clear `assigned_operator_id` for self-assign and self-release) and `set_status` (persist target status)
     - _Requirements: 11.1, 11.4, 12.3_
 
@@ -136,7 +136,7 @@ property test lives in its own test module so independent tests can run in paral
     - Own test module; iterate all `{open, in_progress, closed}` targets
     - **Validates: Requirements 12.3**
 
-  - [ ] 2.17 Implement the client info card builder
+  - [x] 2.17 Implement the client info card builder
     - In `support_chat_service.py`: `build_client_info_card` returning the owning client's phone plus their ≤10 most recent reservations and rentals (newest→oldest), empty lists when none
     - _Requirements: 13.1, 13.2, 13.3, 13.4_
 
@@ -148,12 +148,12 @@ property test lives in its own test module so independent tests can run in paral
 - [ ] 3. Checkpoint - Ensure all backend service tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Implement the realtime layer
-  - [ ] 4.1 Implement event/envelope schema in `backend/realtime/events.py`
+- [x] 4. Implement the realtime layer
+  - [x] 4.1 Implement event/envelope schema in `backend/realtime/events.py`
     - Define inbound action types (`message.send`, `conversation.open`, `conversation.markRead`, `conversation.assign`, `conversation.setStatus`, `ping`) and outbound event types (`message.ack`, `message.new`, `unread.update`, `conversation.updated`, `assignment.changed`, `status.changed`, `error`, `pong`), plus the audience hint (`client`/`operators`/`both`) and message serializer
     - _Requirements: 4.1, 15.1, 15.2_
 
-  - [ ] 4.2 Implement the per-worker connection hub in `backend/realtime/connection_hub.py`
+  - [x] 4.2 Implement the per-worker connection hub in `backend/realtime/connection_hub.py`
     - Socket registry (clients grouped by `conversation_id`, operator sockets with currently-open conversation), `dispatch_local` recipient selection, `publish` to the single `support:events` Redis channel after persistence, `run_subscriber` background task, and graceful local-only fallback when `get_redis_client()` is `None`
     - _Requirements: 15.1, 15.2, 15.3_
 
@@ -162,7 +162,7 @@ property test lives in its own test module so independent tests can run in paral
     - Own test module; test `dispatch_local`'s pure recipient-set computation in isolation from socket I/O
     - **Validates: Requirements 15.2**
 
-  - [ ] 4.4 Implement the WS gateway in `backend/realtime/chat_gateway.py`
+  - [x] 4.4 Implement the WS gateway in `backend/realtime/chat_gateway.py`
     - `/ws/support` (client JWT) and `/ws/helperpanel` (admin JWT + operator role) endpoints: validate the `?token=` handshake, `close(4401)` on failure before any hub registration, parse action envelopes, re-check operator authorization on `message.send`, delegate to the service, register sockets with the hub, and emit `message.ack`/`message.new`
     - _Requirements: 3.3, 4.1, 8.4, 8.5, 8.6, 10.3, 10.4_
 
@@ -170,16 +170,16 @@ property test lives in its own test module so independent tests can run in paral
     - 1–3 representative examples: unauthenticated connection rejected with `4401`, and operator→client `message.new` delivery
     - _Requirements: 3.3, 4.1, 8.4, 8.5, 10.3_
 
-- [ ] 5. Implement REST routers and wire everything into the app
-  - [ ] 5.1 Implement the client REST router `backend/routers/support.py`
+- [x] 5. Implement REST routers and wire everything into the app
+  - [x] 5.1 Implement the client REST router `backend/routers/support.py`
     - Prefix `/api/support`: `GET /conversation` (get-or-create + first message page), `GET /conversation/messages` (older pages via `beforeSeq`/`limit`), `POST /conversation/messages` (send, persistence path); all guarded by `get_current_client_user` and scoped to the caller's own conversation
     - _Requirements: 1.1, 2.1, 2.4, 2.5, 5.1, 5.3, 8.3_
 
-  - [ ] 5.2 Implement the operator REST router `backend/routers/admin/support.py`
+  - [x] 5.2 Implement the operator REST router `backend/routers/admin/support.py`
     - Prefix `/api/admin/support`, all guarded by `get_current_operator`: list conversations (with status filter), open conversation (messages + client info card + reset this operator's unread), older history page, reply, assign/release, change status, mark read
     - _Requirements: 8.1, 8.2, 9.1, 9.4, 10.1, 10.2, 10.5, 11.1, 11.3, 12.3, 12.6, 13.1, 13.2_
 
-  - [ ] 5.3 Wire routers, WS endpoints, and hub lifecycle into `backend/main.py`
+  - [x] 5.3 Wire routers, WS endpoints, and hub lifecycle into `backend/main.py`
     - `include_router` for both routers, register `/ws/support` and `/ws/helperpanel`, start the connection hub + Redis subscriber in `startup_event`, and cancel the subscriber task in `shutdown_event`
     - _Requirements: 7.2, 15.1, 15.2_
 
@@ -190,8 +190,8 @@ property test lives in its own test module so independent tests can run in paral
 - [ ] 6. Checkpoint - Ensure backend tests and migration apply cleanly
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 7. Implement the client chat widget
-  - [ ] 7.1 Implement pure message-list reducers in `web/src/features/support-chat/`
+- [x] 7. Implement the client chat widget
+  - [x] 7.1 Implement pure message-list reducers in `web/src/features/support-chat/`
     - Message-list merge reducer (dedupe by id, sort ascending by `seq`) and gap-reconciliation helper (merge persisted messages with `seq` above the local max)
     - Add `fast-check` to `web/` devDependencies for the property tests that follow
     - _Requirements: 4.2, 6.3, 10.4, 15.4_
@@ -206,11 +206,11 @@ property test lives in its own test module so independent tests can run in paral
     - Own fast-check spec
     - **Validates: Requirements 6.3, 15.4**
 
-  - [ ] 7.4 Implement the support-chat WS and REST clients
+  - [x] 7.4 Implement the support-chat WS and REST clients
     - WebSocket client (connect with `?token=`, send actions, dispatch events, auto-reconnect) and REST client (get-or-create conversation, fetch older pages, send fallback) under `web/src/features/support-chat/`
     - _Requirements: 4.1, 5.1, 5.3, 6.2, 6.3_
 
-  - [ ] 7.5 Implement the Client_Chat_Widget replacing `web/src/components/SupportWidget.tsx`
+  - [x] 7.5 Implement the Client_Chat_Widget replacing `web/src/components/SupportWidget.tsx`
     - Auth-gated UI (login prompt + control to existing login flow when unauthenticated), connection-state indicator, message list using the merge reducer, send box, history load + keyset pagination, auto-reconnect with gap reconciliation on reconnect, and a "not sent" indicator for sends while disconnected
     - _Requirements: 1.1, 2.1, 3.1, 3.2, 4.2, 4.3, 5.1, 6.1, 6.2, 6.3, 6.4_
 
@@ -219,11 +219,11 @@ property test lives in its own test module so independent tests can run in paral
     - _Requirements: 3.1, 3.2, 6.1, 6.4_
 
 - [ ] 8. Implement the operator panel at /helperpanel
-  - [ ] 8.1 Create the `/helperpanel` route group, layout, and login screen
+  - [x] 8.1 Create the `/helperpanel` route group, layout, and login screen
     - `web/src/app/helperpanel/layout.tsx` that does NOT wrap children in `PageShell` (no `AppHeader`/`Footer`/`SupportWidget`), plus a login screen reusing the existing admin auth endpoints (`/api/admin/auth/login`, `/refresh`, `/logout`, `/me`)
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-  - [ ] 8.2 Implement the operator API and WS clients
+  - [x] 8.2 Implement the operator API and WS clients
     - REST client for `/api/admin/support/*` and an operator WebSocket client for `/ws/helperpanel` (list-level + conversation-scoped events) under `web/src/app/helperpanel/`
     - _Requirements: 9.1, 9.3, 10.3, 11.2, 12.3_
 
