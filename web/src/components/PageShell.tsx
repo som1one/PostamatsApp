@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { AppHeader } from "./AppHeader";
 import { Footer } from "./Footer";
+import { SupportWidget } from "./SupportWidget";
 
 export function PageShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -14,6 +15,7 @@ export function PageShell({ children }: { children: ReactNode }) {
       <AppHeader />
       {children}
       <Footer />
+      {!isAuthRoute ? <SupportWidget /> : null}
     </div>
   );
 }
