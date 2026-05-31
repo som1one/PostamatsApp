@@ -140,6 +140,8 @@ def _slugify(name: str) -> str:
 
 def _parse_price(text: str) -> Decimal:
     """Извлекает первое целое число из строки и возвращает как Decimal."""
+    # Убираем всякие нумерации списков типа "1. " или "2) " в начале
+    text = re.sub(r"^\s*\d+[\.\)]\s*", "", text)
     match = re.search(r"\d+", text)
     if not match:
         raise ValueError(f"price not found in: {text!r}")
