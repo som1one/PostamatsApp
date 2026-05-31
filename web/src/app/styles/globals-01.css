@@ -316,13 +316,13 @@ h3 {
 
   .desktop-nav {
     min-width: 0;
-    gap: 1px;
+    gap: 0;
   }
 
   .desktop-nav a,
   .desktop-nav button {
-    gap: 6px;
-    padding: 0 9px;
+    gap: 4px;
+    padding: 0 6px;
     font-size: 13px;
   }
 
@@ -342,12 +342,20 @@ h3 {
   .header-profile {
     max-width: 144px;
   }
-}@media (max-width: 1360px) and (min-width: 1081px) {
+}
+
+@media (max-width: 1360px) and (min-width: 1081px) {
   .header-city-control {
     display: none;
   }
 
   .brand-copy small {
+    display: none;
+  }
+}
+
+@media (max-width: 1240px) and (min-width: 1081px) {
+  .brand-copy {
     display: none;
   }
 }
