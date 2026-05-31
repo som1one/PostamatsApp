@@ -12,6 +12,37 @@ from backend.models.product_image import ProductImage
 from backend.utils.local_storage import store_local_upload
 from backend.utils.uploads_utils import bucket_for_media_kind
 
+from backend.models import (
+    admin_account,
+    admin_audit_event,
+    admin_auth_session,
+    admin_user,
+    auth_session,
+    auth_verification_session,
+    city,
+    condition_report,
+    condition_report_photo,
+    esi_event_log,
+    inventory_movement,
+    inventory_unit,
+    locker_cell,
+    locker_location,
+    media_file,
+    payment,
+    payment_event,
+    price_plan,
+    product,
+    product_category,
+    product_image,
+    rental,
+    rental_event,
+    rental_idea,
+    return_request,
+    reservation,
+    user,
+    verification_request,
+)
+
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
 
