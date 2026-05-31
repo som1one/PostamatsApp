@@ -80,7 +80,7 @@ h3 {
   overflow-x: hidden;
 }.app-header .container,
 .city-top-bar .container {
-  width: min(1280px, calc(100% - 32px));
+  width: min(1600px, calc(100% - 32px));
 }.container {
   width: min(var(--container), calc(100% - 40px));
   margin: 0 auto;

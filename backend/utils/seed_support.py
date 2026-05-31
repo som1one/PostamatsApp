@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.models.admin_account import AdminAccount
 from backend.models.user import User
 from backend.models.enums import AdminRole, VerificationStatus
+from backend.utils.admin_auth_utils import hash_password
 
 async def ensure_support_operator(db: AsyncSession) -> None:
     # 1. Verify user +79990000000
@@ -18,14 +19,13 @@ async def ensure_support_operator(db: AsyncSession) -> None:
     admin = admin_result.scalar_one_or_none()
     
     if not admin:
-        password = b"support123"
-        hashed_password = bcrypt.hashpw(password, bcrypt.gensalt()).decode("utf-8")
         admin = AdminAccount(
             name="Support Operator",
             login="+79990000000",
             role=AdminRole.OPERATOR,
-            password_hash=hashed_password
         )
         db.add(admin)
+        
+    admin.password_hash = hash_password("support123")
     
     await db.commit()
