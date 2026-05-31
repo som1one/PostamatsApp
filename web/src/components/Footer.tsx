@@ -30,7 +30,7 @@ export function Footer() {
         </nav>
         <div className="footer-section">
           <a href="https://vk.ru/naprokatberu" target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Image src="/vk-icon.svg" alt="" width={24} height={24} />
+            <Image src="/vk-icon.svg" alt="" width={32} height={32} style={{ margin: '-4px' }} />
             ВКонтакте
           </a>
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
