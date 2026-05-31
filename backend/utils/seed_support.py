@@ -1,5 +1,3 @@
-import bcrypt
-from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.models.admin_account import AdminAccount
