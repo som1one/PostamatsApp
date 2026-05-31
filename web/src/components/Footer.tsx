@@ -28,7 +28,7 @@ export function Footer() {
           <Link href="/about">Политика данных</Link>
           <Link href="/profile">Личный кабинет</Link>
           <a href="https://vk.ru/naprokatberu" target="_blank" rel="noreferrer">
-            <Image src="/vk-icon.svg" alt="" width={24} height={24} />
+            <Image src="/vk-icon.svg" alt="" width={20} height={20} />
             ВКонтакте
           </a>
           <span className="footer-social-item">
