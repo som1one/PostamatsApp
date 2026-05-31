@@ -214,14 +214,13 @@ async def get_products(
             ),
         )
 
-    if availableOnly and candidate_ids is not None:
-        in_stock = {pid for pid, n in unit_counts.items() if n > 0}
-        if not in_stock:
+    if availableOnly and placed_ids is not None:
+        if not placed_ids:
             return {
                 "data": {"products": []},
                 "meta": {"page": page, "limit": limit, "total": 0},
             }
-        conditions.append(Product.id.in_(in_stock))
+        conditions.append(Product.id.in_(placed_ids))
 
     where_clause = and_(*conditions) if conditions else true()
 
@@ -382,7 +381,7 @@ async def get_product_pricing(
 
     try:
         counts = await aggregate_available_inventory_by_product(
-            db, locker_uuid, product_id
+            db, locker_uuid, product_id, include_placed=True
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail="PRICING_FAILED") from exc

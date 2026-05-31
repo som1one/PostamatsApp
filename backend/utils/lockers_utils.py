@@ -80,6 +80,7 @@ async def aggregate_available_inventory_by_product(
     db: AsyncSession,
     locker_id: UUID,
     product_id_filter: UUID | None,
+    include_placed: bool = False,
 ) -> dict[UUID, int]:
     cells = (await db.scalars(select(LockerCell).where(LockerCell.locker_id == locker_id))).all()
     if not cells:
@@ -89,8 +90,16 @@ async def aggregate_available_inventory_by_product(
 
     stmt = select(InventoryUnit).where(
         InventoryUnit.locker_cell_id.in_(cell_ids),
-        InventoryUnit.status == InventoryStatus.AVAILABLE,
     )
+    if include_placed:
+        stmt = stmt.where(InventoryUnit.status.in_((
+            InventoryStatus.AVAILABLE,
+            InventoryStatus.RESERVED,
+            InventoryStatus.RENTED,
+            InventoryStatus.RETURN_PENDING,
+        )))
+    else:
+        stmt = stmt.where(InventoryUnit.status == InventoryStatus.AVAILABLE)
     if product_id_filter is not None:
         stmt = stmt.where(InventoryUnit.product_id == product_id_filter)
 
@@ -100,7 +109,9 @@ async def aggregate_available_inventory_by_product(
         cell = cell_by_id.get(unit.locker_cell_id) if unit.locker_cell_id else None
         if cell is None:
             continue
-        if not is_inventory_available_in_cell(cell, unit):
+        if not include_placed and not is_inventory_available_in_cell(cell, unit):
+            continue
+        if include_placed and cell.status in LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY:
             continue
         counts[unit.product_id] += 1
     return dict(counts)

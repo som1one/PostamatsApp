@@ -105,9 +105,16 @@ async def aggregate_placed_in_city(
     В отличие от ``aggregate_available_in_city`` учитывает не только
     свободные единицы, но и занятые бронью/арендой — чтобы товар не
     пропадал из каталога, пока экземпляр физически в постамате.
-    """
 
-    stmt = (
+    Также учитывает юниты, которые сейчас на руках у арендатора
+    (locker_cell_id IS NULL, статус RENTED) — находим их через таблицу
+    Rental по pickup_locker_id.
+    """
+    from backend.models.rental import Rental
+    from backend.models.enums import RentalStatus
+
+    # 1) Юниты, физически стоящие в ячейках постаматов города
+    stmt_in_cell = (
         select(InventoryUnit.product_id)
         .select_from(InventoryUnit)
         .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
@@ -120,11 +127,40 @@ async def aggregate_placed_in_city(
         )
         .distinct()
     )
-    return {row for row in (await db.scalars(stmt)).all()}
+    result_in_cell = {row for row in (await db.scalars(stmt_in_cell)).all()}
+
+    # 2) Юниты на руках у арендатора (locker_cell_id = NULL, статус RENTED)
+    active_rental_statuses = (
+        RentalStatus.PICKUP_READY,
+        RentalStatus.PICKUP_OPENED,
+        RentalStatus.ACTIVE,
+        RentalStatus.OVERDUE,
+        RentalStatus.RETURN_IN_PROGRESS,
+        RentalStatus.INCIDENT,
+    )
+    stmt_rented_out = (
+        select(InventoryUnit.product_id)
+        .select_from(InventoryUnit)
+        .join(Rental, Rental.inventory_unit_id == InventoryUnit.id)
+        .join(LockerLocation, Rental.pickup_locker_id == LockerLocation.id)
+        .where(
+            LockerLocation.city_id == city_id,
+            InventoryUnit.locker_cell_id.is_(None),
+            InventoryUnit.status.in_((InventoryStatus.RENTED, InventoryStatus.RETURN_PENDING)),
+            Rental.status.in_(active_rental_statuses),
+        )
+        .distinct()
+    )
+    result_rented_out = {row for row in (await db.scalars(stmt_rented_out)).all()}
+
+    return result_in_cell | result_rented_out
 
 
 async def aggregate_placed_globally(db: AsyncSession) -> set[UUID]:
-    stmt = (
+    from backend.models.rental import Rental
+    from backend.models.enums import RentalStatus
+
+    stmt_in_cell = (
         select(InventoryUnit.product_id)
         .select_from(InventoryUnit)
         .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
@@ -136,14 +172,40 @@ async def aggregate_placed_globally(db: AsyncSession) -> set[UUID]:
         )
         .distinct()
     )
-    return {row for row in (await db.scalars(stmt)).all()}
+    result_in_cell = {row for row in (await db.scalars(stmt_in_cell)).all()}
+
+    active_rental_statuses = (
+        RentalStatus.PICKUP_READY,
+        RentalStatus.PICKUP_OPENED,
+        RentalStatus.ACTIVE,
+        RentalStatus.OVERDUE,
+        RentalStatus.RETURN_IN_PROGRESS,
+        RentalStatus.INCIDENT,
+    )
+    stmt_rented_out = (
+        select(InventoryUnit.product_id)
+        .select_from(InventoryUnit)
+        .join(Rental, Rental.inventory_unit_id == InventoryUnit.id)
+        .where(
+            InventoryUnit.locker_cell_id.is_(None),
+            InventoryUnit.status.in_((InventoryStatus.RENTED, InventoryStatus.RETURN_PENDING)),
+            Rental.status.in_(active_rental_statuses),
+        )
+        .distinct()
+    )
+    result_rented_out = {row for row in (await db.scalars(stmt_rented_out)).all()}
+
+    return result_in_cell | result_rented_out
 
 
 async def aggregate_placed_at_locker(
     db: AsyncSession,
     locker_id: UUID,
 ) -> set[UUID]:
-    stmt = (
+    from backend.models.rental import Rental
+    from backend.models.enums import RentalStatus
+
+    stmt_in_cell = (
         select(InventoryUnit.product_id)
         .select_from(InventoryUnit)
         .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
@@ -156,7 +218,31 @@ async def aggregate_placed_at_locker(
         )
         .distinct()
     )
-    return {row for row in (await db.scalars(stmt)).all()}
+    result_in_cell = {row for row in (await db.scalars(stmt_in_cell)).all()}
+
+    active_rental_statuses = (
+        RentalStatus.PICKUP_READY,
+        RentalStatus.PICKUP_OPENED,
+        RentalStatus.ACTIVE,
+        RentalStatus.OVERDUE,
+        RentalStatus.RETURN_IN_PROGRESS,
+        RentalStatus.INCIDENT,
+    )
+    stmt_rented_out = (
+        select(InventoryUnit.product_id)
+        .select_from(InventoryUnit)
+        .join(Rental, Rental.inventory_unit_id == InventoryUnit.id)
+        .where(
+            Rental.pickup_locker_id == locker_id,
+            InventoryUnit.locker_cell_id.is_(None),
+            InventoryUnit.status.in_((InventoryStatus.RENTED, InventoryStatus.RETURN_PENDING)),
+            Rental.status.in_(active_rental_statuses),
+        )
+        .distinct()
+    )
+    result_rented_out = {row for row in (await db.scalars(stmt_rented_out)).all()}
+
+    return result_in_cell | result_rented_out
 
 
 async def load_media_files_by_ids(
@@ -239,7 +325,7 @@ async def load_available_lockers_for_product(
         .join(LockerLocation, LockerCell.locker_id == LockerLocation.id)
         .where(
             InventoryUnit.product_id == product_id,
-            InventoryUnit.status == InventoryStatus.AVAILABLE,
+            InventoryUnit.status.in_(PLACED_INVENTORY_STATUSES),
             LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
             # Скрываем только OFFLINE; MAINTENANCE/DEGRADED показываем
             # с пометкой статуса — фронт делает кнопку «оформить» серой.

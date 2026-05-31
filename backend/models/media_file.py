@@ -31,7 +31,7 @@ class MediaFile(Base):
     )
     uploaded_by_admin_id: Mapped[UUID | None] = mapped_column(
         Uuid,
-        ForeignKey("admin_users.id"),
+        ForeignKey("admin_accounts.id"),
         index=True,
         nullable=True,
     )

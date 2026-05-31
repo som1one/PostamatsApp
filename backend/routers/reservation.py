@@ -108,43 +108,105 @@ async def _get_available_inventory_unit(
     product_id: UUID,
     db: AsyncSession,
     source_reservation: Reservation | None = None,
+    desired_start: datetime | None = None,
+    desired_end: datetime | None = None,
 ) -> InventoryUnit | None:
+    from backend.utils.products_utils import PLACED_INVENTORY_STATUSES
+    from backend.models.reservation import Reservation
+    from backend.models.rental import Rental
+    from backend.models.enums import ReservationStatus, RentalStatus
+    from backend.utils.reservation_utils import calculate_planned_end_at
+    from datetime import timezone
+
     stmt = (
         select(InventoryUnit)
         .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
         .where(
             LockerCell.locker_id == locker_id,
             InventoryUnit.product_id == product_id,
-            InventoryUnit.status == InventoryStatus.AVAILABLE,
+            InventoryUnit.status.in_(PLACED_INVENTORY_STATUSES),
             LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
         )
         .order_by(InventoryUnit.created_at.asc())
-        .limit(1)
-        .with_for_update(skip_locked=True)
     )
-    unit = (await db.scalars(stmt)).first()
-    if unit is not None:
-        return unit
+    units = list((await db.scalars(stmt)).all())
 
-    if (
-        source_reservation is not None
-        and source_reservation.product_id == product_id
-        and source_reservation.locker_id == locker_id
-    ):
-        source_unit = await db.get(InventoryUnit, source_reservation.inventory_unit_id)
-        if source_unit is not None and source_unit.product_id == product_id:
-            cell = (
-                await db.scalars(
-                    select(LockerCell).where(LockerCell.id == source_unit.locker_cell_id).limit(1)
-                )
-            ).first()
-            if (
-                cell is not None
-                and cell.locker_id == locker_id
-                and cell.status not in LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY
-                and source_unit.status in (InventoryStatus.AVAILABLE, InventoryStatus.RESERVED)
-            ):
-                return source_unit
+    if not units:
+        return None
+
+    # Sort so AVAILABLE units are preferred
+    units.sort(key=lambda u: 0 if u.status == InventoryStatus.AVAILABLE else 1)
+
+    # If rescheduling, try to keep the same unit if it's still available/free
+    if source_reservation is not None and source_reservation.product_id == product_id and source_reservation.locker_id == locker_id:
+        source_unit = next((u for u in units if u.id == source_reservation.inventory_unit_id), None)
+        if source_unit:
+            units.remove(source_unit)
+            units.insert(0, source_unit)
+
+    if not desired_start or not desired_end:
+        return units[0]
+
+    unit_ids = [u.id for u in units]
+
+    res_stmt = select(Reservation).where(
+        Reservation.inventory_unit_id.in_(unit_ids),
+        Reservation.status.in_((
+            ReservationStatus.CREATED,
+            ReservationStatus.AWAITING_PAYMENT,
+            ReservationStatus.PAYMENT_AUTHORIZED,
+            ReservationStatus.CONFIRMED,
+        ))
+    )
+    active_reservations = (await db.scalars(res_stmt)).all()
+
+    rent_stmt = select(Rental).where(
+        Rental.inventory_unit_id.in_(unit_ids),
+        Rental.status.in_((
+            RentalStatus.PICKUP_READY,
+            RentalStatus.PICKUP_OPENED,
+            RentalStatus.ACTIVE,
+            RentalStatus.OVERDUE,
+            RentalStatus.RETURN_IN_PROGRESS,
+            RentalStatus.INCIDENT,
+        ))
+    )
+    active_rentals = (await db.scalars(rent_stmt)).all()
+
+    def to_utc(dt):
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+
+    d_start = to_utc(desired_start)
+    d_end = to_utc(desired_end)
+
+    for unit in units:
+        has_overlap = False
+
+        for res in active_reservations:
+            if res.inventory_unit_id == unit.id:
+                if source_reservation and source_reservation.id == res.id:
+                    continue
+                r_start = to_utc(res.pickup_at or res.created_at)
+                r_end = to_utc(calculate_planned_end_at(r_start, res.duration_type, res.duration_value))
+                if max(d_start, r_start) < min(d_end, r_end):
+                    has_overlap = True
+                    break
+        
+        if has_overlap:
+            continue
+
+        for rent in active_rentals:
+            if rent.inventory_unit_id == unit.id:
+                r_start = to_utc(rent.starts_at or rent.created_at)
+                r_end = to_utc(rent.planned_end_at)
+                if max(d_start, r_start) < min(d_end, r_end):
+                    has_overlap = True
+                    break
+        
+        if not has_overlap:
+            return unit
 
     return None
 
@@ -254,11 +316,16 @@ async def create_reservation(
         plan, quoted_amount_minor, currency = await _get_price_plan(
             payload.productId, payload.durationType, payload.durationValue, db
         )
+        d_start = ensure_utc(payload.startAt) if payload.startAt is not None else now
+        d_end = calculate_planned_end_at(d_start, payload.durationType, payload.durationValue)
+
         unit = await _get_available_inventory_unit(
             payload.lockerId,
             payload.productId,
             db,
             source_reservation=source_reservation,
+            desired_start=d_start,
+            desired_end=d_end,
         )
     except HTTPException:
         raise
@@ -280,12 +347,12 @@ async def create_reservation(
         quoted_amount=minor_to_major_decimal(quoted_amount_minor),
         preauth_amount=minor_to_major_decimal(quoted_amount_minor),
         expires_at=calculate_expires_at(now, payload.pickupWindowMinutes),
-        # Сохраняем выбранную дату выдачи. Используется на confirm для
-        # инициализации rental.starts_at и блокировки преждевременного
-        # открытия ячейки.
+        # Дата выдачи: фронт передал в /reservations или confirm. Хранится
+        # в UTC. Используется на confirm для инициализации rental.starts_at.
         pickup_at=ensure_utc(payload.startAt) if payload.startAt is not None else None,
     )
-    unit.status = InventoryStatus.RESERVED
+    if unit.status == InventoryStatus.AVAILABLE:
+        unit.status = InventoryStatus.RESERVED
     db.add(reservation)
 
     try:

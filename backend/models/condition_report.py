@@ -29,7 +29,7 @@ class ConditionReport(Base, TimestampMixin):
     created_by_user_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("users.id"), index=True, nullable=True)
     created_by_admin_id: Mapped[UUID | None] = mapped_column(
         Uuid,
-        ForeignKey("admin_users.id"),
+        ForeignKey("admin_accounts.id"),
         index=True,
         nullable=True,
     )
