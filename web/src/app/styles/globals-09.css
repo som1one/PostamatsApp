@@ -7,6 +7,7 @@
   display: block;
   object-fit: contain !important;
   object-position: center;
+  mix-blend-mode: darken;
   margin: auto;
 }.product-gallery-thumbs {
   display: grid;

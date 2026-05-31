@@ -118,6 +118,7 @@
   display: block;
   object-fit: contain;
   object-position: center;
+  mix-blend-mode: darken;
   transition: transform 0.16s ease;
 }.product-body {
   display: flex;
