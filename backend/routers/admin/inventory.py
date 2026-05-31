@@ -581,7 +581,7 @@ async def take_cell_for_service(
         await db.commit()
     except Exception as exc:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Не удалось сохранить изменение") from exc
+        raise HTTPException(status_code=500, detail=f"Не удалось сохранить изменение: {repr(exc)}") from exc
 
     await db.refresh(cell)
     await db.refresh(unit)
