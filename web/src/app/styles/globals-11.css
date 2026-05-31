@@ -16,6 +16,13 @@
   overflow-wrap: anywhere;
 }.footer-grid a:hover {
   color: var(--primary);
+}.footer-social-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 780;
 }.footer-brand {
   gap: 10px;
   margin-bottom: 2px;

@@ -259,10 +259,13 @@
 
   .footer-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
     gap: 10px 12px;
     padding-top: 14px;
     padding-bottom: 10px;
   }
+
+
 
   .footer-intro {
     grid-column: 1 / -1;
@@ -297,7 +300,8 @@
     font-size: 12px;
   }
 
-  .footer-grid a {
+  .footer-grid a,
+  .footer-social-item {
     font-size: 12px;
     line-height: 1.2;
   }
