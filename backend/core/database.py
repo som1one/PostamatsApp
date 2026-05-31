@@ -121,13 +121,15 @@ async def init_db():
             try:
                 await _ensure_media_file_kind_values(conn)
             except Exception:
-                # Не валим запуск, если что-то пошло не так — просто
-                # не синхронизируем enum. Логи покажут причину.
                 import logging
+                logging.getLogger(__name__).exception("failed to sync media_file_kind enum values")
 
-                logging.getLogger(__name__).exception(
-                    "failed to sync media_file_kind enum values"
-                )
+            try:
+                from sqlalchemy import text
+                await conn.execute(text("CREATE SEQUENCE IF NOT EXISTS support_message_seq"))
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception("failed to create support_message_seq")
 
 async def close_db():
     await engine.dispose()
