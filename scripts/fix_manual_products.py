@@ -12,7 +12,7 @@ from backend.models.product_image import ProductImage
 from backend.utils.local_storage import store_local_upload
 from backend.utils.uploads_utils import bucket_for_media_kind
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
+ROOT_DIR = Path(__file__).resolve().parents[1]
 
 
 def _normalize_db_url(raw_url: str | None) -> str | None:
