@@ -30,8 +30,10 @@ def _snapshot_cells(snapshot: dict) -> dict[str, dict]:
 
 
 def _state_to_cell_status(state: str | None, open_flag: bool) -> LockerCellStatus | None:
-    if open_flag:
-        return LockerCellStatus.OPENED
+    # ВРЕМЕННО: Игнорируем статус открытой дверцы (open_flag),
+    # так как датчики железа ложно отдают open: true.
+    # if open_flag:
+    #     return LockerCellStatus.OPENED
         
     normalized = (state or "").strip().lower()
     if normalized in ("vacant", "unassigned"):
