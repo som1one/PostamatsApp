@@ -144,9 +144,11 @@ async def startup_event():
         from backend.utils.telegram_admin_subscribers import (
             ensure_default_subscribers,
         )
+        from backend.utils.seed_support import ensure_support_operator
 
         async with SessionLocal() as db:
             await ensure_default_subscribers(db)
+            await ensure_support_operator(db)
     except Exception:
         import logging
 
