@@ -15,18 +15,18 @@ async def ensure_support_operator(db: AsyncSession) -> None:
         user.verification_status = VerificationStatus.APPROVED
     
     # 2. Ensure admin account
-    admin_result = await db.execute(select(AdminAccount).where(AdminAccount.login.in_(["+79990000000", "operator"])))
-    admin = admin_result.scalars().first()
+    # Safely delete any conflicting accounts to prevent UniqueViolation
+    from sqlalchemy import delete
+    await db.execute(
+        delete(AdminAccount).where(AdminAccount.login.in_(["+79990000000", "operator"]))
+    )
     
-    if not admin:
-        admin = AdminAccount(
-            name="Support Operator",
-            login="operator",
-            role=AdminRole.OPERATOR,
-        )
-        db.add(admin)
-        
-    admin.login = "operator"
-    admin.password_hash = hash_password("support123")
+    admin = AdminAccount(
+        name="Support Operator",
+        login="operator",
+        role=AdminRole.OPERATOR,
+        password_hash=hash_password("support123")
+    )
+    db.add(admin)
     
     await db.commit()
