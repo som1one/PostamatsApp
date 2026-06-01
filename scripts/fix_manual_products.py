@@ -114,7 +114,7 @@ def replace_product_image(session: Session, product_name_like: str, image_filena
 def main() -> None:
     engine = create_engine(_get_db_url())
     with Session(engine) as session:
-        replace_product_image(session, "JBL Partybox", "jbl-partybox-520-v3.webp")
+        replace_product_image(session, "JBL Partybox", "jbl-partybox-520-v4.webp")
         replace_product_image(session, "Karcher WD 5", "karcher-wd5-v3.webp")
         replace_product_image(session, "Караоке", "karaoke.webp")
         replace_product_image(session, "Puzzi", "puzzi-101-v3.webp")
