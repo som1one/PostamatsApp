@@ -66,9 +66,9 @@ if [ "${backend_ready}" -eq 1 ]; then
   docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
     python -m scripts.migrate_lockers_to_real
 
-  echo "[deploy] running scripts.fix_manual_products (updating images)"
-  docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
-    python -m scripts.fix_manual_products
+  # echo "[deploy] running scripts.fix_manual_products (updating images)"
+  # docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
+  #   python -m scripts.fix_manual_products
 
   echo "[deploy] running scripts.delete_product_funwater (deleting Funwater Koi 350)"
   docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
