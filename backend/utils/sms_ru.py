@@ -107,12 +107,19 @@ async def _http_get_json(url: str, params: dict[str, object], recipient: str) ->
     return payload
 
 
-async def _send_via_sms(phone: str, code: str) -> AuthChannelResult:
+async def send_sms(phone: str, text: str) -> str | None:
+    """Отправляет произвольное SMS сообщение пользователю.
+    Возвращает sms_id от sms.ru, или None если не удалось получить ID.
+    Raises: SmsRuError при ошибках отправки.
+    """
+    if not settings.SMS_RU_API_ID:
+        raise SmsRuError("AUTH_SMS_PROVIDER_ERROR", 500)
+
     recipient = _normalize_sms_ru_phone(phone)
     params: dict[str, object] = {
         "api_id": settings.SMS_RU_API_ID,
         "to": recipient,
-        "msg": AUTH_SMS_TEMPLATE.format(code=code),
+        "msg": text,
         "json": 1,
     }
     if settings.SMS_RU_FROM:
@@ -152,9 +159,15 @@ async def _send_via_sms(phone: str, code: str) -> AuthChannelResult:
         raise SmsRuError("AUTH_SMS_SEND_FAILED", 502)
 
     sms_id = recipient_payload.get("sms_id")
+    return str(sms_id) if sms_id is not None else None
+
+
+async def _send_via_sms(phone: str, code: str) -> AuthChannelResult:
+    text = AUTH_SMS_TEMPLATE.format(code=code)
+    sms_id = await send_sms(phone, text)
     return AuthChannelResult(
         channel="sms",
-        provider_id=str(sms_id) if sms_id is not None else None,
+        provider_id=sms_id,
     )
 
 

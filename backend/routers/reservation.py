@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, BackgroundTasks
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -452,6 +452,7 @@ async def get_reservation(
 async def confirm_reservation(
     reservation_id: UUID,
     request: Request,
+    background_tasks: BackgroundTasks,
     payload: ConfirmReservationPayload = Body(...),
     db: AsyncSession = Depends(get_db),
 ):
@@ -600,6 +601,33 @@ async def confirm_reservation(
     except Exception as exc:
         await db.rollback()
         raise HTTPException(status_code=500, detail="RESERVATION_CONFIRM_FAILED") from exc
+
+    # Notify current active renter if any
+    active_rental_stmt = (
+        select(Rental)
+        .where(
+            Rental.inventory_unit_id == reservation.inventory_unit_id,
+            Rental.status.in_([RentalStatus.ACTIVE, RentalStatus.OVERDUE, RentalStatus.PICKUP_OPENED]),
+            Rental.user_id != user.id
+        )
+        .limit(1)
+    )
+    active_rental = (await db.scalars(active_rental_stmt)).first()
+    if active_rental:
+        active_user = await db.get(User, active_rental.user_id)
+        if active_user and active_user.phone:
+            text = "Ваш арендованный товар забронирован следующим клиентом. Пожалуйста, верните его вовремя, чтобы не сорвать следующую аренду."
+            from backend.utils.sms_ru import send_sms
+            # Use background_tasks to fire-and-forget the SMS sending
+            # Note: We must swallow SmsRuError internally or let FastAPI log the background task error.
+            async def _safe_send_sms(phone: str, msg: str):
+                import logging
+                try:
+                    await send_sms(phone, msg)
+                except Exception as e:
+                    logging.getLogger(__name__).warning("Failed to send reservation overlap SMS: %s", e)
+            
+            background_tasks.add_task(_safe_send_sms, active_user.phone, text)
 
     return {
         "data": {
