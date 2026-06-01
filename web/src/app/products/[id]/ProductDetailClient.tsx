@@ -29,7 +29,7 @@ import {
 import type { City, Locker, PricePlan, PricingQuote, ProductDetail } from "@/shared/api/types";
 import { useAuth } from "@/shared/auth/auth-context";
 import { resolvePublicAssetUrl } from "@/shared/media";
-import { daysBetweenInclusive } from "@/shared/rentalPricing";
+import { calculateRentalTotalMinor, daysBetweenInclusive } from "@/shared/rentalPricing";
 import { formatMoney } from "@/shared/format";
 
 type LockerOption = {
@@ -162,7 +162,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
       return Math.max(0, Math.floor(exactDayPlan.baseAmount));
     }
     if (baseDayPlan) {
-      return Math.max(0, Math.floor(baseDayPlan.baseAmount * rangeDays));
+      return calculateRentalTotalMinor(baseDayPlan.baseAmount, rangeDays);
     }
     return null;
   }, [baseDayPlan, exactDayPlan, rangeDays]);

@@ -113,6 +113,7 @@
     grid-template-columns: minmax(0, 1fr) clamp(108px, 31vw, 132px);
     gap: 8px 10px;
     align-items: start;
+    border-radius: 0;
   }
 
   .hero-service-lead {
@@ -132,7 +133,7 @@
   .hero-service-media-frame {
     width: 100%;
     max-width: none;
-    border-radius: 16px;
+    border-radius: 0;
     transform: none;
   }
 

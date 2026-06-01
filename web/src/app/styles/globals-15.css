@@ -222,6 +222,7 @@
     grid-template-columns: minmax(0, 1fr) minmax(104px, 34vw);
     gap: 2px 4px;
     padding: 18px;
+    border-radius: 0;
   }
 
   .hero-service-lead {
@@ -241,7 +242,7 @@
   .hero-service-media-frame {
     width: 100%;
     max-width: 126px;
-    border-radius: 18px;
+    border-radius: 0;
     box-shadow: 0 16px 30px rgba(63, 42, 24, 0.14);
     transform: scale(1.35);
     transform-origin: top left;

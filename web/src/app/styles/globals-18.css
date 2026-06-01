@@ -11,6 +11,7 @@
     grid-template-columns: minmax(0, 1fr) 108px;
     gap: 8px;
     padding: 16px;
+    border-radius: 0;
   }
 
   .hero-service-content {
