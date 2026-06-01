@@ -70,9 +70,8 @@ if [ "${backend_ready}" -eq 1 ]; then
   # docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
   #   python -m scripts.fix_manual_products
 
-  echo "[deploy] running scripts.delete_product_funwater (deleting Funwater Koi 350)"
-  docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
-    python -m scripts.delete_product_funwater
+  echo "[deploy] deactivating Funwater Koi 350 via psql"
+  docker compose "${COMPOSE_ARGS[@]}" exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "UPDATE products SET is_active=false WHERE name ILIKE '\''%Funwater Koi 350%'\'';"'
 else
   echo "[deploy] WARNING: backend container did not reach running state, skipping locker migration" >&2
 fi
