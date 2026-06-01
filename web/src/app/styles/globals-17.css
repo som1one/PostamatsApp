@@ -410,7 +410,8 @@
   }
 
   .footer-grid strong,
-  .footer-grid a {
+  .footer-grid a,
+  .footer-social-item {
     font-size: 10px;
   }
 
