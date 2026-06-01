@@ -271,7 +271,6 @@ export type RentalDetail = {
   startsAt?: string | null;
   plannedEndAt?: string | null;
   actualEndAt?: string | null;
-  cellOpenedAt?: string | null;
   product: {
     id: string;
     name?: string | null;

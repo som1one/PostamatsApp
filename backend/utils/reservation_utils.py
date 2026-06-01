@@ -50,10 +50,6 @@ def calculate_planned_end_at(starts_at: datetime, duration_type: str, duration_v
     normalized_type = duration_type.strip().lower()
     if normalized_type == "hour":
         return starts_at + timedelta(hours=duration_value)
-    if normalized_type == "day":
-        # Ровно N × 24 часа от момента забора. Забрал в 17:00 на 3 дня →
-        # вернуть к 17:00 через 3 дня.
-        return starts_at + timedelta(days=duration_value)
     if normalized_type == "week":
         # Неделя = 7 календарных дней. Считаем по календарной дате, чтобы
         # пользователь не получал deadline в неудобное ночное время.
@@ -61,8 +57,7 @@ def calculate_planned_end_at(starts_at: datetime, duration_type: str, duration_v
     if normalized_type == "month":
         # Месяц = 30 календарных дней (исторически принятая в проекте мера).
         return _end_of_local_day_after(starts_at, 30 * duration_value)
-    # Неизвестный тип — ровно N × 24 часа как fallback.
-    return starts_at + timedelta(days=duration_value)
+    return _end_of_local_day_after(starts_at, duration_value)
 
 
 def generate_pickup_pin() -> str:

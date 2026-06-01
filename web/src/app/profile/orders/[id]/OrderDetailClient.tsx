@@ -15,7 +15,6 @@ import {
   PackageCheck,
   RefreshCw,
   RotateCcw,
-  Timer,
   XCircle,
   type LucideIcon,
 } from "lucide-react";
@@ -114,10 +113,7 @@ export function computeOrderDeadlineMeta(
       Icon: AlertTriangle,
     };
   }
-  if (["pickup_ready", "pickup_opened"].includes(rental.status)) {
-    return null;
-  }
-  if (["active"].includes(rental.status)) {
+  if (["pickup_ready", "pickup_opened", "active"].includes(rental.status)) {
     return {
       tone: "warn",
       title: `До возврата: ${duration}`,
@@ -233,29 +229,12 @@ function OrderDetailContent({ id }: { id: string }) {
     void load();
   }, [load]);
 
-  // Обновляем nowMs каждую секунду при PICKUP_OPENED (для обратного
-  // отсчёта авто-изъятия), иначе — раз в минуту.
-  const isPickupOpenedStatus =
-    order?.type === "rental" && order.data.status === "pickup_opened";
   useEffect(() => {
-    const interval = isPickupOpenedStatus ? 1_000 : 60_000;
     const timer = window.setInterval(() => {
       setNowMs(Date.now());
-    }, interval);
+    }, 60_000);
     return () => window.clearInterval(timer);
-  }, [isPickupOpenedStatus]);
-
-  // Автообновление данных каждые 15 секунд, пока ячейка открыта (PICKUP_OPENED).
-  // Это нужно, чтобы подхватить автоматический переход в ACTIVE после 15-минутного
-  // таймаута на бэкенде.
-  useEffect(() => {
-    if (!order || order.type !== "rental") return;
-    if (order.data.status !== "pickup_opened") return;
-    const interval = window.setInterval(() => {
-      void load();
-    }, 15_000);
-    return () => window.clearInterval(interval);
-  }, [order?.type === "rental" ? order.data.status : null, load]);
+  }, []);
 
   // Обратный отсчёт для кнопки «Открыть» в подтверждении: пока > 0,
   // кнопка остаётся заблокированной, чтобы пользователь успел подойти
@@ -666,18 +645,16 @@ function OrderDetailContent({ id }: { id: string }) {
                     <strong>{order.detail.pickupLocker.address}</strong>
                   </div>
                 ) : null}
-                {order.detail?.startsAt && !["pickup_ready", "pickup_opened"].includes(order.data.status) ? (
+                {order.detail?.startsAt ? (
                   <div className="meta-line">
                     <span>Начало аренды</span>
                     <strong>{formatDateTime(order.detail.startsAt)}</strong>
                   </div>
                 ) : null}
-                {!["pickup_ready", "pickup_opened"].includes(order.data.status) ? (
-                  <div className="meta-line">
-                    <span>Плановое окончание</span>
-                    <strong>{formatDateTime(order.data.plannedEndAt)}</strong>
-                  </div>
-                ) : null}
+                <div className="meta-line">
+                  <span>Плановое окончание</span>
+                  <strong>{formatDateTime(order.data.plannedEndAt)}</strong>
+                </div>
                 {order.data.actualEndAt ? (
                   <div className="meta-line">
                     <span>Фактическое окончание</span>
@@ -715,51 +692,13 @@ function OrderDetailContent({ id }: { id: string }) {
                 const dateLabel = startsAtStr
                   ? new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(startsAtStr))
                   : "";
-
-                // Обратный отсчёт авто-изъятия (15 минут от открытия ячейки).
-                const AUTO_PICKUP_TIMEOUT_MS = 15 * 60 * 1000;
-                const cellOpenedAtStr = order.detail?.cellOpenedAt;
-                const cellOpenedAtMs = cellOpenedAtStr ? new Date(cellOpenedAtStr).getTime() : 0;
-                const autoPickupAtMs = cellOpenedAtMs > 0 ? cellOpenedAtMs + AUTO_PICKUP_TIMEOUT_MS : 0;
-                const autoPickupRemainingMs = autoPickupAtMs > 0 ? Math.max(0, autoPickupAtMs - nowMs) : 0;
-                const autoPickupMinutes = Math.floor(autoPickupRemainingMs / 60_000);
-                const autoPickupSeconds = Math.floor((autoPickupRemainingMs % 60_000) / 1000);
-                const isPickupOpened = order.data.status === "pickup_opened";
-
-                // Подсказка зависит от статуса.
-                let hintText: string;
-                if (tooEarly) {
-                  hintText = `Получение запланировано на ${dateLabel}. Кнопка станет активной за час до этого времени.`;
-                } else if (isPickupOpened && cellOpenedAtMs > 0) {
-                  hintText = "Заберите товар и нажмите «Я забрал». Если не подтвердить в течение 15 минут, аренда начнётся автоматически.";
-                } else {
-                  hintText = "Подойдите к постамату и нажмите «Открыть ячейку». Когда заберёте товар, нажмите «Я забрал» — аренда начнётся.";
-                }
-
                 return (
                   <>
                     <p className="muted detail-actions-hint">
-                      {hintText}
+                      {tooEarly
+                        ? `Получение запланировано на ${dateLabel}. Кнопка станет активной за час до этого времени.`
+                        : "Подойдите к постамату и нажмите «Открыть ячейку». Когда заберёте товар, нажмите «Я забрал» — аренда начнётся."}
                     </p>
-                    {/* Обратный отсчёт 15 минут до авто-изъятия */}
-                    {isPickupOpened && cellOpenedAtMs > 0 && autoPickupRemainingMs > 0 ? (
-                      <div className="rental-deadline rental-deadline-warn">
-                        <Timer size={16} />
-                        <div>
-                          <strong>Авто-подтверждение через {autoPickupMinutes}:{String(autoPickupSeconds).padStart(2, "0")}</strong>
-                          <span>Если не нажать «Я забрал», аренда начнётся автоматически.</span>
-                        </div>
-                      </div>
-                    ) : null}
-                    {isPickupOpened && cellOpenedAtMs > 0 && autoPickupRemainingMs <= 0 ? (
-                      <div className="rental-deadline rental-deadline-danger">
-                        <Timer size={16} />
-                        <div>
-                          <strong>Аренда начнётся автоматически</strong>
-                          <span>Время ожидания подтверждения истекло. Обновите страницу.</span>
-                        </div>
-                      </div>
-                    ) : null}
                     {openConfirmId === order.data.id ? (
                       <div className="pickup-open-confirm" role="alert">
                         <div className="pickup-open-confirm-head">

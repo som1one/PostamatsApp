@@ -66,10 +66,6 @@ from backend.utils.rental_overdue import (
     start_rental_overdue_scheduler,
     stop_rental_overdue_scheduler,
 )
-from backend.utils.rental_auto_pickup import (
-    start_rental_auto_pickup_scheduler,
-    stop_rental_auto_pickup_scheduler,
-)
 
 
 app = FastAPI()
@@ -83,8 +79,6 @@ rental_overdue_worker_handle: threading.Thread | None = None
 rental_overdue_stop_event: threading.Event | None = None
 esi_reconcile_worker: threading.Thread | None = None
 esi_reconcile_stop_event: threading.Event | None = None
-rental_auto_pickup_worker_handle: threading.Thread | None = None
-rental_auto_pickup_stop_event: threading.Event | None = None
 
 app.add_middleware(
     CORSMiddleware,
@@ -142,7 +136,6 @@ async def startup_event():
     global rental_pickup_expiry_worker, rental_pickup_expiry_stop_event
     global rental_overdue_worker_handle, rental_overdue_stop_event
     global esi_reconcile_worker, esi_reconcile_stop_event
-    global rental_auto_pickup_worker_handle, rental_auto_pickup_stop_event
     await init_db()
     await init_redis()
     # Сидируем дефолтных Telegram-подписчиков (пока что один som1ones).
@@ -168,7 +161,6 @@ async def startup_event():
     rental_pickup_expiry_worker, rental_pickup_expiry_stop_event = start_rental_pickup_expiry_scheduler(loop)
     rental_overdue_worker_handle, rental_overdue_stop_event = start_rental_overdue_scheduler(loop)
     esi_reconcile_worker, esi_reconcile_stop_event = start_esi_reconcile_scheduler(loop)
-    rental_auto_pickup_worker_handle, rental_auto_pickup_stop_event = start_rental_auto_pickup_scheduler(loop)
     # Start the per-worker support-chat Redis subscriber for cross-worker fan-out.
     get_connection_hub().start()
 
@@ -179,7 +171,6 @@ async def shutdown_event():
     global rental_pickup_expiry_worker, rental_pickup_expiry_stop_event
     global rental_overdue_worker_handle, rental_overdue_stop_event
     global esi_reconcile_worker, esi_reconcile_stop_event
-    global rental_auto_pickup_worker_handle, rental_auto_pickup_stop_event
     await stop_featured_product_scheduler(featured_product_worker, featured_product_stop_event)
     featured_product_worker = None
     featured_product_stop_event = None
@@ -195,9 +186,6 @@ async def shutdown_event():
     await stop_esi_reconcile_scheduler(esi_reconcile_worker, esi_reconcile_stop_event)
     esi_reconcile_worker = None
     esi_reconcile_stop_event = None
-    await stop_rental_auto_pickup_scheduler(rental_auto_pickup_worker_handle, rental_auto_pickup_stop_event)
-    rental_auto_pickup_worker_handle = None
-    rental_auto_pickup_stop_event = None
     # Stop the support-chat Redis subscriber before tearing down Redis.
     await get_connection_hub().stop()
     await close_redis()
