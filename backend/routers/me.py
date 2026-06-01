@@ -743,6 +743,7 @@ async def open_pickup_cell(
     if rental.status == RentalStatus.PICKUP_READY:
         prev_status = rental.status
         rental.status = RentalStatus.PICKUP_OPENED
+        rental.cell_opened_at = now
         db.add(
             RentalEvent(
                 rental_id=rental.id,
@@ -750,7 +751,7 @@ async def open_pickup_cell(
                 from_status=prev_status,
                 to_status=RentalStatus.PICKUP_OPENED,
                 source=RentalEventSource.USER,
-                payload_json={"trigger": "client_open_cell"},
+                payload_json={"trigger": "client_open_cell", "openedAt": now.isoformat()},
             )
         )
 

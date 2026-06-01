@@ -138,6 +138,7 @@ async def serialize_rental_detail(db: AsyncSession, rental: Rental) -> dict:
             "startsAt": rental.starts_at.isoformat() if rental.starts_at else None,
             "plannedEndAt": rental.planned_end_at.isoformat() if rental.planned_end_at else None,
             "actualEndAt": rental.actual_end_at.isoformat() if rental.actual_end_at else None,
+            "cellOpenedAt": rental.cell_opened_at.isoformat() if rental.cell_opened_at else None,
             "product": prod_payload,
             "pickupLocker": {
                 "id": str(locker.id) if locker else str(rental.pickup_locker_id),

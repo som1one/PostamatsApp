@@ -45,6 +45,7 @@ class Rental(Base, TimestampMixin):
         nullable=False,
     )
     pickup_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cell_opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancel_reason: Mapped[str | None] = mapped_column(String, nullable=True)
     starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     planned_end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
