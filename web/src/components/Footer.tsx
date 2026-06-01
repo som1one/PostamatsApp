@@ -27,13 +27,17 @@ export function Footer() {
           <Link href="/terms-rental">Условия аренды товаров</Link>
           <Link href="/about">Политика данных</Link>
           <Link href="/profile">Личный кабинет</Link>
-          <a href="https://vk.ru/naprokatberu" target="_blank" rel="noreferrer">
-            <Image src="/vk-icon.svg" alt="" width={28} height={28} />
-            ВКонтакте
+          <a href="https://vk.ru/naprokatberu" target="_blank" rel="noreferrer" className="footer-social-item">
+            <span className="footer-social-icon">
+              <Image className="footer-social-img footer-social-img-vk" src="/vk-icon.svg" alt="" width={28} height={28} />
+            </span>
+            <span>ВКонтакте</span>
           </a>
           <span className="footer-social-item">
-            <Image src="/max-icon.png" alt="" width={24} height={24} />
-            Макс
+            <span className="footer-social-icon">
+              <Image className="footer-social-img" src="/max-icon.png" alt="" width={28} height={28} />
+            </span>
+            <span>Макс</span>
           </span>
         </nav>
       </div>

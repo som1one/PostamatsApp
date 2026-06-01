@@ -23,6 +23,26 @@
   color: var(--muted);
   font-size: 14px;
   font-weight: 780;
+}
+.footer-social-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+.footer-social-icon img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
+}
+/* У VK-иконки внутри SVG прозрачные поля (~25%), поэтому цветной квадрат
+   выглядит мельче полноразмерной PNG «Макс». Масштабируем VK так, чтобы
+   видимый квадрат совпал по размеру; transform не влияет на раскладку. */
+.footer-social-img-vk {
+  transform: scale(1.33);
 }.footer-brand {
   gap: 10px;
   margin-bottom: 2px;
