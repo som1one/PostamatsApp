@@ -42,6 +42,10 @@ from backend.services.support_chat_service import (
     MessageTooLongError,
 )
 from backend.utils.auth_utils import get_current_client_user
+from backend.utils.support_notifications import (
+    notify_support_client_message,
+    notify_support_conversation_created,
+)
 
 router = APIRouter(prefix="/api/support", tags=["support"])
 
@@ -78,7 +82,9 @@ async def get_conversation(
     """
     user = await get_current_client_user(request, db)
 
-    conversation = await support_chat_service.get_or_create_conversation(db, user)
+    conversation, was_created = await support_chat_service.get_or_create_conversation_with_meta(
+        db, user
+    )
     page = await support_chat_service.list_messages(
         db,
         conversation.id,
@@ -91,6 +97,9 @@ async def get_conversation(
     except Exception as exc:  # pragma: no cover - defensive: surface as 500
         await db.rollback()
         raise HTTPException(status_code=500, detail="SUPPORT_CONVERSATION_FAILED") from exc
+
+    if was_created:
+        notify_support_conversation_created(user, conversation)
 
     messages, has_more, oldest_seq = _serialize_page(page)
     payload = ClientConversationPayload(
@@ -154,7 +163,9 @@ async def send_conversation_message(
     user = await get_current_client_user(request, db)
 
     try:
-        message = await support_chat_service.post_client_message(db, user, payload.body)
+        posted = await support_chat_service.post_client_message_with_meta(
+            db, user, payload.body
+        )
     except EmptyMessageError as exc:
         raise HTTPException(
             status_code=422,
@@ -180,4 +191,12 @@ async def send_conversation_message(
         await db.rollback()
         raise HTTPException(status_code=500, detail="SUPPORT_MESSAGE_FAILED") from exc
 
-    return {"data": {"message": _serialize_message(message)}}
+    notify_support_client_message(
+        user,
+        posted.conversation,
+        posted.message,
+        conversation_was_created=posted.conversation_was_created,
+        conversation_was_reopened=posted.conversation_was_reopened,
+    )
+
+    return {"data": {"message": _serialize_message(posted.message)}}

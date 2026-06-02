@@ -259,22 +259,20 @@ class ClientInfoCardData:
     recent_rentals: list[RentalSummaryData]
 
 
-async def get_or_create_conversation(db: AsyncSession, user: User) -> SupportConversation:
-    """Return the caller's conversation, creating one on first access.
+async def get_or_create_conversation_with_meta(
+    db: AsyncSession, user: User
+) -> tuple[SupportConversation, bool]:
+    """Return the caller's conversation plus a ``was_just_created`` flag.
 
-    Idempotent: repeated calls for the same client return the same row because
-    ``SupportConversation.user_id`` is unique (one conversation per client). A
-    freshly created conversation defaults to ``ConversationStatus.OPEN``.
-
-    The unique constraint on ``user_id`` also makes this safe under a race: if a
-    concurrent caller inserts the row between our lookup and flush, the flush
-    raises ``IntegrityError`` and we re-read the now-existing row instead.
-
-    Implements Requirements 1.1, 1.2, 1.3, 12.2.
+    Same semantics as :func:`get_or_create_conversation`; additionally reports
+    whether the conversation row was inserted by this call (``True``) or was
+    pre-existing (``False``). The flag is intended for one-shot side effects
+    (e.g. Telegram notifications on first contact) and is computed locally —
+    a concurrent insert that loses the race returns ``False``.
     """
     existing = await _load_conversation_by_user(db, user.id)
     if existing is not None:
-        return existing
+        return existing, False
 
     conversation = SupportConversation(
         user_id=user.id,
@@ -294,7 +292,24 @@ async def get_or_create_conversation(db: AsyncSession, user: User) -> SupportCon
         conversation = await _load_conversation_by_user(db, user.id)
         if conversation is None:  # pragma: no cover - integrity error implies a row exists
             raise
-        return conversation
+        return conversation, False
+    return conversation, True
+
+
+async def get_or_create_conversation(db: AsyncSession, user: User) -> SupportConversation:
+    """Return the caller's conversation, creating one on first access.
+
+    Idempotent: repeated calls for the same client return the same row because
+    ``SupportConversation.user_id`` is unique (one conversation per client). A
+    freshly created conversation defaults to ``ConversationStatus.OPEN``.
+
+    The unique constraint on ``user_id`` also makes this safe under a race: if a
+    concurrent caller inserts the row between our lookup and flush, the flush
+    raises ``IntegrityError`` and we re-read the now-existing row instead.
+
+    Implements Requirements 1.1, 1.2, 1.3, 12.2.
+    """
+    conversation, _ = await get_or_create_conversation_with_meta(db, user)
     return conversation
 
 
@@ -386,27 +401,41 @@ async def list_owned_messages(
     )
 
 
-async def post_client_message(
+@dataclass(frozen=True)
+class PostedClientMessage:
+    """Result of :func:`post_client_message_with_meta`.
+
+    Carries the persisted ``message`` and the owning ``conversation`` (so callers
+    can build notifications without an extra query), plus two one-shot flags:
+
+    * ``conversation_was_created`` — ``True`` iff this call inserted the
+      conversation row (i.e. the client's first ever support message).
+    * ``conversation_was_reopened`` — ``True`` iff the conversation existed in
+      ``CLOSED`` status before this message and was reopened to ``OPEN`` by it.
+    """
+
+    message: SupportMessage
+    conversation: SupportConversation
+    conversation_was_created: bool
+    conversation_was_reopened: bool
+
+
+async def post_client_message_with_meta(
     db: AsyncSession,
     user: User,
     body: str,
-) -> SupportMessage:
-    """Validate, persist, and order a client-authored message.
+) -> PostedClientMessage:
+    """Like :func:`post_client_message` but also reports lifecycle transitions.
 
-    The flow is durable-storage-first (Requirement 14.1): the body is validated,
-    the caller's conversation is resolved (created on first contact), a globally
-    monotonic ``seq`` is drawn, and the message is flushed so its ``seq`` and
-    server-assigned ``created_at`` are populated before the row is returned.
-
-    The conversation's denormalized activity markers
-    (``last_message_at`` / ``last_message_seq``) are updated to this message, and
-    a ``closed`` conversation is reopened (``closed`` -> ``open``); conversations
-    in any other status keep their status (Requirement 12.4).
-
-    Implements Requirements 2.1, 2.2, 12.4, 14.1, 14.2.
+    The returned :class:`PostedClientMessage` exposes whether this call created
+    the conversation and/or reopened a previously closed one, so callers can
+    fire side effects (e.g. admin Telegram notifications) without re-querying.
     """
     validated = validate_message_body(body)
-    conversation = await get_or_create_conversation(db, user)
+    conversation, was_created = await get_or_create_conversation_with_meta(db, user)
+    was_reopened = (
+        not was_created and conversation.status == ConversationStatus.CLOSED
+    )
 
     seq = await _next_message_seq(db)
     message = SupportMessage(
@@ -429,7 +458,35 @@ async def post_client_message(
         conversation.status = ConversationStatus.OPEN
     await db.flush()
 
-    return message
+    return PostedClientMessage(
+        message=message,
+        conversation=conversation,
+        conversation_was_created=was_created,
+        conversation_was_reopened=was_reopened,
+    )
+
+
+async def post_client_message(
+    db: AsyncSession,
+    user: User,
+    body: str,
+) -> SupportMessage:
+    """Validate, persist, and order a client-authored message.
+
+    The flow is durable-storage-first (Requirement 14.1): the body is validated,
+    the caller's conversation is resolved (created on first contact), a globally
+    monotonic ``seq`` is drawn, and the message is flushed so its ``seq`` and
+    server-assigned ``created_at`` are populated before the row is returned.
+
+    The conversation's denormalized activity markers
+    (``last_message_at`` / ``last_message_seq``) are updated to this message, and
+    a ``closed`` conversation is reopened (``closed`` -> ``open``); conversations
+    in any other status keep their status (Requirement 12.4).
+
+    Implements Requirements 2.1, 2.2, 12.4, 14.1, 14.2.
+    """
+    posted = await post_client_message_with_meta(db, user, body)
+    return posted.message
 
 
 async def post_operator_message(

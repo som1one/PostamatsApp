@@ -77,6 +77,10 @@ from backend.utils.support_auth import (
     authenticate_ws_client,
     authenticate_ws_operator,
 )
+from backend.utils.support_notifications import (
+    notify_support_client_message,
+    notify_support_conversation_created,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -172,9 +176,14 @@ async def support_client_ws(websocket: WebSocket) -> None:
     # Resolve (and persist) the caller's conversation before registering the
     # socket, so fan-out has a concrete conversation id to key off.
     async with SessionLocal() as db:
-        conversation = await support_chat_service.get_or_create_conversation(db, user)
+        conversation, conversation_was_created = (
+            await support_chat_service.get_or_create_conversation_with_meta(db, user)
+        )
         await db.commit()
         conversation_id = str(conversation.id)
+
+    if conversation_was_created:
+        notify_support_conversation_created(user, conversation)
 
     hub = get_connection_hub()
     hub.register_client(conversation_id, websocket)
@@ -247,11 +256,17 @@ async def _handle_client_message_send(
 
     try:
         async with SessionLocal() as db:
-            message = await support_chat_service.post_client_message(db, user, body)
+            posted = await support_chat_service.post_client_message_with_meta(
+                db, user, body
+            )
             await db.commit()
             # Serialize while the row is still attached (expire_on_commit=False
             # keeps attributes loaded, but doing it here is unambiguous).
-            message_dict = serialize_message(message)
+            message_dict = serialize_message(posted.message)
+            posted_conversation = posted.conversation
+            posted_was_created = posted.conversation_was_created
+            posted_was_reopened = posted.conversation_was_reopened
+            posted_message = posted.message
     except EmptyMessageError as exc:
         await _send_event(
             websocket, make_error("EMPTY_MESSAGE", str(exc), client_msg_id)
@@ -278,6 +293,14 @@ async def _handle_client_message_send(
     # Persisted: confirm to the sender, then fan out to participants + operators.
     await _send_event(websocket, make_ack(client_msg_id, message_dict))
     await hub.deliver(make_message_new(message_dict))
+
+    notify_support_client_message(
+        user,
+        posted_conversation,
+        posted_message,
+        conversation_was_created=posted_was_created,
+        conversation_was_reopened=posted_was_reopened,
+    )
 
 
 # ---------------------------------------------------------------------------
