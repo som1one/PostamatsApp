@@ -469,8 +469,10 @@ async def place_product_in_cell(
     try:
         await db.commit()
     except Exception as exc:
+        import logging
+        logging.error("Commit failed in place_product_in_cell: %s", exc, exc_info=exc)
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Не удалось сохранить размещение") from exc
+        raise HTTPException(status_code=500, detail=f"Не удалось сохранить размещение: {repr(exc)}") from exc
 
     await db.refresh(free_unit)
     await db.refresh(cell)
