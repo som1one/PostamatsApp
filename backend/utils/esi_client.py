@@ -317,7 +317,7 @@ async def sync_cell_state(
     # ESI отвергает запрос с непустым `pin`, если ячейка переводится
     # в `unassigned` (свободную). Поэтому при освобождении принудительно
     # стираем pin, что бы ни пришло сверху.
-    esi_pin = "" if esi_state == "unassigned" else (pin or "")
+    esi_pin = "" if esi_state == "unassigned" else (pin or "0000")
     await _esi_post(
         f"/set-cell/{serial}/{external_cell_id}",
         payload={"state": esi_state, "pin": esi_pin},

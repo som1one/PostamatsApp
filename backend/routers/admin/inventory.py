@@ -406,6 +406,8 @@ async def place_product_in_cell(
         created_new = True
 
     prev_status = free_unit.status
+
+    open_failed_reason: str | None = None
     try:
         await sync_cell_state(
             db,
@@ -415,8 +417,22 @@ async def place_product_in_cell(
             pin=None,
         )
     except EsiOpenError as exc:
-        await db.rollback()
-        raise _map_esi_open_error(str(exc)) from exc
+        code = str(exc)
+        if code != "ESI_NOT_CONFIGURED":
+            await db.rollback()
+            raise _map_esi_open_error(code) from exc
+        open_failed_reason = open_failed_reason or "ESI_NOT_CONFIGURED"
+
+    if payload.openCell:
+        try:
+            await admin_trigger_open_cell(db, locker_id=locker.id, cell_id=cell.id)
+        except EsiOpenError as exc:
+            code = str(exc)
+            if code == "ESI_NOT_CONFIGURED":
+                open_failed_reason = "ESI_NOT_CONFIGURED"
+            else:
+                await db.rollback()
+                raise _map_esi_open_error(code) from exc
 
     free_unit.locker_cell_id = cell.id
     free_unit.status = InventoryStatus.AVAILABLE

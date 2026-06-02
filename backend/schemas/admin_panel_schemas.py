@@ -83,6 +83,7 @@ class AdminAssignInventoryUnitPayload(BaseModel):
 class AdminPlaceProductInCellPayload(BaseModel):
     productId: UUID = Field(..., description="Каталоговый товар для размещения в ячейке")
     comment: str | None = Field(default=None, max_length=500, description="Комментарий оператора")
+    openCell: bool = Field(default=True, description="Отправить ESI команду открытия ячейки")
 
 
 class AdminTakeForServicePayload(BaseModel):
