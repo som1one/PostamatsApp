@@ -7,7 +7,7 @@
     ],
     "productCount": 13,
     "lockerCount": 5,
-    "inventoryUnitCount": 39
+    "inventoryUnitCount": 37
   },
   "categories": [
     {
@@ -1437,36 +1437,6 @@
       "status": "AVAILABLE",
       "conditionGrade": "A",
       "conditionNote": "Готов к аренде",
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
-      "productSlug": "perforator-elitech",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "cellExternalCellId": "seed-spb-petrogradka-empty-1",
-      "cellLabel": "B1",
-      "serialNumber": null,
-      "barcode": null,
-      "status": "AVAILABLE",
-      "conditionGrade": null,
-      "conditionNote": null,
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
-      "productSlug": "projektor",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "cellExternalCellId": "seed-spb-petrogradka-empty-2",
-      "cellLabel": "B2",
-      "serialNumber": null,
-      "barcode": null,
-      "status": "AVAILABLE",
-      "conditionGrade": null,
-      "conditionNote": null,
       "purchasePrice": null,
       "purchaseDate": null,
       "lastCheckAt": null

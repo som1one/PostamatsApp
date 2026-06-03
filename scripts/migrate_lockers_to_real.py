@@ -45,6 +45,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from backend.core.database import SessionLocal, engine  # noqa: E402
+from backend.models.city import City  # noqa: E402
 from backend.models.enums import (  # noqa: E402
     InventoryStatus,
     LockerStatus,
@@ -166,7 +167,11 @@ DELETE_TARGETS: tuple[DeleteTarget, ...] = (
 
 INVENTORY_SYNC_TARGETS: tuple[tuple[tuple[str, str], tuple[str, str]], ...] = (
     (("seed", "seed-spb-nevsky"), ("esi", "PST_0980")),
-    (("seed", "seed-spb-petrogradka"), ("seed", "seed-vn-west")),
+)
+
+
+CITY_PRODUCT_REMOVALS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("spb", ("perforator-elitech", "projektor")),
 )
 
 
@@ -379,6 +384,47 @@ async def _sync_locker_inventory_from_source(
     return True
 
 
+async def _remove_products_from_city(
+    session: AsyncSession,
+    *,
+    city_slug: str,
+    product_slugs: tuple[str, ...],
+) -> int:
+    rows = (
+        await session.execute(
+            select(InventoryUnit, LockerCell)
+            .select_from(InventoryUnit)
+            .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
+            .join(LockerLocation, LockerCell.locker_id == LockerLocation.id)
+            .join(City, LockerLocation.city_id == City.id)
+            .join(Product, Product.id == InventoryUnit.product_id)
+            .where(City.slug == city_slug, Product.slug.in_(product_slugs))
+        )
+    ).all()
+    removed = 0
+    for unit, cell in rows:
+        if unit.status not in _DELETABLE_INVENTORY_STATUSES:
+            logger.warning(
+                "Skip product removal city=%s product_unit=%s status=%s",
+                city_slug,
+                unit.id,
+                unit.status.value,
+            )
+            continue
+        await session.delete(unit)
+        await session.flush()
+        await session.delete(cell)
+        removed += 1
+    if removed:
+        logger.info(
+            "Removed city products city=%s slugs=%s units=%s",
+            city_slug,
+            ",".join(product_slugs),
+            removed,
+        )
+    return removed
+
+
 def _apply_target(locker: LockerLocation, target: TargetState) -> bool:
     """Применяет целевое состояние. Возвращает True, если что-то поменялось."""
 
@@ -520,6 +566,13 @@ async def _run() -> int:
                     target.new_provider,
                     target.new_external_id,
                 )
+
+        for city_slug, product_slugs in CITY_PRODUCT_REMOVALS:
+            updates += await _remove_products_from_city(
+                session,
+                city_slug=city_slug,
+                product_slugs=product_slugs,
+            )
 
         for (source_provider, source_external_id), (target_provider, target_external_id) in INVENTORY_SYNC_TARGETS:
             source_locker = await session.scalar(
