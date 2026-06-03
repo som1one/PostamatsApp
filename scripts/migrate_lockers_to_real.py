@@ -35,7 +35,7 @@ import os
 import sys
 from dataclasses import dataclass
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Поддерживаем запуск как `python -m scripts.migrate_lockers_to_real`
@@ -54,6 +54,7 @@ from backend.models.enums import (  # noqa: E402
 from backend.models.inventory_unit import InventoryUnit  # noqa: E402
 from backend.models.locker_cell import LockerCell  # noqa: E402
 from backend.models.locker_location import LockerLocation  # noqa: E402
+from backend.models.product import Product  # noqa: E402
 from backend.models.rental import Rental  # noqa: E402
 from backend.models.reservation import Reservation  # noqa: E402
 
@@ -163,6 +164,12 @@ DELETE_TARGETS: tuple[DeleteTarget, ...] = (
 )
 
 
+INVENTORY_SYNC_TARGETS: tuple[tuple[tuple[str, str], tuple[str, str]], ...] = (
+    (("seed", "seed-spb-nevsky"), ("esi", "PST_0980")),
+    (("seed", "seed-spb-petrogradka"), ("seed", "seed-vn-west")),
+)
+
+
 # Статусы броней/аренд, при которых удалять постамат опасно — это
 # реальные пользовательские операции в полёте.
 _ACTIVE_RESERVATION_STATUSES: frozenset[ReservationStatus] = frozenset(
@@ -217,6 +224,159 @@ async def _find_locker(session: AsyncSession, target: TargetState) -> LockerLoca
             LockerLocation.external_locker_id == target.match_external_id,
         )
     )
+
+
+async def _load_products_by_slug(session: AsyncSession) -> dict[str, Product]:
+    products = (await session.scalars(select(Product))).all()
+    return {product.slug: product for product in products}
+
+
+async def _locker_inventory_counts(session: AsyncSession, locker_id: object) -> dict[str, int]:
+    rows = (
+        await session.execute(
+            select(Product.slug, func.count(InventoryUnit.id).label("units"))
+            .select_from(InventoryUnit)
+            .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
+            .join(LockerLocation, LockerCell.locker_id == LockerLocation.id)
+            .join(Product, Product.id == InventoryUnit.product_id)
+            .where(LockerLocation.id == locker_id)
+            .group_by(Product.slug)
+            .order_by(Product.slug.asc())
+        )
+    ).all()
+    return {str(row.slug): int(row.units) for row in rows}
+
+
+async def _locker_rebuild_blocker(session: AsyncSession, locker_id: object) -> str | None:
+    if (
+        await session.scalar(
+            select(Reservation.id)
+            .where(
+                Reservation.locker_id == locker_id,
+                Reservation.status.in_(_ACTIVE_RESERVATION_STATUSES),
+            )
+            .limit(1)
+        )
+    ) is not None:
+        return "has_active_reservations"
+
+    if (
+        await session.scalar(
+            select(Rental.id)
+            .where(
+                Rental.pickup_locker_id == locker_id,
+                Rental.status.in_(_ACTIVE_RENTAL_STATUSES),
+            )
+            .limit(1)
+        )
+    ) is not None:
+        return "has_active_rentals"
+
+    cell_ids = list(
+        (await session.scalars(select(LockerCell.id).where(LockerCell.locker_id == locker_id))).all()
+    )
+    if not cell_ids:
+        return None
+
+    units = list(
+        (
+            await session.scalars(select(InventoryUnit).where(InventoryUnit.locker_cell_id.in_(cell_ids)))
+        ).all()
+    )
+    for unit in units:
+        if unit.status not in _DELETABLE_INVENTORY_STATUSES:
+            return f"inventory_unit_{unit.id}_status_{unit.status.value}"
+    return None
+
+
+async def _sync_locker_inventory_from_source(
+    session: AsyncSession,
+    *,
+    source_locker: LockerLocation,
+    target_locker: LockerLocation,
+    products_by_slug: dict[str, Product],
+) -> bool:
+    source_inventory = await _locker_inventory_counts(session, source_locker.id)
+    target_inventory = await _locker_inventory_counts(session, target_locker.id)
+    if source_inventory == target_inventory:
+        return False
+
+    blocker = await _locker_rebuild_blocker(session, target_locker.id)
+    if blocker is not None:
+        logger.warning(
+            "Skip inventory sync source=%s/%s target=%s/%s blocker=%s",
+            source_locker.external_provider,
+            source_locker.external_locker_id,
+            target_locker.external_provider,
+            target_locker.external_locker_id,
+            blocker,
+        )
+        return False
+
+    existing_cell_ids = list(
+        (
+            await session.scalars(select(LockerCell.id).where(LockerCell.locker_id == target_locker.id))
+        ).all()
+    )
+    if existing_cell_ids:
+        await session.execute(
+            delete(InventoryUnit).where(InventoryUnit.locker_cell_id.in_(existing_cell_ids))
+        )
+        await session.execute(delete(LockerCell).where(LockerCell.id.in_(existing_cell_ids)))
+        await session.flush()
+
+    index = 1
+    for product_slug, count in source_inventory.items():
+        product = products_by_slug.get(product_slug)
+        if product is None:
+            raise RuntimeError(
+                f"Product slug not found while syncing locker inventory: {product_slug}"
+            )
+        for unit_number in range(1, count + 1):
+            cell = LockerCell(
+                locker_id=target_locker.id,
+                external_cell_id=f"{target_locker.external_locker_id}-cell-{index:02d}",
+                label=f"A{index}",
+                size="M",
+                status=LockerCellStatus.OCCUPIED,
+                supports_return=True,
+            )
+            session.add(cell)
+            await session.flush()
+
+            unit = InventoryUnit(
+                product_id=product.id,
+                locker_cell_id=cell.id,
+                serial_number=f"{target_locker.external_locker_id.upper()}-{product.slug.upper()}-{unit_number}",
+                barcode=f"{target_locker.external_locker_id}-{product.slug}-{unit_number}",
+                status=InventoryStatus.AVAILABLE,
+                condition_grade="A",
+                condition_note="Готов к аренде",
+            )
+            session.add(unit)
+            index += 1
+
+    for empty_index in range(2):
+        session.add(
+            LockerCell(
+                locker_id=target_locker.id,
+                external_cell_id=f"{target_locker.external_locker_id}-empty-{empty_index + 1}",
+                label=f"B{empty_index + 1}",
+                size="L",
+                status=LockerCellStatus.VACANT,
+                supports_return=True,
+            )
+        )
+
+    logger.info(
+        "Synced inventory source=%s/%s target=%s/%s product_types=%s",
+        source_locker.external_provider,
+        source_locker.external_locker_id,
+        target_locker.external_provider,
+        target_locker.external_locker_id,
+        len(source_inventory),
+    )
+    return True
 
 
 def _apply_target(locker: LockerLocation, target: TargetState) -> bool:
@@ -331,6 +491,8 @@ async def _run() -> int:
     delete_skipped = 0
 
     async with SessionLocal() as session:
+        products_by_slug = await _load_products_by_slug(session)
+
         for target in TARGETS:
             locker = await _find_locker(session, target)
             if locker is None:
@@ -358,6 +520,37 @@ async def _run() -> int:
                     target.new_provider,
                     target.new_external_id,
                 )
+
+        for (source_provider, source_external_id), (target_provider, target_external_id) in INVENTORY_SYNC_TARGETS:
+            source_locker = await session.scalar(
+                select(LockerLocation).where(
+                    LockerLocation.external_provider == source_provider,
+                    LockerLocation.external_locker_id == source_external_id,
+                )
+            )
+            target_locker = await session.scalar(
+                select(LockerLocation).where(
+                    LockerLocation.external_provider == target_provider,
+                    LockerLocation.external_locker_id == target_external_id,
+                )
+            )
+            if source_locker is None or target_locker is None:
+                missing += int(source_locker is None) + int(target_locker is None)
+                logger.warning(
+                    "Inventory sync skipped: source=%s/%s target=%s/%s",
+                    source_provider,
+                    source_external_id,
+                    target_provider,
+                    target_external_id,
+                )
+                continue
+            if await _sync_locker_inventory_from_source(
+                session,
+                source_locker=source_locker,
+                target_locker=target_locker,
+                products_by_slug=products_by_slug,
+            ):
+                updates += 1
 
         for delete_target in DELETE_TARGETS:
             ok, reason = await _delete_locker_cascade(session, delete_target)
