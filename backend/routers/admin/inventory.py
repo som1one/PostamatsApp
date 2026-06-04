@@ -698,8 +698,10 @@ async def confirm_inventory_ready(
         await db.commit()
     except Exception as exc:
         import traceback; traceback.print_exc()
+        with open("bug_error.txt", "w", encoding="utf-8") as f:
+            f.write(traceback.format_exc())
         await db.rollback()
-        raise HTTPException(status_code=500, detail="INVENTORY_CONFIRM_READY_FAILED") from exc
+        raise HTTPException(status_code=500, detail=f"INVENTORY_CONFIRM_READY_FAILED: {repr(exc)}") from exc
 
     await db.refresh(unit)
     await db.refresh(cell)

@@ -195,14 +195,8 @@ async def get_products(
             ),
         )
 
-    if availableOnly:
-        available_ids = [pid for pid, count in unit_counts.items() if count > 0]
-        if not available_ids:
-            return {
-                "data": {"products": []},
-                "meta": {"page": page, "limit": limit, "total": 0},
-            }
-        conditions.append(Product.id.in_(available_ids))
+    # availableOnly игнорируется — каталог всегда показывает все товары,
+    # поле «available» на карточке вычисляется из unit_counts для UI.
 
     where_clause = and_(*conditions) if conditions else true()
 
