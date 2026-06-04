@@ -22,6 +22,7 @@ from backend.models.enums import (
     ReturnRequestStatus,
     VerificationStatus,
 )
+from backend.models.inventory_movement import InventoryMovement
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
@@ -53,6 +54,7 @@ TEST_TABLES = [
     Rental.__table__,
     RentalEvent.__table__,
     ReturnRequest.__table__,
+    InventoryMovement.__table__,
 ]
 
 
@@ -121,7 +123,7 @@ class RentalReturnFlowTests(unittest.IsolatedAsyncioTestCase):
             unit = InventoryUnit(
                 id=uuid4(),
                 product_id=product.id,
-                locker_cell_id=cell.id,
+                locker_cell_id=None,
                 status=InventoryStatus.RENTED,
                 serial_number="SN-KARAOKE-1",
             )
@@ -134,7 +136,17 @@ class RentalReturnFlowTests(unittest.IsolatedAsyncioTestCase):
                 starts_at=datetime.now(timezone.utc) - timedelta(days=1),
                 planned_end_at=datetime.now(timezone.utc) + timedelta(hours=10),
             )
-            db.add_all([city, category, product, user, locker, cell, unit, rental])
+            movement = InventoryMovement(
+                inventory_unit_id=unit.id,
+                from_locker_id=locker.id,
+                to_locker_id=None,
+                from_cell_id=cell.id,
+                to_cell_id=None,
+                from_status=InventoryStatus.RESERVED,
+                to_status=InventoryStatus.RENTED,
+                reason="pickup_confirmed_by_user",
+            )
+            db.add_all([city, category, product, user, locker, cell, unit, rental, movement])
             await db.commit()
 
             result = await start_rental_return(
@@ -147,7 +159,7 @@ class RentalReturnFlowTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(request.cell_id, cell.id)
             self.assertEqual(rental.status, RentalStatus.RETURN_IN_PROGRESS)
             self.assertEqual(unit.status, InventoryStatus.RETURN_PENDING)
-            self.assertEqual(unit.locker_cell_id, cell.id)
+            self.assertIsNone(unit.locker_cell_id)
             self.assertEqual(cell.status, LockerCellStatus.OPENED)
 
 

@@ -14,6 +14,7 @@ from backend.models.enums import (
     RentalStatus,
     ReturnRequestStatus,
 )
+from backend.models.inventory_movement import InventoryMovement
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
@@ -34,6 +35,39 @@ class ReturnRequestError(Exception):
         self.code = code
         self.message = message or code
         super().__init__(self.message)
+
+
+async def _find_legacy_return_cell(
+    db: AsyncSession,
+    *,
+    unit: InventoryUnit,
+    locker_id: UUID,
+) -> LockerCell | None:
+    occupied_cell_ids_subq = (
+        select(InventoryUnit.locker_cell_id)
+        .where(
+            InventoryUnit.locker_cell_id.is_not(None),
+            InventoryUnit.id != unit.id,
+        )
+        .subquery()
+    )
+    stmt = (
+        select(LockerCell)
+        .join(InventoryMovement, InventoryMovement.from_cell_id == LockerCell.id)
+        .where(
+            InventoryMovement.inventory_unit_id == unit.id,
+            InventoryMovement.from_locker_id == locker_id,
+            InventoryMovement.from_cell_id.is_not(None),
+            InventoryMovement.to_status == InventoryStatus.RENTED,
+            LockerCell.locker_id == locker_id,
+            LockerCell.supports_return.is_(True),
+            LockerCell.status.not_in((LockerCellStatus.FAULT, LockerCellStatus.DISABLED)),
+            LockerCell.id.not_in(select(occupied_cell_ids_subq)),
+        )
+        .order_by(InventoryMovement.created_at.desc())
+        .limit(1)
+    )
+    return (await db.scalars(stmt)).first()
 
 
 async def start_rental_return(
@@ -102,18 +136,12 @@ async def start_rental_return(
     )
     cell = (await db.scalars(stmt)).first()
     if cell is None:
-        legacy_cell = (
-            await db.get(LockerCell, unit.locker_cell_id)
-            if unit.locker_cell_id is not None
-            else None
+        legacy_cell = await _find_legacy_return_cell(
+            db,
+            unit=unit,
+            locker_id=return_locker_id,
         )
-        if (
-            legacy_cell is not None
-            and legacy_cell.locker_id == return_locker_id
-            and legacy_cell.supports_return
-            and legacy_cell.status
-            not in (LockerCellStatus.FAULT, LockerCellStatus.DISABLED)
-        ):
+        if legacy_cell is not None:
             cell = legacy_cell
         else:
             raise ReturnRequestError("RETURN_CELL_NOT_AVAILABLE")
