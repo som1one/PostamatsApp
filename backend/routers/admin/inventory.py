@@ -601,6 +601,7 @@ async def take_cell_for_service(
     try:
         await db.commit()
     except Exception as exc:
+        import traceback; traceback.print_exc()
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Не удалось сохранить изменение: {repr(exc)}") from exc
 
@@ -696,6 +697,7 @@ async def confirm_inventory_ready(
     try:
         await db.commit()
     except Exception as exc:
+        import traceback; traceback.print_exc()
         await db.rollback()
         raise HTTPException(status_code=500, detail="INVENTORY_CONFIRM_READY_FAILED") from exc
 
