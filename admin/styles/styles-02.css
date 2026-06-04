@@ -1,4 +1,4 @@
-.locker-candidate-title {
+﻿.locker-candidate-title {
   margin: 0;
   font-size: 1rem;
   font-weight: 700;
@@ -329,7 +329,8 @@
   gap: 8px;
 }.cell-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 8px 10px;
   border-radius: 12px;
@@ -366,6 +367,7 @@
 }.cell-card__line {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
 }.cell-card__label {
@@ -402,8 +404,12 @@
 }.cell-card__buttons {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 6px;
   flex-shrink: 0;
+  margin-left: auto;
+  max-width: 100%;
 }.cell-card__test {
   padding: 6px 10px;
   font-size: 0.75rem;

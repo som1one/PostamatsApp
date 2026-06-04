@@ -83,6 +83,48 @@ async def _ensure_postgres_enum_values(
         )
 
 
+async def _table_has_column(
+    conn,
+    *,
+    table_name: str,
+    column_name: str,
+) -> bool:
+    from sqlalchemy import inspect
+
+    def _inspect(sync_conn):
+        columns = inspect(sync_conn).get_columns(table_name)
+        return any(column.get("name") == column_name for column in columns)
+
+    return bool(await conn.run_sync(_inspect))
+
+
+async def _ensure_inventory_last_check_column(conn) -> None:
+    from sqlalchemy import text
+
+    if await _table_has_column(
+        conn,
+        table_name="inventory_units",
+        column_name="last_check_at",
+    ):
+        return
+
+    dialect = conn.dialect.name
+    if dialect == "postgresql":
+        await conn.execute(
+            text(
+                "ALTER TABLE inventory_units "
+                "ADD COLUMN IF NOT EXISTS last_check_at TIMESTAMP WITH TIME ZONE"
+            )
+        )
+    elif dialect == "sqlite":
+        await conn.execute(
+            text(
+                "ALTER TABLE inventory_units "
+                "ADD COLUMN last_check_at DATETIME"
+            )
+        )
+
+
 async def init_db():
     for module_name in (
         "backend.models.admin_account",
@@ -123,6 +165,11 @@ async def init_db():
         import_module(module_name)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        try:
+            await _ensure_inventory_last_check_column(conn)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("failed to sync inventory_units.last_check_at")
     if engine.dialect.name == "postgresql":
         async with engine.begin() as conn:
             try:

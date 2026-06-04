@@ -1,4 +1,4 @@
-const STORAGE_KEY = "postamats-admin-auth";
+﻿const STORAGE_KEY = "postamats-admin-auth";
 const API_ORIGIN_STORAGE_KEY = "postamatsApiOrigin";
 
 function normalizeApiBaseOrigin(raw) {
@@ -369,7 +369,30 @@ function clickTargetElement(event) {
 }
 
 function renderStatusPill(status) {
-  const label = (status || "unknown").replaceAll("_", " ");
+  const labels = {
+    available: "\u0414\u043e\u0441\u0442\u0443\u043f\u0435\u043d",
+    awaiting_confirmation: "\u041d\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0435",
+    occupied: "\u0417\u0430\u043d\u044f\u0442\u0430",
+    vacant: "\u0421\u0432\u043e\u0431\u043e\u0434\u043d\u0430",
+    opened: "\u041e\u0442\u043a\u0440\u044b\u0442\u0430",
+    reserved: "\u0417\u0430\u0440\u0435\u0437\u0435\u0440\u0432.",
+    rented: "\u0412 \u0430\u0440\u0435\u043d\u0434\u0435",
+    maintenance: "\u0421\u0435\u0440\u0432\u0438\u0441",
+    damaged: "\u041f\u043e\u0432\u0440\u0435\u0436\u0434\u0435\u043d",
+    online: "\u041e\u043d\u043b\u0430\u0439\u043d",
+    offline: "\u041e\u0444\u043b\u0430\u0439\u043d",
+    active: "\u0410\u043a\u0442\u0438\u0432\u0435\u043d",
+    approved: "\u041e\u0434\u043e\u0431\u0440\u0435\u043d",
+    rejected: "\u041e\u0442\u043a\u043b\u043e\u043d\u0435\u043d",
+    blocked: "\u0417\u0430\u0431\u043b\u043e\u043a.",
+    failed: "\u041e\u0448\u0438\u0431\u043a\u0430",
+    completed: "\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d",
+    return_in_progress: "\u0412\u043e\u0437\u0432\u0440\u0430\u0442",
+    pickup_ready: "\u041a \u0432\u044b\u0434\u0430\u0447\u0435",
+    pickup_opened: "\u0412\u044b\u0434\u0430\u0447\u0430",
+    overdue: "\u041f\u0440\u043e\u0441\u0440\u043e\u0447\u0435\u043d",
+  };
+  const label = labels[status] || (status || "unknown").replaceAll("_", " ");
   return `<span class="status-pill status-${status}">${label}</span>`;
 }
 
@@ -4084,7 +4107,7 @@ function renderInventoryCells() {
 
   if (!state.inventory.selectedLockerId) {
     inventoryCellsGrid.innerHTML = "";
-    inventoryEmpty.textContent = "Выберите постамат, чтобы увидеть ячейки.";
+    inventoryEmpty.textContent = "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u043f\u043e\u0441\u0442\u0430\u043c\u0430\u0442, \u0447\u0442\u043e\u0431\u044b \u0443\u0432\u0438\u0434\u0435\u0442\u044c \u044f\u0447\u0435\u0439\u043a\u0438.";
     inventoryEmpty.classList.remove("hidden");
     return;
   }
@@ -4092,8 +4115,8 @@ function renderInventoryCells() {
   if (!filtered.length) {
     inventoryCellsGrid.innerHTML = "";
     inventoryEmpty.textContent = onlyFree
-      ? "Свободных ячеек не нашлось. Снимите фильтр, чтобы увидеть все."
-      : "В этом постамате пока нет ячеек. Добавьте их в разделе «Постаматы».";
+      ? "\u0421\u0432\u043e\u0431\u043e\u0434\u043d\u044b\u0445 \u044f\u0447\u0435\u0435\u043a \u043d\u0435 \u043d\u0430\u0448\u043b\u043e\u0441\u044c. \u0421\u043d\u0438\u043c\u0438\u0442\u0435 \u0444\u0438\u043b\u044c\u0442\u0440, \u0447\u0442\u043e\u0431\u044b \u0443\u0432\u0438\u0434\u0435\u0442\u044c \u0432\u0441\u0435."
+      : "\u0412 \u044d\u0442\u043e\u043c \u043f\u043e\u0441\u0442\u0430\u043c\u0430\u0442\u0435 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442 \u044f\u0447\u0435\u0435\u043a. \u0414\u043e\u0431\u0430\u0432\u044c\u0442\u0435 \u0438\u0445 \u0432 \u0440\u0430\u0437\u0434\u0435\u043b\u0435 \u00ab\u041f\u043e\u0441\u0442\u0430\u043c\u0430\u0442\u044b\u00bb.";
     inventoryEmpty.classList.remove("hidden");
     return;
   }
@@ -4104,42 +4127,42 @@ function renderInventoryCells() {
       const occupied = Boolean(cell.currentUnit);
       const unitStatus = occupied ? String(cell.currentUnit?.status || "") : "";
       const isAwaitingConfirmation = unitStatus === "awaiting_confirmation";
-      const cellLabel = cell.label || cell.externalCellId || "—";
+      const cellLabel = cell.label || cell.externalCellId || "\u2014";
       const cover = occupied && cell.currentUnit?.coverUrl
         ? `<img class="cell-card__thumb" src="${escapeHtml(
             cell.currentUnit.coverUrl,
           )}" alt="" loading="lazy" />`
         : `<div class="cell-card__thumb cell-card__thumb--placeholder">${
-            occupied ? "📦" : "—"
+            occupied ? "\ud83d\udce6" : "\u2014"
           }</div>`;
       const productName = occupied
         ? `<p class="cell-card__product-name" title="${escapeHtml(
             cell.currentUnit.productName || "",
-          )}">${escapeHtml(cell.currentUnit.productName || "Без названия")}</p>`
-        : `<p class="cell-card__product-name muted-inline">Свободно</p>`;
+          )}">${escapeHtml(cell.currentUnit.productName || "\u0411\u0435\u0437 \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u044f")}</p>`
+        : `<p class="cell-card__product-name muted-inline">\u0421\u0432\u043e\u0431\u043e\u0434\u043d\u043e</p>`;
       const unitStatusPill = occupied
         ? `<div class="cell-card__status-row">${renderStatusPill(unitStatus)}</div>`
         : "";
       let action = occupied
         ? `<button type="button" class="table-danger-button cell-card__action" data-inventory-action="open-service" data-cell-id="${escapeHtml(
             cell.id,
-          )}">Забрать</button>`
+          )}">\u0417\u0430\u0431\u0440\u0430\u0442\u044c</button>`
         : `<button type="button" class="primary-button cell-card__action" data-inventory-action="open-place" data-cell-id="${escapeHtml(
             cell.id,
-          )}">Положить</button>`;
+          )}">\u041f\u043e\u043b\u043e\u0436\u0438\u0442\u044c</button>`;
       let secondaryAction = "";
       if (occupied && isAwaitingConfirmation) {
         action = `<button type="button" class="primary-button cell-card__action" data-inventory-action="confirm-ready" data-cell-id="${escapeHtml(
           cell.id,
-        )}">РџРѕРґС‚РІРµСЂРґРёС‚СЊ</button>`;
+        )}">\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044c</button>`;
         secondaryAction = `<button type="button" class="table-danger-button cell-card__action" data-inventory-action="open-service" data-cell-id="${escapeHtml(
           cell.id,
-        )}">Р—Р°Р±СЂР°С‚СЊ</button>`;
+        )}">\u0417\u0430\u0431\u0440\u0430\u0442\u044c</button>`;
       }
       const testButton = cell.externalCellId
         ? `<button type="button" class="ghost-button cell-card__test" data-inventory-action="test-open" data-cell-id="${escapeHtml(
             cell.id,
-          )}" title="Проверить, открывается ли ячейка">Тест</button>`
+          )}" title="\u041f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c \u044f\u0447\u0435\u0439\u043a\u0443">\u0422\u0435\u0441\u0442</button>`
         : "";
       const statusPill = renderStatusPill(cell.status);
       return `
@@ -4147,7 +4170,7 @@ function renderInventoryCells() {
           ${cover}
           <div class="cell-card__info">
             <div class="cell-card__line">
-              <span class="cell-card__label">№ ${escapeHtml(cellLabel)}</span>
+              <span class="cell-card__label">\u2116 ${escapeHtml(cellLabel)}</span>
               ${statusPill}
             </div>
             ${productName}
