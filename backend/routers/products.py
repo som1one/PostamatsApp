@@ -95,10 +95,13 @@ async def _serialize_product_list_payload(
     if locker_uuid is not None:
         unit_counts = await aggregate_available_inventory_by_product(db, locker_uuid, None)
         locker_counts = {pid: 1 for pid, count in unit_counts.items() if count > 0}
+        placed_ids = await aggregate_placed_at_locker(db, locker_uuid)
     elif city_uuid is not None:
         unit_counts, locker_counts = await aggregate_available_in_city(db, city_uuid)
+        placed_ids = await aggregate_placed_in_city(db, city_uuid)
     else:
         unit_counts, locker_counts = await aggregate_available_globally(db)
+        placed_ids = await aggregate_placed_globally(db)
 
     plans = await fetch_min_price_plans_by_product(db, [product.id])
     media_map = await load_media_files_by_ids(
@@ -114,13 +117,14 @@ async def _serialize_product_list_payload(
 
     unit_count = unit_counts.get(product.id, 0)
     locker_count = locker_counts.get(product.id, 0)
+    is_in_stock = product.id in placed_ids
     payload = serialize_product_list_item(
         product,
         plans.get(product.id),
         cover_url,
-        available=unit_count > 0,
-        available_locker_count=locker_count,
-        unit_count=unit_count,
+        available=is_in_stock,
+        available_locker_count=max(locker_count, 1 if is_in_stock else 0),
+        unit_count=max(unit_count, 1 if is_in_stock else 0),
     )
     return resolve_effective_list_item(payload, product_filter)
 
@@ -265,15 +269,16 @@ async def get_products(
             cover_url = public_media_url(media_map[p.cover_file_id].file_key)
         u = unit_counts.get(p.id, 0)
         lc = locker_counts.get(p.id, 0)
+        is_in_stock = p.id in placed_ids if placed_ids is not None else u > 0
         products_payload.append(
             resolve_effective_list_item(
             serialize_product_list_item(
                 p,
                 plan,
                 cover_url,
-                available=u > 0,
-                available_locker_count=lc,
-                unit_count=u,
+                available=is_in_stock,
+                available_locker_count=max(lc, 1 if is_in_stock else 0),
+                unit_count=max(u, 1 if is_in_stock else 0),
                 category_name=category_map.get(p.category_id),
             ),
             product_filter,

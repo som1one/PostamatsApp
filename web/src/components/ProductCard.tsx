@@ -19,7 +19,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
           </div>
         )}
         <span className={`availability-badge ${product.available ? "is-available" : ""}`}>
-          {product.available ? "Доступно" : "Нет в наличии"}
+          {product.available ? "В наличии" : "Нет в наличии"}
         </span>
       </Link>
       <div className="product-body">
