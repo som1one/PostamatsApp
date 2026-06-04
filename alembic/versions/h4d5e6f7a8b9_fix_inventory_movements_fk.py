@@ -14,21 +14,21 @@ branch_labels = None
 depends_on = None
 
 def upgrade() -> None:
-    with op.batch_alter_table("inventory_movements") as batch_op:
-        batch_op.drop_constraint("inventory_movements_performed_by_admin_id_fkey", type_="foreignkey")
-        batch_op.create_foreign_key(
-            "inventory_movements_performed_by_admin_id_fkey",
-            "admin_accounts",
-            ["performed_by_admin_id"],
-            ["id"],
-        )
+    op.drop_constraint("inventory_movements_performed_by_admin_id_fkey", "inventory_movements", type_="foreignkey")
+    op.create_foreign_key(
+        "inventory_movements_performed_by_admin_id_fkey",
+        "inventory_movements",
+        "admin_accounts",
+        ["performed_by_admin_id"],
+        ["id"],
+    )
 
 def downgrade() -> None:
-    with op.batch_alter_table("inventory_movements") as batch_op:
-        batch_op.drop_constraint("inventory_movements_performed_by_admin_id_fkey", type_="foreignkey")
-        batch_op.create_foreign_key(
-            "inventory_movements_performed_by_admin_id_fkey",
-            "admin_users",
-            ["performed_by_admin_id"],
-            ["id"],
-        )
+    op.drop_constraint("inventory_movements_performed_by_admin_id_fkey", "inventory_movements", type_="foreignkey")
+    op.create_foreign_key(
+        "inventory_movements_performed_by_admin_id_fkey",
+        "inventory_movements",
+        "admin_users",
+        ["performed_by_admin_id"],
+        ["id"],
+    )
