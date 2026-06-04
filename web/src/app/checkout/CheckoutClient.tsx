@@ -209,13 +209,13 @@ function CheckoutContent() {
     );
   }
 
-  if (!user) {
+  if (!user && !error) {
     return (
       <>
         <PageHeader
           eyebrow="Оформление"
           title="Не удалось загрузить профиль"
-          subtitle={error || "Обновите страницу и попробуйте еще раз."}
+          subtitle="Обновите страницу и попробуйте еще раз."
         />
         <Surface className="detail-panel checkout-verify-panel">
           <div className="alert alert-danger checkout-verify-alert">
@@ -232,6 +232,27 @@ function CheckoutContent() {
             Обновить страницу
           </button>
         </Surface>
+      </>
+    );
+  }
+
+  if (error) {
+    return (
+      <>
+        <PageHeader
+          eyebrow="Оформление"
+          title="Оформление недоступно"
+          subtitle={error === "PRODUCT_NOT_AVAILABLE" ? "К сожалению, этот товар сейчас недоступен в выбранном постамате." : error}
+        />
+        <EmptyState
+          icon={<ShoppingBag size={34} />}
+          title={error === "PRODUCT_NOT_AVAILABLE" ? "Товар закончился" : "Ошибка оформления"}
+          action={
+            <Link className="button button-primary" href="/catalog">
+              Выбрать другой товар
+            </Link>
+          }
+        />
       </>
     );
   }
