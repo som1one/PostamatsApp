@@ -63,6 +63,12 @@ async def start_rental_return(
     if locker.status != LockerStatus.ONLINE:
         raise ReturnRequestError("LOCKER_OFFLINE")
 
+    unit = (
+        await db.execute(select(InventoryUnit).where(InventoryUnit.id == rental.inventory_unit_id))
+    ).scalar_one_or_none()
+    if unit is None:
+        raise ReturnRequestError("INVENTORY_NOT_FOUND")
+
     # Возврат разрешаем только в постамат того же города, где был получен товар.
     # Это защищает от ситуаций, когда пользователь случайно (или намеренно)
     # выбирает локер в другом городе через прямой API-вызов.
@@ -96,13 +102,21 @@ async def start_rental_return(
     )
     cell = (await db.scalars(stmt)).first()
     if cell is None:
-        raise ReturnRequestError("RETURN_CELL_NOT_AVAILABLE")
-
-    unit = (
-        await db.execute(select(InventoryUnit).where(InventoryUnit.id == rental.inventory_unit_id))
-    ).scalar_one_or_none()
-    if unit is None:
-        raise ReturnRequestError("INVENTORY_NOT_FOUND")
+        legacy_cell = (
+            await db.get(LockerCell, unit.locker_cell_id)
+            if unit.locker_cell_id is not None
+            else None
+        )
+        if (
+            legacy_cell is not None
+            and legacy_cell.locker_id == return_locker_id
+            and legacy_cell.supports_return
+            and legacy_cell.status
+            not in (LockerCellStatus.FAULT, LockerCellStatus.DISABLED)
+        ):
+            cell = legacy_cell
+        else:
+            raise ReturnRequestError("RETURN_CELL_NOT_AVAILABLE")
 
     now = datetime.now(timezone.utc)
     return_pin = generate_pickup_pin()
