@@ -195,8 +195,16 @@ async def get_products(
             ),
         )
 
-    # availableOnly игнорируется — каталог всегда показывает все товары,
-    # поле «available» на карточке вычисляется из unit_counts для UI.
+    # Показываем только товары, размещённые хотя бы в одном постамате
+    # (глобально, без привязки к городу — чтобы каталог был одинаковым везде).
+    global_placed_ids = await aggregate_placed_globally(db)
+    if global_placed_ids:
+        conditions.append(Product.id.in_(global_placed_ids))
+    else:
+        return {
+            "data": {"products": []},
+            "meta": {"page": page, "limit": limit, "total": 0},
+        }
 
     where_clause = and_(*conditions) if conditions else true()
 
