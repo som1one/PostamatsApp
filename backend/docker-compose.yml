@@ -39,6 +39,7 @@ services:
       - .env
     environment:
       DB_URL: postgresql+psycopg2://${DB_USER:-postamats}:${DB_PASSWORD:-postamats}@db:5432/${DB_NAME:-postamats}
+      ASYNC_DB_URL: postgresql+asyncpg://${DB_USER:-postamats}:${DB_PASSWORD:-postamats}@db:5432/${DB_NAME:-postamats}
     volumes:
       - ../:/app
     depends_on:
