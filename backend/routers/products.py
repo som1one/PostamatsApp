@@ -95,13 +95,10 @@ async def _serialize_product_list_payload(
     if locker_uuid is not None:
         unit_counts = await aggregate_available_inventory_by_product(db, locker_uuid, None)
         locker_counts = {pid: 1 for pid, count in unit_counts.items() if count > 0}
-        placed_ids = await aggregate_placed_at_locker(db, locker_uuid)
     elif city_uuid is not None:
         unit_counts, locker_counts = await aggregate_available_in_city(db, city_uuid)
-        placed_ids = await aggregate_placed_in_city(db, city_uuid)
     else:
         unit_counts, locker_counts = await aggregate_available_globally(db)
-        placed_ids = await aggregate_placed_globally(db)
 
     plans = await fetch_min_price_plans_by_product(db, [product.id])
     media_map = await load_media_files_by_ids(
@@ -172,20 +169,22 @@ async def get_products(
     placed_ids: set[UUID] | None = None
 
     try:
+        global_placed_ids = await aggregate_placed_globally(db)
+
         if locker_uuid is not None:
             unit_counts = await aggregate_available_inventory_by_product(
                 db, locker_uuid, None
             )
             locker_counts = {pid: 1 for pid in unit_counts if unit_counts[pid] > 0}
-            placed_ids = await aggregate_placed_at_locker(db, locker_uuid)
+            placed_ids = global_placed_ids
             candidate_ids = set(placed_ids)
         elif city_uuid is not None:
             unit_counts, locker_counts = await aggregate_available_in_city(db, city_uuid)
-            placed_ids = await aggregate_placed_in_city(db, city_uuid)
+            placed_ids = global_placed_ids
             candidate_ids = set(placed_ids)
         else:
             unit_counts, locker_counts = await aggregate_available_globally(db)
-            placed_ids = await aggregate_placed_globally(db)
+            placed_ids = global_placed_ids
             candidate_ids = set(placed_ids)
     except HTTPException:
         raise
