@@ -218,13 +218,14 @@ async def get_products(
             ),
         )
 
-    if availableOnly and placed_ids is not None:
-        if not placed_ids:
+    if availableOnly:
+        available_ids = [pid for pid, count in unit_counts.items() if count > 0]
+        if not available_ids:
             return {
                 "data": {"products": []},
                 "meta": {"page": page, "limit": limit, "total": 0},
             }
-        conditions.append(Product.id.in_(placed_ids))
+        conditions.append(Product.id.in_(available_ids))
 
     where_clause = and_(*conditions) if conditions else true()
 

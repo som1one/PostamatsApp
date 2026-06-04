@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import case, func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.settings import settings
@@ -124,7 +124,6 @@ async def aggregate_placed_in_city(
             LockerLocation.city_id == city_id,
             LockerLocation.status != LockerStatus.OFFLINE,
             InventoryUnit.status.in_(PLACED_INVENTORY_STATUSES),
-            LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
         )
         .distinct()
     )
@@ -169,7 +168,6 @@ async def aggregate_placed_globally(db: AsyncSession) -> set[UUID]:
         .where(
             LockerLocation.status != LockerStatus.OFFLINE,
             InventoryUnit.status.in_(PLACED_INVENTORY_STATUSES),
-            LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
         )
         .distinct()
     )
@@ -215,7 +213,6 @@ async def aggregate_placed_at_locker(
             LockerCell.locker_id == locker_id,
             LockerLocation.status != LockerStatus.OFFLINE,
             InventoryUnit.status.in_(PLACED_INVENTORY_STATUSES),
-            LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
         )
         .distinct()
     )
@@ -321,7 +318,13 @@ async def load_available_lockers_for_product(
             LockerLocation.status,
             func.sum(
                 case(
-                    (InventoryUnit.status == InventoryStatus.AVAILABLE, 1),
+                    (
+                        and_(
+                            InventoryUnit.status == InventoryStatus.AVAILABLE,
+                            LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY)
+                        ),
+                        1
+                    ),
                     else_=0,
                 )
             ).label("units"),
@@ -332,7 +335,6 @@ async def load_available_lockers_for_product(
         .where(
             InventoryUnit.product_id == product_id,
             InventoryUnit.status.in_(PLACED_INVENTORY_STATUSES),
-            LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
             # Скрываем только OFFLINE; MAINTENANCE/DEGRADED показываем
             # с пометкой статуса — фронт делает кнопку «оформить» серой.
             LockerLocation.status != LockerStatus.OFFLINE,
