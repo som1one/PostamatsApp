@@ -155,7 +155,6 @@ async def _get_available_inventory_unit(
             ReservationStatus.CREATED,
             ReservationStatus.AWAITING_PAYMENT,
             ReservationStatus.PAYMENT_AUTHORIZED,
-            ReservationStatus.CONFIRMED,
         ))
     )
     active_reservations = (await db.scalars(res_stmt)).all()

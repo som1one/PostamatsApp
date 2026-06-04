@@ -441,7 +441,6 @@ async def compute_busy_dates_for_product(
         ReservationStatus.CREATED,
         ReservationStatus.AWAITING_PAYMENT,
         ReservationStatus.PAYMENT_AUTHORIZED,
-        ReservationStatus.CONFIRMED,
     )
     res_conditions = [
         Reservation.product_id == product_id,

@@ -40,6 +40,7 @@ from backend.models.product_category import ProductCategory
 from backend.models.rental import Rental
 from backend.models.reservation import Reservation
 from backend.models.user import User
+from backend.routers.reservation import _get_available_inventory_unit
 from backend.utils.products_utils import (
     aggregate_placed_globally,
     aggregate_placed_in_city,
@@ -150,6 +151,48 @@ class ProductBusyDatesTests(unittest.IsolatedAsyncioTestCase):
         async with self.SessionLocal() as db:
             busy = await compute_busy_dates_for_product(db, ids["product_id"])
         self.assertEqual(busy, [])
+
+    async def test_confirmed_reservation_with_completed_rental_does_not_block(self) -> None:
+        ids = await self._seed()
+        start = datetime(2026, 6, 4, 10, 0, tzinfo=MSK)
+        end = datetime(2026, 6, 5, 10, 0, tzinfo=MSK)
+        async with self.SessionLocal() as db:
+            unit = await db.get(InventoryUnit, ids["unit_id"])
+            unit.status = InventoryStatus.AVAILABLE
+
+            res = Reservation(
+                id=uuid4(), user_id=ids["user_id"], product_id=ids["product_id"],
+                inventory_unit_id=ids["unit_id"], locker_id=ids["locker_id"],
+                price_plan_id=ids["plan_id"], status=ReservationStatus.CONFIRMED,
+                duration_type="day", duration_value=1, quoted_amount=650,
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+                pickup_at=start.astimezone(timezone.utc),
+            )
+            rental = Rental(
+                id=uuid4(), user_id=ids["user_id"], reservation_id=res.id,
+                inventory_unit_id=ids["unit_id"], pickup_locker_id=ids["locker_id"],
+                status=RentalStatus.COMPLETED,
+                starts_at=start.astimezone(timezone.utc),
+                planned_end_at=end.astimezone(timezone.utc),
+                actual_end_at=end.astimezone(timezone.utc),
+                completed_at=end.astimezone(timezone.utc),
+            )
+            db.add_all([res, rental])
+            await db.commit()
+
+        async with self.SessionLocal() as db:
+            busy = await compute_busy_dates_for_product(db, ids["product_id"])
+            available_unit = await _get_available_inventory_unit(
+                ids["locker_id"],
+                ids["product_id"],
+                db,
+                desired_start=start.astimezone(timezone.utc),
+                desired_end=end.astimezone(timezone.utc),
+            )
+
+        self.assertEqual(busy, [])
+        self.assertIsNotNone(available_unit)
+        self.assertEqual(available_unit.id, ids["unit_id"])
 
     async def test_active_reservation_blocks_dates(self) -> None:
         ids = await self._seed()
