@@ -482,7 +482,8 @@ async def cancel_my_reservation(
         ).first()
         if payment_row is not None:
             payment_id, provider_payment_id, pay_status, pay_amount, pay_currency = payment_row
-            is_captured = str(pay_status).lower() == "captured"
+            pay_status_value = getattr(pay_status, "value", pay_status)
+            is_captured = str(pay_status_value).lower() == "captured"
             if provider_payment_id:
                 try:
                     if is_captured:
@@ -663,6 +664,146 @@ async def request_rental_return(
         raise HTTPException(status_code=mapped[0], detail=mapped[1]) from exc
 
     return {"data": {"return": result}}
+
+
+@router.post("/rentals/{rental_id}/cancel-before-pickup")
+async def cancel_rental_before_pickup(
+    rental_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await get_current_client_user(request, db)
+
+    rental = await db.get(Rental, rental_id)
+    if rental is None:
+        raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
+    if rental.user_id != user.id:
+        raise HTTPException(status_code=403, detail="RENTAL_FORBIDDEN")
+    if rental.status != RentalStatus.PICKUP_READY:
+        raise HTTPException(status_code=409, detail="RENTAL_NOT_CANCELLABLE")
+
+    reservation = (
+        await db.get(Reservation, rental.reservation_id)
+        if rental.reservation_id is not None
+        else None
+    )
+    now = datetime.now(timezone.utc)
+    payment_id: UUID | None = None
+    provider_payment_id: str | None = None
+    final_payment_status: PaymentStatus | None = None
+
+    if reservation is not None:
+        payment_row = (
+            await db.execute(
+                select(
+                    Payment.id,
+                    Payment.provider_payment_id,
+                    Payment.status,
+                    Payment.amount,
+                    Payment.currency,
+                )
+                .where(
+                    Payment.reservation_id == reservation.id,
+                    Payment.status.in_(
+                        ("AUTHORIZED", "authorized", "CAPTURED", "captured")
+                    ),
+                    Payment.type.in_(("PREAUTH", "preauth")),
+                )
+                .limit(1)
+            )
+        ).first()
+        if payment_row is not None:
+            payment_id, provider_payment_id, pay_status, pay_amount, pay_currency = payment_row
+            pay_status_value = getattr(pay_status, "value", pay_status)
+            is_captured = str(pay_status_value).lower() == "captured"
+            if provider_payment_id:
+                try:
+                    if is_captured:
+                        await refund_yookassa_payment(
+                            provider_payment_id,
+                            amount_value=pay_amount,
+                            currency=pay_currency or "RUB",
+                        )
+                        final_payment_status = PaymentStatus.REFUNDED
+                    else:
+                        await cancel_yookassa_payment(provider_payment_id)
+                        final_payment_status = PaymentStatus.CANCELLED
+                except Exception as exc:
+                    raise HTTPException(
+                        status_code=502, detail="YOOKASSA_REFUND_FAILED"
+                    ) from exc
+            else:
+                final_payment_status = (
+                    PaymentStatus.REFUNDED if is_captured else PaymentStatus.CANCELLED
+                )
+
+    prev_status = rental.status
+    unit = await db.get(InventoryUnit, rental.inventory_unit_id)
+    cell = (
+        await db.get(LockerCell, unit.locker_cell_id)
+        if unit is not None and unit.locker_cell_id is not None
+        else None
+    )
+
+    try:
+        if payment_id is not None and final_payment_status is not None:
+            await db.execute(
+                update(Payment)
+                .where(Payment.id == payment_id)
+                .values(status=final_payment_status, processed_at=now)
+            )
+
+        if reservation is not None:
+            reservation.status = ReservationStatus.CANCELLED
+            reservation.cancelled_at = now
+            reservation.cancel_reason = "cancelled_before_pickup"
+
+        if unit is not None and unit.status in (
+            InventoryStatus.RESERVED,
+            InventoryStatus.RENTED,
+        ):
+            unit.status = InventoryStatus.AVAILABLE
+        if cell is not None and cell.status in (
+            LockerCellStatus.RESERVED,
+            LockerCellStatus.OPENED,
+        ):
+            cell.status = LockerCellStatus.OCCUPIED
+            cell.last_closed_at = now
+            cell.last_event_at = now
+
+        rental.status = RentalStatus.CANCELLED
+        rental.cancel_reason = "cancelled_before_pickup"
+        rental.actual_end_at = now
+        rental.completed_at = now
+
+        db.add(
+            RentalEvent(
+                rental_id=rental.id,
+                event_type="cancel_before_pickup",
+                from_status=prev_status,
+                to_status=RentalStatus.CANCELLED,
+                source=RentalEventSource.USER,
+                payload_json={
+                    "reservationId": str(reservation.id) if reservation is not None else None,
+                },
+            )
+        )
+        await db.commit()
+        await db.refresh(rental)
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="RENTAL_CANCEL_FAILED") from exc
+
+    return {
+        "data": {
+            "rental": {
+                "id": str(rental.id),
+                "status": rental.status.value,
+                "actualEndAt": rental.actual_end_at.isoformat() if rental.actual_end_at else None,
+                "completedAt": rental.completed_at.isoformat() if rental.completed_at else None,
+            }
+        }
+    }
 
 
 @router.post("/rentals/{rental_id}/open-cell")

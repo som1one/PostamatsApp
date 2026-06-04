@@ -26,6 +26,7 @@ import { Surface } from "@/components/Surface";
 import { YandexMap } from "@/components/YandexMap";
 import { ApiError } from "@/shared/api/client";
 import {
+  cancelRentalBeforePickup,
   cancelReservation,
   confirmRentalPickup,
   confirmRentalReturn,
@@ -429,6 +430,27 @@ function OrderDetailContent({ id }: { id: string }) {
     }
   }
 
+  async function handleCancelRentalBeforePickup(rentalId: string) {
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      await cancelRentalBeforePickup(rentalId);
+      setMessage("Аренда отменена. Деньги вернутся тем же способом оплаты.");
+      await load();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "RENTAL_NOT_CANCELLABLE") {
+        setError("Эту аренду уже нельзя отменить до получения.");
+      } else if (err instanceof ApiError && err.code === "YOOKASSA_REFUND_FAILED") {
+        setError("Не удалось оформить возврат платежа. Попробуйте позже или обратитесь в поддержку.");
+      } else {
+        setError(err instanceof Error ? err.message : "Не удалось отменить аренду");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Called when user clicks cancel button
   function handleCancelClick(reservationId: string, status: string) {
     // For paid reservations — show refund dialog first
@@ -749,6 +771,17 @@ function OrderDetailContent({ id }: { id: string }) {
                       <PackageCheck size={18} />
                       Я забрал
                     </button>
+                    {order.data.status === "pickup_ready" ? (
+                      <button
+                        className="button button-secondary"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleCancelRentalBeforePickup(order.data.id)}
+                      >
+                        <XCircle size={18} />
+                        Вернуть деньги
+                      </button>
+                    ) : null}
                   </>
                 );
               })() : null}

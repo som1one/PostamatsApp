@@ -460,6 +460,19 @@ export async function requestRentalReturn(rentalId: string, lockerId?: string) {
   });
 }
 
+export async function cancelRentalBeforePickup(rentalId: string) {
+  return requestWithAuth<{
+    rental: {
+      id: string;
+      status: string;
+      actualEndAt?: string | null;
+      completedAt?: string | null;
+    };
+  }>(`/me/rentals/${rentalId}/cancel-before-pickup`, {
+    method: "POST",
+  });
+}
+
 export async function openRentalCell(rentalId: string) {
   return requestWithAuth<{ rental: { id: string; status: string } }>(
     `/me/rentals/${rentalId}/open-cell`,
