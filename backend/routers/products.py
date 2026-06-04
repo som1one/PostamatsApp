@@ -195,11 +195,16 @@ async def get_products(
             ),
         )
 
-    # Показываем только товары, размещённые хотя бы в одном постамате
-    # (глобально, без привязки к городу — чтобы каталог был одинаковым везде).
-    global_placed_ids = await aggregate_placed_globally(db)
-    if global_placed_ids:
-        conditions.append(Product.id.in_(global_placed_ids))
+    # Показываем только товары, размещённые в постаматах выбранного города/постамата.
+    if locker_uuid is not None:
+        placed_ids = await aggregate_placed_at_locker(db, locker_uuid)
+    elif city_uuid is not None:
+        placed_ids = await aggregate_placed_in_city(db, city_uuid)
+    else:
+        placed_ids = await aggregate_placed_globally(db)
+
+    if placed_ids:
+        conditions.append(Product.id.in_(placed_ids))
     else:
         return {
             "data": {"products": []},
