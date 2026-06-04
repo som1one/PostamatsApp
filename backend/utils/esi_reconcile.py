@@ -151,7 +151,7 @@ async def reconcile_esi_and_returns() -> None:
                     continue
                 is_open = bool(cell_snapshot.get("open"))
                 state = str(cell_snapshot.get("state") or "").strip().lower()
-                if not is_open and state == "occupied":
+                if not is_open and state in ("occupied", "assigned"):
                     await complete_return_request(
                         db,
                         request=request,

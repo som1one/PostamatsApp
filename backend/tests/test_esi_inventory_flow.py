@@ -1,5 +1,7 @@
 import unittest
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from uuid import UUID, uuid4
 
@@ -36,14 +38,8 @@ from backend.utils.esi_webhook_handler import process_esi_webhook_payload
 from backend.utils.rental_overdue import mark_overdue_rentals
 from backend.utils.rental_return_flow import start_rental_return
 
-TEST_DB_URL = "sqlite+aiosqlite:///test_esi_flow.sqlite"
-test_engine = create_async_engine(TEST_DB_URL, echo=False)
-TestSessionLocal = async_sessionmaker(
-    bind=test_engine,
-    class_=AsyncSession,
-    autoflush=False,
-    expire_on_commit=False,
-)
+test_engine = None
+TestSessionLocal = None
 
 TEST_TABLES = [
     City.__table__,
@@ -67,10 +63,24 @@ TEST_TABLES = [
 
 class EsiInventoryFlowTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
+        global test_engine, TestSessionLocal
+
         self.original_stub = settings.ESI_DEV_STUB
         self.original_base_url = settings.ESI_BASE_URL
         settings.ESI_DEV_STUB = True
         settings.ESI_BASE_URL = None
+        self.temp_dir = TemporaryDirectory()
+        db_path = (Path(self.temp_dir.name) / "test_esi_flow.sqlite").as_posix()
+        test_engine = create_async_engine(
+            f"sqlite+aiosqlite:///{db_path}",
+            echo=False,
+        )
+        TestSessionLocal = async_sessionmaker(
+            bind=test_engine,
+            class_=AsyncSession,
+            autoflush=False,
+            expire_on_commit=False,
+        )
         self.reconcile_session_patcher = patch("backend.utils.esi_reconcile.SessionLocal", TestSessionLocal)
         self.overdue_session_patcher = patch("backend.utils.rental_overdue.SessionLocal", TestSessionLocal)
         self.reconcile_session_patcher.start()
@@ -86,6 +96,7 @@ class EsiInventoryFlowTests(unittest.IsolatedAsyncioTestCase):
         async with test_engine.begin() as conn:
             await conn.run_sync(lambda sync_conn: Base.metadata.drop_all(sync_conn, tables=list(reversed(TEST_TABLES))))
         await test_engine.dispose()
+        self.temp_dir.cleanup()
 
     async def _seed_rental_graph(
         self,
@@ -245,6 +256,51 @@ class EsiInventoryFlowTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(rental.status, RentalStatus.INCIDENT)
             self.assertEqual(unit.status, InventoryStatus.RETURN_PENDING)
             self.assertEqual(cell.status, LockerCellStatus.VACANT)
+
+    async def test_reconcile_completes_return_when_snapshot_cell_assigned(self):
+        ids = await self._seed_rental_graph(
+            rental_status=RentalStatus.RETURN_IN_PROGRESS,
+            unit_status=InventoryStatus.RETURN_PENDING,
+            cell_status=LockerCellStatus.OPENED,
+            unit_in_cell=False,
+        )
+
+        async with TestSessionLocal() as db:
+            request = ReturnRequest(
+                rental_id=ids["rental_id"],
+                locker_id=ids["locker_id"],
+                cell_id=ids["cell_id"],
+                pin="9999",
+                status=ReturnRequestStatus.LOCKER_OPENED,
+                requested_at=datetime.now(timezone.utc) - timedelta(minutes=10),
+                deadline_at=datetime.now(timezone.utc) + timedelta(minutes=20),
+                opened_at=datetime.now(timezone.utc) - timedelta(minutes=10),
+            )
+            db.add(request)
+            await db.commit()
+            request_id = request.id
+
+        settings.ESI_DEV_STUB = False
+        settings.ESI_BASE_URL = "https://esi.example.test"
+        snapshot = {
+            "serial": "LOCKER-001",
+            "online": True,
+            "cells": {"A1": {"state": "assigned", "open": False}},
+        }
+        with patch("backend.utils.esi_reconcile.fetch_machines_snapshot", return_value=[snapshot]):
+            await reconcile_esi_and_returns()
+
+        async with TestSessionLocal() as db:
+            rental = await db.get(Rental, ids["rental_id"])
+            unit = await db.get(InventoryUnit, ids["unit_id"])
+            cell = await db.get(LockerCell, ids["cell_id"])
+            request = await db.get(ReturnRequest, request_id)
+
+            self.assertEqual(request.status, ReturnRequestStatus.COMPLETED)
+            self.assertEqual(rental.status, RentalStatus.COMPLETED)
+            self.assertEqual(unit.status, InventoryStatus.AVAILABLE)
+            self.assertEqual(unit.locker_cell_id, ids["cell_id"])
+            self.assertEqual(cell.status, LockerCellStatus.OCCUPIED)
 
     async def test_overdue_scheduler_marks_active_rental_overdue(self):
         ids = await self._seed_rental_graph(

@@ -24,6 +24,7 @@ import { StatusPill } from "@/components/StatusPill";
 import { Surface } from "@/components/Surface";
 import {
   cancelReservation,
+  confirmRentalReturn,
   confirmReservation,
   fetchMyReservations,
   fetchReservation,
@@ -373,6 +374,35 @@ function RentalsContent() {
     }
   }
 
+  async function handleConfirmReturnRental(rental: RentalListItem, e: React.MouseEvent) {
+    e.stopPropagation();
+    setBusy(rental.id, true);
+    setItemError(rental.id, "");
+    try {
+      await confirmRentalReturn(rental.id);
+      setRentals((prev) =>
+        prev.map((r) => (r.id === rental.id ? { ...r, status: "completed" } : r)),
+      );
+      void load();
+    } catch (err) {
+      let msg = "Не удалось подтвердить возврат";
+      if (err instanceof ApiError) {
+        if (err.code === "RETURN_REQUEST_NOT_FOUND") {
+          msg = "Активная заявка на возврат не найдена. Откройте детали заказа и оформите возврат заново.";
+        } else if (err.code === "RENTAL_NOT_RETURNING") {
+          msg = "Возврат ещё не начат или уже завершён.";
+        } else if (err.message) {
+          msg = err.message;
+        }
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
+      setItemError(rental.id, msg);
+    } finally {
+      setBusy(rental.id, false);
+    }
+  }
+
   const hasOrders = reservations.length > 0 || rentals.length > 0;
 
   return (
@@ -512,6 +542,7 @@ function RentalsContent() {
                   const busy = busyIds[rental.id] ?? false;
                   const itemErr = cardError[rental.id] ?? "";
                   const canReturn = ["active", "overdue"].includes(rental.status);
+                  const canConfirmReturn = rental.status === "return_in_progress";
 
                   return (
                     <div
@@ -572,6 +603,26 @@ function RentalsContent() {
                               onClick={(e) => e.stopPropagation()}
                             >
                               Выбрать другой постамат
+                            </Link>
+                          </div>
+                        ) : null}
+                        {canConfirmReturn ? (
+                          <div className="card-actions" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              className="button button-primary button-sm"
+                              type="button"
+                              disabled={busy}
+                              onClick={(e) => handleConfirmReturnRental(rental, e)}
+                            >
+                              <CheckCircle2 size={15} />
+                              {busy ? "Подтверждаем…" : "Я положил товар"}
+                            </button>
+                            <Link
+                              href={`/profile/orders/${rental.id}`}
+                              className="button button-ghost button-sm"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              Детали
                             </Link>
                           </div>
                         ) : null}
