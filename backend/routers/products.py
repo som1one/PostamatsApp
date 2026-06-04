@@ -112,9 +112,16 @@ async def _serialize_product_list_payload(
         if media:
             cover_url = public_media_url(media.file_key)
 
+    if locker_uuid is not None:
+        placed_ids = await aggregate_placed_at_locker(db, locker_uuid)
+    elif city_uuid is not None:
+        placed_ids = await aggregate_placed_in_city(db, city_uuid)
+    else:
+        placed_ids = await aggregate_placed_globally(db)
+
     unit_count = unit_counts.get(product.id, 0)
     locker_count = locker_counts.get(product.id, 0)
-    is_in_stock = unit_count > 0
+    is_in_stock = product.id in placed_ids
     payload = serialize_product_list_item(
         product,
         plans.get(product.id),
@@ -254,7 +261,7 @@ async def get_products(
             cover_url = public_media_url(media_map[p.cover_file_id].file_key)
         u = unit_counts.get(p.id, 0)
         lc = locker_counts.get(p.id, 0)
-        is_in_stock = u > 0
+        is_in_stock = p.id in placed_ids
         products_payload.append(
             resolve_effective_list_item(
             serialize_product_list_item(
