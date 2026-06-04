@@ -4477,10 +4477,10 @@ async function inventoryConfirmReady(cellId) {
       body: JSON.stringify({ cellId }),
     });
     await Promise.all([loadInventoryCells(), loadInventoryLockers()]);
-    showToast("success", "РўРѕРІР°СЂ РїРѕРґС‚РІРµСЂР¶РґС‘РЅ Рё СЃРЅРѕРІР° РґРѕСЃС‚СѓРїРµРЅ РґР»СЏ Р°СЂРµРЅРґС‹.");
+    showToast("success", "Товар подтверждён и снова доступен для аренды.");
   } catch (error) {
     console.error(error);
-    showToast("error", error.message || "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґС‚РІРµСЂРґРёС‚СЊ РіРѕС‚РѕРІРЅРѕСЃС‚СЊ");
+    showToast("error", error.message || "Не удалось подтвердить готовность");
   } finally {
     state.inventory.isConfirming = false;
   }

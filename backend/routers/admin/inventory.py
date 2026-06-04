@@ -637,31 +637,31 @@ async def confirm_inventory_ready(
     if payload.inventoryUnitId is not None:
         unit = await db.get(InventoryUnit, payload.inventoryUnitId)
         if unit is None:
-            raise HTTPException(status_code=404, detail="РўРѕРІР°СЂ РЅРµ РЅР°Р№РґРµРЅ")
+            raise HTTPException(status_code=404, detail="Товар не найден")
         if unit.locker_cell_id is not None:
             cell = await db.get(LockerCell, unit.locker_cell_id)
     elif payload.cellId is not None:
         cell = await db.get(LockerCell, payload.cellId)
         if cell is None:
-            raise HTTPException(status_code=404, detail="РЇС‡РµР№РєР° РЅРµ РЅР°Р№РґРµРЅР°")
+            raise HTTPException(status_code=404, detail="Ячейка не найдена")
         unit = (
             await db.execute(select(InventoryUnit).where(InventoryUnit.locker_cell_id == cell.id))
         ).scalar_one_or_none()
 
     if unit is None:
-        raise HTTPException(status_code=404, detail="Р’ СЏС‡РµР№РєРµ РЅРµС‚ С‚РѕРІР°СЂР°")
+        raise HTTPException(status_code=404, detail="В ячейке нет товара")
     if cell is None:
-        raise HTTPException(status_code=409, detail="РўРѕРІР°СЂ РЅРµ РїСЂРёРІСЏР·Р°РЅ Рє СЏС‡РµР№РєРµ")
+        raise HTTPException(status_code=409, detail="Товар не привязан к ячейке")
     if unit.status != InventoryStatus.AWAITING_CONFIRMATION:
         raise HTTPException(status_code=409, detail="INVENTORY_UNIT_NOT_AWAITING_CONFIRMATION")
 
     locker = await db.get(LockerLocation, cell.locker_id)
     if locker is None:
-        raise HTTPException(status_code=404, detail="РџРѕСЃС‚Р°РјР°С‚ РЅРµ РЅР°Р№РґРµРЅ")
+        raise HTTPException(status_code=404, detail="Постамат не найден")
 
     product = await db.get(Product, unit.product_id)
     if product is None:
-        raise HTTPException(status_code=404, detail="РўРѕРІР°СЂ РЅРµ РЅР°Р№РґРµРЅ")
+        raise HTTPException(status_code=404, detail="Товар не найден")
 
     now = datetime.now(timezone.utc)
     prev_status = unit.status
