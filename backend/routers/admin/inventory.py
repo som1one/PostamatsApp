@@ -10,12 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
 from backend.models.city import City
-from backend.models.enums import InventoryStatus, LockerCellStatus, LockerStatus
+from backend.models.enums import InventoryStatus, LockerCellStatus, LockerStatus, RentalStatus, RentalEventSource
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
 from backend.models.product import Product
 from backend.models.product_category import ProductCategory
+from backend.models.rental import Rental
+from backend.models.rental_event import RentalEvent
 from backend.routers.admin.auth import get_current_admin
 from backend.schemas.admin_panel_schemas import (
     AdminConfirmInventoryReadyPayload,
@@ -679,6 +681,35 @@ async def confirm_inventory_ready(
         comment=payload.comment,
         performed_by_admin_id=admin.id,
     )
+
+    # Auto-complete any active/unfinished rentals for this unit
+    active_rentals = (
+        await db.execute(
+            select(Rental).where(
+                Rental.inventory_unit_id == unit.id,
+                Rental.status.notin_([RentalStatus.COMPLETED, RentalStatus.CANCELLED])
+            )
+        )
+    ).scalars().all()
+
+    for rental in active_rentals:
+        prev_rental_status = rental.status
+        rental.status = RentalStatus.COMPLETED
+        rental.actual_end_at = now
+        rental.completed_at = now
+        db.add(
+            RentalEvent(
+                rental_id=rental.id,
+                event_type="rental_completed_by_admin_confirm_ready",
+                from_status=prev_rental_status,
+                to_status=RentalStatus.COMPLETED,
+                source=RentalEventSource.ADMIN,
+                payload_json={
+                    "admin_id": str(admin.id),
+                    "comment": payload.comment,
+                },
+            )
+        )
     record_admin_audit(
         db,
         admin_account_id=admin.id,

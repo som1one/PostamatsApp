@@ -196,5 +196,51 @@ async def init_db():
                 import logging
                 logging.getLogger(__name__).exception("failed to create support_message_seq")
 
+            try:
+                from sqlalchemy import text
+                await conn.execute(text(
+                    """
+                    DO $$
+                    DECLARE
+                        r RECORD;
+                    BEGIN
+                        -- 1. Drop any foreign keys from inventory_movements to admin_users
+                        FOR r IN (
+                            SELECT conname
+                            FROM pg_constraint c
+                            JOIN pg_class t1 ON c.conrelid = t1.oid
+                            JOIN pg_class t2 ON c.confrelid = t2.oid
+                            WHERE t1.relname = 'inventory_movements'
+                              AND t2.relname = 'admin_users'
+                              AND c.contype = 'f'
+                        ) LOOP
+                            EXECUTE 'ALTER TABLE inventory_movements DROP CONSTRAINT ' || quote_ident(r.conname);
+                        END LOOP;
+                        
+                        -- 2. Drop the specific target constraint if it exists to recreate it correctly
+                        IF EXISTS (
+                            SELECT 1 FROM pg_constraint WHERE conname = 'inventory_movements_performed_by_admin_id_fkey'
+                        ) THEN
+                            ALTER TABLE inventory_movements DROP CONSTRAINT inventory_movements_performed_by_admin_id_fkey;
+                        END IF;
+
+                        -- 3. Set any performed_by_admin_id that does not exist in admin_accounts to NULL
+                        UPDATE inventory_movements 
+                        SET performed_by_admin_id = NULL 
+                        WHERE performed_by_admin_id IS NOT NULL 
+                          AND performed_by_admin_id NOT IN (SELECT id FROM admin_accounts);
+
+                        -- 4. Recreate the correct constraint
+                        ALTER TABLE inventory_movements ADD CONSTRAINT inventory_movements_performed_by_admin_id_fkey 
+                        FOREIGN KEY (performed_by_admin_id) REFERENCES admin_accounts(id);
+                    END $$;
+                    """
+                ))
+                import logging
+                logging.getLogger(__name__).info("Successfully ensured inventory_movements FK references admin_accounts.")
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception("failed to ensure inventory_movements FK constraint")
+
 async def close_db():
     await engine.dispose()

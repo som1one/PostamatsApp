@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
 from uuid import UUID, uuid4
 
@@ -12,13 +13,18 @@ from backend.models.admin_account import AdminAccount
 from backend.models.admin_audit_event import AdminAuditEvent
 from backend.models.admin_user import AdminUser
 from backend.models.city import City
-from backend.models.enums import AdminRole, InventoryStatus, LockerCellStatus, LockerStatus
+from backend.models.enums import AdminRole, InventoryStatus, LockerCellStatus, LockerStatus, VerificationStatus, RentalStatus, RentalEventSource
 from backend.models.inventory_movement import InventoryMovement
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
 from backend.models.product import Product
 from backend.models.product_category import ProductCategory
+from backend.models.user import User
+from backend.models.rental import Rental
+from backend.models.rental_event import RentalEvent
+from backend.models.reservation import Reservation
+from backend.models.price_plan import PricePlan
 from backend.routers.admin import inventory as inventory_router
 from backend.schemas.admin_panel_schemas import (
     AdminConfirmInventoryReadyPayload,
@@ -47,6 +53,11 @@ TEST_TABLES = [
     LockerCell.__table__,
     InventoryUnit.__table__,
     InventoryMovement.__table__,
+    User.__table__,
+    Reservation.__table__,
+    PricePlan.__table__,
+    Rental.__table__,
+    RentalEvent.__table__,
 ]
 
 
@@ -538,6 +549,64 @@ class AdminInventoryPlacementTests(unittest.IsolatedAsyncioTestCase):
             ).all()[-1]
             self.assertEqual(audit.payload_json.get("result"), "open_failed")
             self.assertEqual(audit.payload_json.get("esiError"), "ESI_OPEN_FAILED")
+
+    async def test_confirm_ready_completes_active_rental(self):
+        async with TestSessionLocal() as db:
+            unit = InventoryUnit(
+                id=uuid4(),
+                product_id=self.product_id,
+                status=InventoryStatus.AWAITING_CONFIRMATION,
+                locker_cell_id=self.cell_id,
+                serial_number="SN-RETURN-TEST",
+            )
+            cell = await db.get(LockerCell, self.cell_id)
+            cell.status = LockerCellStatus.OCCUPIED
+
+            user = User(
+                id=uuid4(),
+                phone="+79990000002",
+                verification_status=VerificationStatus.APPROVED,
+            )
+            
+            rental = Rental(
+                id=uuid4(),
+                user_id=user.id,
+                inventory_unit_id=unit.id,
+                pickup_locker_id=self.locker_id,
+                status=RentalStatus.RETURN_IN_PROGRESS,
+                starts_at=datetime.now(timezone.utc) - timedelta(days=1),
+                planned_end_at=datetime.now(timezone.utc) + timedelta(hours=10),
+            )
+            db.add_all([unit, user, rental])
+            await db.commit()
+            rental_id = rental.id
+            unit_id = unit.id
+
+        async with TestSessionLocal() as db:
+            response = await inventory_router.confirm_inventory_ready(
+                _make_request(),
+                AdminConfirmInventoryReadyPayload(cellId=self.cell_id, comment="ready"),
+                db,
+            )
+            self.assertEqual(response["data"]["cell"]["currentUnit"]["status"], InventoryStatus.AVAILABLE.value)
+
+        async with TestSessionLocal() as db:
+            unit_db = await db.get(InventoryUnit, unit_id)
+            self.assertEqual(unit_db.status, InventoryStatus.AVAILABLE)
+
+            rental_db = await db.get(Rental, rental_id)
+            self.assertEqual(rental_db.status, RentalStatus.COMPLETED)
+            self.assertIsNotNone(rental_db.completed_at)
+            self.assertIsNotNone(rental_db.actual_end_at)
+
+            events = (
+                await db.scalars(
+                    select(RentalEvent).where(RentalEvent.rental_id == rental_id)
+                )
+            ).all()
+            self.assertEqual(len(events), 1)
+            self.assertEqual(events[0].event_type, "rental_completed_by_admin_confirm_ready")
+
 
 
 if __name__ == "__main__":
