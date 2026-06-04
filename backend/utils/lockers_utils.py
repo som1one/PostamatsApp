@@ -12,13 +12,7 @@ from backend.models.locker_location import LockerLocation
 from backend.models.price_plan import PricePlan
 from backend.models.product import Product
 
-LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY = frozenset(
-    {
-        LockerCellStatus.FAULT,
-        LockerCellStatus.DISABLED,
-        LockerCellStatus.OPENED,
-    }
-)
+LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY = frozenset()
 
 
 def is_inventory_available_in_cell(cell: LockerCell, unit: InventoryUnit) -> bool:
