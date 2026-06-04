@@ -8,9 +8,15 @@ from sqlalchemy import select
 from backend.core.database import SessionLocal
 from backend.core.settings import settings
 from backend.models.enums import LockerCellStatus, LockerStatus, RentalEventSource, ReturnRequestStatus
+from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
+from backend.models.product import Product
+from backend.models.rental import Rental
 from backend.models.return_request import ReturnRequest
+from backend.utils.inventory_confirmation_notifications import (
+    notify_inventory_awaiting_confirmation,
+)
 from backend.utils.esi_client import fetch_machine_snapshot, fetch_machines_snapshot
 from backend.utils.reservation_utils import ensure_utc
 from backend.utils.return_requests import complete_return_request, fail_return_request
@@ -46,6 +52,7 @@ def _state_to_cell_status(state: str | None, open_flag: bool) -> LockerCellStatu
 async def reconcile_esi_and_returns() -> None:
     now = datetime.now(timezone.utc)
     async with SessionLocal() as db:
+        confirmation_notifications: list[tuple[Rental, InventoryUnit, LockerLocation, LockerCell]] = []
         active_requests_stmt = select(ReturnRequest).where(
             ReturnRequest.status.in_(
                 (
@@ -152,14 +159,28 @@ async def reconcile_esi_and_returns() -> None:
                 is_open = bool(cell_snapshot.get("open"))
                 state = str(cell_snapshot.get("state") or "").strip().lower()
                 if not is_open and state in ("occupied", "assigned"):
-                    await complete_return_request(
+                    rental, unit = await complete_return_request(
                         db,
                         request=request,
                         provider_event_id=f"reconcile:{request.id}:{int(now.timestamp())}",
                         source=RentalEventSource.SYSTEM,
                     )
+                    if rental is not None and unit is not None:
+                        confirmation_notifications.append((rental, unit, locker, cell))
 
         await db.commit()
+
+        for rental, unit, locker, cell in confirmation_notifications:
+            product = await db.get(Product, unit.product_id)
+            if product is None:
+                continue
+            notify_inventory_awaiting_confirmation(
+                product=product,
+                locker=locker,
+                cell=cell,
+                unit=unit,
+                rental=rental,
+            )
 
 
 def esi_reconcile_worker(

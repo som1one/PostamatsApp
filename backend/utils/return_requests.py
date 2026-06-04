@@ -175,7 +175,7 @@ async def complete_return_request(
     rental.cancel_reason = None
 
     if unit is not None:
-        unit.status = InventoryStatus.AVAILABLE
+        unit.status = InventoryStatus.AWAITING_CONFIRMATION
         unit.locker_cell_id = request.cell_id
 
     if cell is not None:
@@ -192,8 +192,8 @@ async def complete_return_request(
             from_cell_id=prev_cell_id,
             to_cell_id=request.cell_id,
             from_status=prev_unit_status,
-            to_status=InventoryStatus.AVAILABLE,
-            reason="return_completed",
+            to_status=InventoryStatus.AWAITING_CONFIRMATION,
+            reason="return_awaiting_confirmation",
         )
 
     db.add(

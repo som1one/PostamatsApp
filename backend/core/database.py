@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 from importlib import import_module
 
 from sqlalchemy import DateTime, func
@@ -38,41 +39,47 @@ async def get_db():
     async with SessionLocal() as db:
         yield db
 
-async def _ensure_media_file_kind_values(conn) -> None:
-    """Add any missing values from Python MediaFileKind enum into the
-    existing Postgres enum `media_file_kind`.
+def _resolve_postgres_enum_labels(
+    enum_cls: type[Enum],
+    existing: set[str],
+) -> set[str]:
+    names = {member.name for member in enum_cls}
+    values = {
+        str(member.value)
+        for member in enum_cls
+        if isinstance(member.value, str)
+    }
+    if existing & names:
+        return names
+    if existing & values:
+        return values
+    return names
 
-    SQLAlchemy `metadata.create_all` does not synchronize values of
-    existing enums, so adding a new member to the Python enum has to
-    be backed by either a migration or a runtime sync. We do the
-    runtime sync here so that the app works even if the alembic
-    migration has not been applied yet.
-    """
+
+async def _ensure_postgres_enum_values(
+    conn,
+    *,
+    type_name: str,
+    enum_cls: type[Enum],
+) -> None:
+    """Synchronize a Postgres enum type with the current Python enum members."""
     from sqlalchemy import text
-    from backend.models.enums import MediaFileKind
 
     rows = await conn.execute(
         text(
             "SELECT enumlabel FROM pg_enum e "
             "JOIN pg_type t ON e.enumtypid = t.oid "
-            "WHERE t.typname = 'media_file_kind'"
-        )
+            "WHERE t.typname = :type_name"
+        ),
+        {"type_name": type_name},
     )
     existing = {row[0] for row in rows.all()}
-    # SQLAlchemy by default sends member names, not values, for enums
-    # created via metadata.create_all (no values_callable). So we add
-    # both the name and the value to be safe in either schema.
-    expected: set[str] = set()
-    for member in MediaFileKind:
-        expected.add(member.name)
-        expected.add(member.value)
+    expected = _resolve_postgres_enum_labels(enum_cls, existing)
 
     for label in expected - existing:
-        # Quote single quotes inside the label defensively, even though
-        # all enum labels are simple identifiers.
         safe = label.replace("'", "''")
         await conn.execute(
-            text(f"ALTER TYPE media_file_kind ADD VALUE IF NOT EXISTS '{safe}'")
+            text(f"ALTER TYPE {type_name} ADD VALUE IF NOT EXISTS '{safe}'")
         )
 
 
@@ -119,10 +126,21 @@ async def init_db():
     if engine.dialect.name == "postgresql":
         async with engine.begin() as conn:
             try:
-                await _ensure_media_file_kind_values(conn)
+                from backend.models.enums import InventoryStatus, MediaFileKind
+
+                await _ensure_postgres_enum_values(
+                    conn,
+                    type_name="media_file_kind",
+                    enum_cls=MediaFileKind,
+                )
+                await _ensure_postgres_enum_values(
+                    conn,
+                    type_name="inventory_status",
+                    enum_cls=InventoryStatus,
+                )
             except Exception:
                 import logging
-                logging.getLogger(__name__).exception("failed to sync media_file_kind enum values")
+                logging.getLogger(__name__).exception("failed to sync postgres enum values")
 
             try:
                 from sqlalchemy import text

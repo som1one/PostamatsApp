@@ -21,6 +21,7 @@ from backend.models.product import Product
 from backend.models.product_category import ProductCategory
 from backend.routers.admin import inventory as inventory_router
 from backend.schemas.admin_panel_schemas import (
+    AdminConfirmInventoryReadyPayload,
     AdminPlaceProductInCellPayload,
     AdminTakeForServicePayload,
 )
@@ -314,6 +315,77 @@ class AdminInventoryPlacementTests(unittest.IsolatedAsyncioTestCase):
                 )
             ).scalar_one()
             self.assertEqual(unit.status, InventoryStatus.DAMAGED)
+
+    async def test_confirm_ready_marks_unit_available(self):
+        async with TestSessionLocal() as db:
+            await inventory_router.place_product_in_cell(
+                _make_request(),
+                self.cell_id,
+                AdminPlaceProductInCellPayload(productId=self.product_id),
+                db,
+            )
+
+        async with TestSessionLocal() as db:
+            unit = (
+                await db.execute(
+                    select(InventoryUnit).where(InventoryUnit.locker_cell_id == self.cell_id)
+                )
+            ).scalar_one()
+            unit.status = InventoryStatus.AWAITING_CONFIRMATION
+            await db.commit()
+            unit_id = unit.id
+
+        async with TestSessionLocal() as db:
+            response = await inventory_router.confirm_inventory_ready(
+                _make_request(),
+                AdminConfirmInventoryReadyPayload(cellId=self.cell_id, comment="проверено"),
+                db,
+            )
+            self.assertEqual(response["data"]["cell"]["currentUnit"]["status"], InventoryStatus.AVAILABLE.value)
+
+        async with TestSessionLocal() as db:
+            unit = await db.get(InventoryUnit, unit_id)
+            self.assertEqual(unit.status, InventoryStatus.AVAILABLE)
+            self.assertIsNotNone(unit.last_check_at)
+
+            movements = (
+                await db.scalars(
+                    select(InventoryMovement).where(
+                        InventoryMovement.inventory_unit_id == unit_id,
+                        InventoryMovement.reason == "admin_confirm_ready",
+                    )
+                )
+            ).all()
+            self.assertEqual(len(movements), 1)
+            self.assertEqual(movements[0].comment, "проверено")
+            self.assertEqual(movements[0].performed_by_admin_id, self.admin_id)
+
+            audits = (
+                await db.scalars(
+                    select(AdminAuditEvent).where(
+                        AdminAuditEvent.action == "inventory.confirm_ready"
+                    )
+                )
+            ).all()
+            self.assertEqual(len(audits), 1)
+
+    async def test_confirm_ready_rejects_wrong_status(self):
+        async with TestSessionLocal() as db:
+            await inventory_router.place_product_in_cell(
+                _make_request(),
+                self.cell_id,
+                AdminPlaceProductInCellPayload(productId=self.product_id),
+                db,
+            )
+
+        async with TestSessionLocal() as db:
+            with self.assertRaises(Exception) as ctx:
+                await inventory_router.confirm_inventory_ready(
+                    _make_request(),
+                    AdminConfirmInventoryReadyPayload(cellId=self.cell_id),
+                    db,
+                )
+            self.assertEqual(getattr(ctx.exception, "status_code", None), 409)
 
     async def test_take_for_service_on_empty_cell_returns_404(self):
         async with TestSessionLocal() as db:

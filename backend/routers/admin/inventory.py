@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 import asyncio
@@ -17,6 +18,7 @@ from backend.models.product import Product
 from backend.models.product_category import ProductCategory
 from backend.routers.admin.auth import get_current_admin
 from backend.schemas.admin_panel_schemas import (
+    AdminConfirmInventoryReadyPayload,
     AdminPlaceProductInCellPayload,
     AdminTakeForServicePayload,
 )
@@ -519,6 +521,7 @@ async def take_cell_for_service(
     if unit.status not in (
         InventoryStatus.AVAILABLE,
         InventoryStatus.RETURN_PENDING,
+        InventoryStatus.AWAITING_CONFIRMATION,
         InventoryStatus.MAINTENANCE,
         InventoryStatus.DAMAGED,
     ):
@@ -613,6 +616,107 @@ async def take_cell_for_service(
                 "productId": str(unit.product_id),
             },
             "esiNote": open_failed_reason,
+        }
+    }
+
+
+@router.post("/confirm-ready")
+async def confirm_inventory_ready(
+    request: Request,
+    payload: AdminConfirmInventoryReadyPayload = Body(...),
+    db: AsyncSession = Depends(get_db),
+):
+    admin, _ = await get_current_admin(request, db)
+
+    unit: InventoryUnit | None = None
+    cell: LockerCell | None = None
+
+    if payload.inventoryUnitId is not None:
+        unit = await db.get(InventoryUnit, payload.inventoryUnitId)
+        if unit is None:
+            raise HTTPException(status_code=404, detail="РўРѕРІР°СЂ РЅРµ РЅР°Р№РґРµРЅ")
+        if unit.locker_cell_id is not None:
+            cell = await db.get(LockerCell, unit.locker_cell_id)
+    elif payload.cellId is not None:
+        cell = await db.get(LockerCell, payload.cellId)
+        if cell is None:
+            raise HTTPException(status_code=404, detail="РЇС‡РµР№РєР° РЅРµ РЅР°Р№РґРµРЅР°")
+        unit = (
+            await db.execute(select(InventoryUnit).where(InventoryUnit.locker_cell_id == cell.id))
+        ).scalar_one_or_none()
+
+    if unit is None:
+        raise HTTPException(status_code=404, detail="Р’ СЏС‡РµР№РєРµ РЅРµС‚ С‚РѕРІР°СЂР°")
+    if cell is None:
+        raise HTTPException(status_code=409, detail="РўРѕРІР°СЂ РЅРµ РїСЂРёРІСЏР·Р°РЅ Рє СЏС‡РµР№РєРµ")
+    if unit.status != InventoryStatus.AWAITING_CONFIRMATION:
+        raise HTTPException(status_code=409, detail="INVENTORY_UNIT_NOT_AWAITING_CONFIRMATION")
+
+    locker = await db.get(LockerLocation, cell.locker_id)
+    if locker is None:
+        raise HTTPException(status_code=404, detail="РџРѕСЃС‚Р°РјР°С‚ РЅРµ РЅР°Р№РґРµРЅ")
+
+    product = await db.get(Product, unit.product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="РўРѕРІР°СЂ РЅРµ РЅР°Р№РґРµРЅ")
+
+    now = datetime.now(timezone.utc)
+    prev_status = unit.status
+    unit.status = InventoryStatus.AVAILABLE
+    unit.last_check_at = now
+
+    add_inventory_movement(
+        db,
+        unit=unit,
+        from_locker_id=locker.id,
+        to_locker_id=locker.id,
+        from_cell_id=cell.id,
+        to_cell_id=cell.id,
+        from_status=prev_status,
+        to_status=InventoryStatus.AVAILABLE,
+        reason="admin_confirm_ready",
+        comment=payload.comment,
+        performed_by_admin_id=admin.id,
+    )
+    record_admin_audit(
+        db,
+        admin_account_id=admin.id,
+        action="inventory.confirm_ready",
+        request=request,
+        resource_type="inventory_unit",
+        resource_id=unit.id,
+        payload={
+            "lockerId": str(locker.id),
+            "cellId": str(cell.id),
+            "inventoryUnitId": str(unit.id),
+            "comment": payload.comment,
+        },
+    )
+
+    try:
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="INVENTORY_CONFIRM_READY_FAILED") from exc
+
+    await db.refresh(unit)
+    await db.refresh(cell)
+
+    cover_url = None
+    if product.cover_file_id:
+        media_map = await load_media_files_by_ids(db, [product.cover_file_id])
+        media = media_map.get(product.cover_file_id)
+        if media:
+            cover_url = public_media_url(media.file_key)
+
+    return {
+        "data": {
+            "cell": _serialize_cell_with_unit(cell, unit, product, cover_url),
+            "confirmedUnit": {
+                "id": str(unit.id),
+                "status": unit.status.value,
+                "lastCheckAt": unit.last_check_at.isoformat() if unit.last_check_at else None,
+            },
         }
     }
 

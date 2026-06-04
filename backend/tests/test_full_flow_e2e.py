@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 # Жестко перекрываем DSN ДО импорта приложения, чтобы все singleton'ы
 # (engine, SessionLocal, фоновый scheduler) видели наш SQLite.
-TEST_DB_PATH = os.path.abspath("./backend/tests/test_full_flow_e2e.sqlite")
+TEST_DB_PATH = os.path.abspath(f"./backend/tests/test_full_flow_e2e_{uuid4().hex}.sqlite")
 TEST_DB_URL = f"sqlite+aiosqlite:///{TEST_DB_PATH}"
 os.environ["DB_URL"] = TEST_DB_URL
 os.environ["ASYNC_DB_URL"] = TEST_DB_URL
@@ -186,6 +186,8 @@ class FullFlowE2ETests(unittest.IsolatedAsyncioTestCase):
         async with test_engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
         await test_engine.dispose()
+        if os.path.exists(TEST_DB_PATH):
+            os.remove(TEST_DB_PATH)
 
     async def _approve_user_in_db(self, user_id_str: str) -> None:
         """Юзер должен быть APPROVED, иначе бронь блокируется."""
@@ -355,10 +357,12 @@ class FullFlowE2ETests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(return_payload["status"], "locker_opened")
 
         # 15) Клиент подтверждает, что положил товар обратно (confirm-return)
-        r = await self.client.post(
-            f"/me/rentals/{rental_id}/confirm-return",
-            headers=auth_h,
-        )
+        with patch("backend.routers.me.notify_inventory_awaiting_confirmation") as notify_mock:
+            r = await self.client.post(
+                f"/me/rentals/{rental_id}/confirm-return",
+                headers=auth_h,
+            )
+            notify_mock.assert_called_once()
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(_envelope(r)["rental"]["status"], "completed")
 
@@ -370,7 +374,7 @@ class FullFlowE2ETests(unittest.IsolatedAsyncioTestCase):
             cell_db = await db.get(LockerCell, self.cell_id)
 
             self.assertEqual(rental_db.status, RentalStatus.COMPLETED)
-            self.assertEqual(unit_db.status, InventoryStatus.AVAILABLE)
+            self.assertEqual(unit_db.status, InventoryStatus.AWAITING_CONFIRMATION)
             self.assertEqual(unit_db.locker_cell_id, self.cell_id)
             self.assertEqual(cell_db.status, LockerCellStatus.OCCUPIED)
 

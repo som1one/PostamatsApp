@@ -265,5 +265,24 @@ class ProductBusyDatesTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(ids["product_id"], placed_global)
 
 
+    async def test_awaiting_confirmation_is_visible_but_not_bookable(self) -> None:
+        ids = await self._seed()
+        async with self.SessionLocal() as db:
+            unit = await db.get(InventoryUnit, ids["unit_id"])
+            unit.status = InventoryStatus.AWAITING_CONFIRMATION
+            await db.commit()
+
+        async with self.SessionLocal() as db:
+            placed_city = await aggregate_placed_in_city(db, ids["city_id"])
+            available_unit = await _get_available_inventory_unit(
+                ids["locker_id"],
+                ids["product_id"],
+                db,
+            )
+
+        self.assertIn(ids["product_id"], placed_city)
+        self.assertIsNone(available_unit)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from backend.core.database import Base
 from backend.core.settings import settings
+from backend.models.admin_account import AdminAccount
 from backend.models.city import City
 from backend.models.enums import (
     InventoryStatus,
@@ -42,6 +43,7 @@ test_engine = None
 TestSessionLocal = None
 
 TEST_TABLES = [
+    AdminAccount.__table__,
     City.__table__,
     ProductCategory.__table__,
     Product.__table__,
@@ -201,15 +203,19 @@ class EsiInventoryFlowTests(unittest.IsolatedAsyncioTestCase):
             second = await start_rental_return(db, rental=rental, return_locker_id=ids["locker_id"])
             self.assertEqual(first["id"], second["id"])
 
-            await process_esi_webhook_payload(
-                db,
-                payload={
-                    "eventType": "return_cell_closed",
-                    "eventId": "evt-return-1",
-                    "lockerId": "LOCKER-001",
-                    "cellId": "A1",
-                },
-            )
+            with patch(
+                "backend.utils.esi_webhook_handler.notify_inventory_awaiting_confirmation"
+            ) as notify_mock:
+                await process_esi_webhook_payload(
+                    db,
+                    payload={
+                        "eventType": "return_cell_closed",
+                        "eventId": "evt-return-1",
+                        "lockerId": "LOCKER-001",
+                        "cellId": "A1",
+                    },
+                )
+                notify_mock.assert_called_once()
 
             rental = await db.get(Rental, ids["rental_id"])
             unit = await db.get(InventoryUnit, ids["unit_id"])
@@ -217,7 +223,7 @@ class EsiInventoryFlowTests(unittest.IsolatedAsyncioTestCase):
             request = await db.get(ReturnRequest, UUID(first["id"]))
 
             self.assertEqual(rental.status, RentalStatus.COMPLETED)
-            self.assertEqual(unit.status, InventoryStatus.AVAILABLE)
+            self.assertEqual(unit.status, InventoryStatus.AWAITING_CONFIRMATION)
             self.assertEqual(unit.locker_cell_id, ids["cell_id"])
             self.assertEqual(cell.status, LockerCellStatus.OCCUPIED)
             self.assertEqual(request.status, ReturnRequestStatus.COMPLETED)
@@ -287,8 +293,11 @@ class EsiInventoryFlowTests(unittest.IsolatedAsyncioTestCase):
             "online": True,
             "cells": {"A1": {"state": "assigned", "open": False}},
         }
-        with patch("backend.utils.esi_reconcile.fetch_machines_snapshot", return_value=[snapshot]):
+        with patch("backend.utils.esi_reconcile.fetch_machines_snapshot", return_value=[snapshot]), patch(
+            "backend.utils.esi_reconcile.notify_inventory_awaiting_confirmation"
+        ) as notify_mock:
             await reconcile_esi_and_returns()
+            notify_mock.assert_called_once()
 
         async with TestSessionLocal() as db:
             rental = await db.get(Rental, ids["rental_id"])
@@ -298,7 +307,7 @@ class EsiInventoryFlowTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(request.status, ReturnRequestStatus.COMPLETED)
             self.assertEqual(rental.status, RentalStatus.COMPLETED)
-            self.assertEqual(unit.status, InventoryStatus.AVAILABLE)
+            self.assertEqual(unit.status, InventoryStatus.AWAITING_CONFIRMATION)
             self.assertEqual(unit.locker_cell_id, ids["cell_id"])
             self.assertEqual(cell.status, LockerCellStatus.OCCUPIED)
 

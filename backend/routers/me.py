@@ -52,6 +52,9 @@ from backend.utils.me_utils import (
     serialize_verification_not_started,
     serialize_verification_request,
 )
+from backend.utils.inventory_confirmation_notifications import (
+    notify_inventory_awaiting_confirmation,
+)
 from backend.utils.products_utils import load_media_files_by_ids, public_media_url
 from backend.utils.rental_return_flow import ReturnRequestError, start_rental_return
 from backend.utils.rental_serialization import serialize_rental_detail, serialize_rental_list_item
@@ -1080,7 +1083,7 @@ async def confirm_return(
         raise HTTPException(status_code=409, detail="RETURN_REQUEST_NOT_ACTIVE")
 
     try:
-        completed_rental, _unit = await complete_return_request(
+        completed_rental, unit = await complete_return_request(
             db,
             request=return_request,
             provider_event_id=None,
@@ -1098,6 +1101,19 @@ async def confirm_return(
 
     if completed_rental is None:
         raise HTTPException(status_code=500, detail="CONFIRM_RETURN_FAILED")
+
+    if unit is not None and unit.locker_cell_id is not None:
+        product = await db.get(Product, unit.product_id)
+        locker = await db.get(LockerLocation, return_request.locker_id)
+        cell = await db.get(LockerCell, unit.locker_cell_id)
+        if product is not None and locker is not None and cell is not None:
+            notify_inventory_awaiting_confirmation(
+                product=product,
+                locker=locker,
+                cell=cell,
+                unit=unit,
+                rental=completed_rental,
+            )
 
     return {
         "data": {

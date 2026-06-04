@@ -20,9 +20,13 @@ from backend.models.enums import (
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
+from backend.models.product import Product
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
 from backend.models.return_request import ReturnRequest
+from backend.utils.inventory_confirmation_notifications import (
+    notify_inventory_awaiting_confirmation,
+)
 from backend.utils.inventory_tracking import add_inventory_movement
 from backend.utils.return_requests import (
     complete_return_request,
@@ -252,6 +256,7 @@ async def process_esi_webhook_payload(
     result = "ignored"
     rental: Rental | None = None
     unit: InventoryUnit | None = None
+    notify_confirmation = False
     locker = await _find_locker(db, log.locker_external_id)
     cell = await _find_cell(db, locker=locker, cell_external_id=log.cell_external_id)
 
@@ -329,6 +334,7 @@ async def process_esi_webhook_payload(
                 )
                 log.matched_return_request_id = return_request.id
                 result = "return_completed"
+                notify_confirmation = rental is not None and unit is not None
         elif cell is not None:
             result = "unexpected_cell_event"
 
@@ -337,3 +343,14 @@ async def process_esi_webhook_payload(
     log.processing_result = result
     log.processed_at = now
     await db.commit()
+
+    if notify_confirmation and rental is not None and unit is not None and locker is not None and cell is not None:
+        product = await db.get(Product, unit.product_id)
+        if product is not None:
+            notify_inventory_awaiting_confirmation(
+                product=product,
+                locker=locker,
+                cell=cell,
+                unit=unit,
+                rental=rental,
+            )

@@ -17,7 +17,8 @@
   color: var(--error);
 }.status-pill.status-maintenance,
 .status-pill.status-pending_review,
-.status-pill.status-draft {
+.status-pill.status-draft,
+.status-pill.status-awaiting_confirmation {
   color: #8a6a2b;
 }.modal-backdrop {
   position: fixed;

@@ -118,13 +118,19 @@ async def _get_available_inventory_unit(
     from backend.utils.reservation_utils import calculate_planned_end_at
     from datetime import timezone
 
+    bookable_statuses = tuple(
+        status
+        for status in PLACED_INVENTORY_STATUSES
+        if status != InventoryStatus.AWAITING_CONFIRMATION
+    )
+
     stmt = (
         select(InventoryUnit)
         .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
         .where(
             LockerCell.locker_id == locker_id,
             InventoryUnit.product_id == product_id,
-            InventoryUnit.status.in_(PLACED_INVENTORY_STATUSES),
+            InventoryUnit.status.in_(bookable_statuses),
             LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
         )
         .order_by(InventoryUnit.created_at.asc())

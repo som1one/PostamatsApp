@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.settings import settings
@@ -93,6 +93,7 @@ PLACED_INVENTORY_STATUSES = (
     InventoryStatus.RESERVED,
     InventoryStatus.RENTED,
     InventoryStatus.RETURN_PENDING,
+    InventoryStatus.AWAITING_CONFIRMATION,
 )
 
 
@@ -318,7 +319,12 @@ async def load_available_lockers_for_product(
             LockerLocation.name,
             LockerLocation.address,
             LockerLocation.status,
-            func.count(InventoryUnit.id).label("units"),
+            func.sum(
+                case(
+                    (InventoryUnit.status == InventoryStatus.AVAILABLE, 1),
+                    else_=0,
+                )
+            ).label("units"),
         )
         .select_from(InventoryUnit)
         .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
@@ -348,7 +354,7 @@ async def load_available_lockers_for_product(
             "name": row.name,
             "address": row.address,
             "status": row.status.value,
-            "availableUnits": int(row.units),
+            "availableUnits": int(row.units or 0),
         }
         for row in result
     ]

@@ -1,7 +1,7 @@
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from backend.models.enums import LockerCellStatus, LockerStatus
 
@@ -95,6 +95,18 @@ class AdminTakeForServicePayload(BaseModel):
         default="maintenance",
         description="Итоговый статус инвентарной единицы после изъятия",
     )
+
+
+class AdminConfirmInventoryReadyPayload(BaseModel):
+    inventoryUnitId: UUID | None = Field(default=None)
+    cellId: UUID | None = Field(default=None)
+    comment: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_target(self):
+        if self.inventoryUnitId is None and self.cellId is None:
+            raise ValueError("inventoryUnitId or cellId is required")
+        return self
 
 
 class AdminCreateProductCategoryPayload(BaseModel):

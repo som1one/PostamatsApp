@@ -76,6 +76,7 @@ class InventoryStatus(str, Enum):
     RESERVED = "reserved"
     RENTED = "rented"
     RETURN_PENDING = "return_pending"
+    AWAITING_CONFIRMATION = "awaiting_confirmation"
     DAMAGED = "damaged"
     MAINTENANCE = "maintenance"
     LOST = "lost"

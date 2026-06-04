@@ -161,6 +161,7 @@ const state = {
   inventory: {
     lockers: [],
     selectedLockerId: "",
+    focusCellId: "",
     onlyFree: false,
     cells: [],
     products: [],
@@ -170,6 +171,7 @@ const state = {
     activeCellId: "",
     isLoading: false,
     isPlacing: false,
+    isConfirming: false,
     isServicing: false,
     productSearchTimer: null,
   },
@@ -852,6 +854,7 @@ function closeModal() {
   if (state.inventory) {
     state.inventory.activeCellId = "";
     state.inventory.selectedProductId = "";
+    state.inventory.isConfirming = false;
   }
 }
 
@@ -3445,11 +3448,24 @@ async function applyDeepLinkFromQuery() {
   }
 
   const section = (params.get("section") || "").trim();
+  const lockerId = (params.get("locker") || "").trim();
+  const cellId = (params.get("cell") || "").trim();
   if (section) {
     setActiveSection(section);
     if (section === "verification") {
       try {
         await loadVerificationQueue();
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    if (section === "inventory") {
+      if (lockerId && UUID_RE.test(lockerId)) {
+        state.inventory.selectedLockerId = lockerId;
+      }
+      state.inventory.focusCellId = cellId && UUID_RE.test(cellId) ? cellId : "";
+      try {
+        await bootstrapInventorySection();
       } catch (error) {
         console.error(error);
       }
@@ -4086,6 +4102,8 @@ function renderInventoryCells() {
   inventoryCellsGrid.innerHTML = filtered
     .map((cell) => {
       const occupied = Boolean(cell.currentUnit);
+      const unitStatus = occupied ? String(cell.currentUnit?.status || "") : "";
+      const isAwaitingConfirmation = unitStatus === "awaiting_confirmation";
       const cellLabel = cell.label || cell.externalCellId || "—";
       const cover = occupied && cell.currentUnit?.coverUrl
         ? `<img class="cell-card__thumb" src="${escapeHtml(
@@ -4099,13 +4117,25 @@ function renderInventoryCells() {
             cell.currentUnit.productName || "",
           )}">${escapeHtml(cell.currentUnit.productName || "Без названия")}</p>`
         : `<p class="cell-card__product-name muted-inline">Свободно</p>`;
-      const action = occupied
+      const unitStatusPill = occupied
+        ? `<div class="cell-card__status-row">${renderStatusPill(unitStatus)}</div>`
+        : "";
+      let action = occupied
         ? `<button type="button" class="table-danger-button cell-card__action" data-inventory-action="open-service" data-cell-id="${escapeHtml(
             cell.id,
           )}">Забрать</button>`
         : `<button type="button" class="primary-button cell-card__action" data-inventory-action="open-place" data-cell-id="${escapeHtml(
             cell.id,
           )}">Положить</button>`;
+      let secondaryAction = "";
+      if (occupied && isAwaitingConfirmation) {
+        action = `<button type="button" class="primary-button cell-card__action" data-inventory-action="confirm-ready" data-cell-id="${escapeHtml(
+          cell.id,
+        )}">РџРѕРґС‚РІРµСЂРґРёС‚СЊ</button>`;
+        secondaryAction = `<button type="button" class="table-danger-button cell-card__action" data-inventory-action="open-service" data-cell-id="${escapeHtml(
+          cell.id,
+        )}">Р—Р°Р±СЂР°С‚СЊ</button>`;
+      }
       const testButton = cell.externalCellId
         ? `<button type="button" class="ghost-button cell-card__test" data-inventory-action="test-open" data-cell-id="${escapeHtml(
             cell.id,
@@ -4113,7 +4143,7 @@ function renderInventoryCells() {
         : "";
       const statusPill = renderStatusPill(cell.status);
       return `
-        <article class="cell-card cell-card--${occupied ? "occupied" : "free"}">
+        <article class="cell-card cell-card--${occupied ? "occupied" : "free"}${state.inventory.focusCellId === cell.id ? " cell-card--focused" : ""}" data-cell-id="${escapeHtml(cell.id)}">
           ${cover}
           <div class="cell-card__info">
             <div class="cell-card__line">
@@ -4121,15 +4151,32 @@ function renderInventoryCells() {
               ${statusPill}
             </div>
             ${productName}
+            ${unitStatusPill}
           </div>
           <div class="cell-card__buttons">
             ${testButton}
             ${action}
+            ${secondaryAction}
           </div>
         </article>
       `;
     })
     .join("");
+}
+
+function focusInventoryCellIfNeeded() {
+  if (!inventoryCellsGrid || !state.inventory.focusCellId) {
+    return;
+  }
+  const target = inventoryCellsGrid.querySelector(
+    `[data-cell-id="${state.inventory.focusCellId}"]`,
+  );
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  window.requestAnimationFrame(() => {
+    target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  });
 }
 
 function updateInventorySummary() {
@@ -4174,6 +4221,7 @@ async function loadInventoryCells() {
     state.inventory.cells = payload.data?.cells || [];
     renderInventoryCells();
     updateInventorySummary();
+    focusInventoryCellIfNeeded();
   } catch (error) {
     console.error(error);
     showToast("error", error.message || "Не удалось загрузить ячейки");
@@ -4396,6 +4444,25 @@ async function inventoryTakeForService() {
   }
 }
 
+async function inventoryConfirmReady(cellId) {
+  if (!cellId || state.inventory.isConfirming) return;
+  state.inventory.isConfirming = true;
+  try {
+    await authorizedRequest("/api/admin/inventory/confirm-ready", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cellId }),
+    });
+    await Promise.all([loadInventoryCells(), loadInventoryLockers()]);
+    showToast("success", "РўРѕРІР°СЂ РїРѕРґС‚РІРµСЂР¶РґС‘РЅ Рё СЃРЅРѕРІР° РґРѕСЃС‚СѓРїРµРЅ РґР»СЏ Р°СЂРµРЅРґС‹.");
+  } catch (error) {
+    console.error(error);
+    showToast("error", error.message || "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґС‚РІРµСЂРґРёС‚СЊ РіРѕС‚РѕРІРЅРѕСЃС‚СЊ");
+  } finally {
+    state.inventory.isConfirming = false;
+  }
+}
+
 async function inventoryTestOpenCell(cellId, button) {
   if (!cellId) return;
   const safeId = encodeURIComponent(cellId);
@@ -4466,6 +4533,8 @@ if (inventoryCellsGrid) {
       inventoryOpenPlaceModal(cellId);
     } else if (action === "open-service") {
       inventoryOpenServiceModal(cellId);
+    } else if (action === "confirm-ready") {
+      inventoryConfirmReady(cellId);
     } else if (action === "test-open") {
       inventoryTestOpenCell(cellId, btn);
     }
