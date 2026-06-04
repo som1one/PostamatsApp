@@ -161,45 +161,23 @@ async def get_products(
 
     unit_counts: dict[UUID, int] = {}
     locker_counts: dict[UUID, int] = {}
-    candidate_ids: set[UUID] | None = None
-    # Множество товаров, у которых инвентарь физически размещён (включая
-    # занятый бронью/арендой). Используется для видимости в каталоге —
-    # товар не исчезает, пока экземпляр в постамате, занятость уходит в
-    # календарь.
-    placed_ids: set[UUID] | None = None
 
     try:
-        global_placed_ids = await aggregate_placed_globally(db)
-
         if locker_uuid is not None:
             unit_counts = await aggregate_available_inventory_by_product(
                 db, locker_uuid, None
             )
             locker_counts = {pid: 1 for pid in unit_counts if unit_counts[pid] > 0}
-            placed_ids = global_placed_ids
-            candidate_ids = set(placed_ids)
         elif city_uuid is not None:
             unit_counts, locker_counts = await aggregate_available_in_city(db, city_uuid)
-            placed_ids = global_placed_ids
-            candidate_ids = set(placed_ids)
         else:
             unit_counts, locker_counts = await aggregate_available_globally(db)
-            placed_ids = global_placed_ids
-            candidate_ids = set(placed_ids)
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail="PRODUCTS_FETCH_FAILED") from exc
 
     conditions = [Product.is_active.is_(True)]
-
-    if candidate_ids is not None:
-        if not candidate_ids:
-            return {
-                "data": {"products": []},
-                "meta": {"page": page, "limit": limit, "total": 0},
-            }
-        conditions.append(Product.id.in_(candidate_ids))
 
     if category_uuid is not None:
         conditions.append(Product.category_id == category_uuid)
