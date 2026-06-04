@@ -16,6 +16,12 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing = {column["name"] for column in inspector.get_columns("inventory_units")}
+    if "last_check_at" in existing:
+        return
+
     op.add_column(
         "inventory_units",
         sa.Column("last_check_at", sa.DateTime(timezone=True), nullable=True),
@@ -23,4 +29,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing = {column["name"] for column in inspector.get_columns("inventory_units")}
+    if "last_check_at" not in existing:
+        return
+
     op.drop_column("inventory_units", "last_check_at")
