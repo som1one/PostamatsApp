@@ -422,21 +422,20 @@ async def place_product_in_cell(
         )
     except EsiOpenError as exc:
         code = str(exc)
-        if code != "ESI_NOT_CONFIGURED":
+        if code not in ("ESI_NOT_CONFIGURED", "ESI_MACHINE_OFFLINE", "ESI_HTTP_ERROR"):
             await db.rollback()
             raise _map_esi_open_error(code) from exc
-        open_failed_reason = open_failed_reason or "ESI_NOT_CONFIGURED"
+        open_failed_reason = open_failed_reason or code
 
     if payload.openCell:
         try:
             await admin_trigger_open_cell(db, locker_id=locker.id, cell_id=cell.id)
         except EsiOpenError as exc:
             code = str(exc)
-            if code == "ESI_NOT_CONFIGURED":
-                open_failed_reason = "ESI_NOT_CONFIGURED"
-            else:
+            if code not in ("ESI_NOT_CONFIGURED", "ESI_MACHINE_OFFLINE", "ESI_HTTP_ERROR"):
                 await db.rollback()
                 raise _map_esi_open_error(code) from exc
+            open_failed_reason = code
 
     free_unit.locker_cell_id = cell.id
     free_unit.status = InventoryStatus.AVAILABLE
@@ -544,12 +543,10 @@ async def take_cell_for_service(
             await admin_trigger_open_cell(db, locker_id=locker.id, cell_id=cell.id)
         except EsiOpenError as exc:
             code = str(exc)
-            if code == "ESI_NOT_CONFIGURED":
-                # Best-effort: continue without ESI when integration is not set up.
-                open_failed_reason = "ESI_NOT_CONFIGURED"
-            else:
+            if code not in ("ESI_NOT_CONFIGURED", "ESI_MACHINE_OFFLINE", "ESI_HTTP_ERROR"):
                 await db.rollback()
                 raise _map_esi_open_error(code) from exc
+            open_failed_reason = code
 
     try:
         await sync_cell_state(
@@ -561,10 +558,10 @@ async def take_cell_for_service(
         )
     except EsiOpenError as exc:
         code = str(exc)
-        if code != "ESI_NOT_CONFIGURED":
+        if code not in ("ESI_NOT_CONFIGURED", "ESI_MACHINE_OFFLINE", "ESI_HTTP_ERROR"):
             await db.rollback()
             raise _map_esi_open_error(code) from exc
-        open_failed_reason = open_failed_reason or "ESI_NOT_CONFIGURED"
+        open_failed_reason = open_failed_reason or code
 
     prev_status = unit.status
     unit.locker_cell_id = None
