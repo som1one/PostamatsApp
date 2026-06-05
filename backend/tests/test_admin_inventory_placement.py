@@ -421,12 +421,20 @@ class AdminInventoryPlacementTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(getattr(ctx.exception, "status_code", None), 400)
 
     async def test_test_open_reports_machine_offline(self):
+        from backend.utils.esi_client import EsiOpenError
+
         async def fake_snapshot(serial: str):
             return {"online": False, "cells": {"A1": {"state": "vacant", "open": False}}}
+
+        async def fake_open(db, *, locker_id, cell_id):
+            raise EsiOpenError("ESI_MACHINE_OFFLINE")
 
         with patch(
             "backend.routers.admin.inventory.fetch_machine_snapshot",
             side_effect=fake_snapshot,
+        ), patch(
+            "backend.routers.admin.inventory.admin_trigger_open_cell",
+            side_effect=fake_open,
         ):
             async with TestSessionLocal() as db:
                 response = await inventory_router.test_open_cell(

@@ -812,7 +812,9 @@ async def test_open_cell(
     except EsiDiscoveryError as exc:
         before_error = str(exc)
 
-    online_before = bool(before_machine.get("online")) if isinstance(before_machine, dict) else None
+    # Игнорируем флаг 'online' в ESI, так как он может быть недостоверным.
+    # Если ESI вернул снапшот, считаем точку доступной для попытки открытия.
+    online_before = True if isinstance(before_machine, dict) else None
     open_before = bool(before_cell.get("open")) if isinstance(before_cell, dict) else None
     state_before = (
         str(before_cell.get("state") or "").strip().lower() if isinstance(before_cell, dict) else None
@@ -941,7 +943,8 @@ async def test_open_cell(
         if not isinstance(machine, dict):
             continue
         last_after_machine = machine
-        online_after = bool(machine.get("online", True))
+        # Игнорируем флаг 'online' в снапшоте после открытия ячейки.
+        online_after = True
         cell_after = _read_cell_snapshot(machine, external_cell_id)
         if isinstance(cell_after, dict):
             open_after = bool(cell_after.get("open"))

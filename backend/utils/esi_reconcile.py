@@ -113,7 +113,9 @@ async def reconcile_esi_and_returns() -> None:
                 continue
 
             locker.last_online_at = now
-            locker.status = LockerStatus.ONLINE if snapshot.get("online", True) else LockerStatus.OFFLINE
+            # Игнорируем флаг 'online' в снапшоте ESI во избежание ложных блокировок.
+            # Если ESI вернул снапшот, значит связь с ним есть, помечаем постамат как ONLINE.
+            locker.status = LockerStatus.ONLINE
 
             cells_by_external = {}
             locker_cells = (

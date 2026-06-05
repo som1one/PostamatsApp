@@ -345,7 +345,9 @@ async def is_machine_online(serial: str) -> bool | None:
         return None
     if not isinstance(snapshot, dict):
         return None
-    return bool(snapshot.get("online"))
+    # Игнорируем флаг 'online' в снапшоте ESI, так как он может быть недостоверным.
+    # Если ESI возвращает корректный снапшот, считаем постамат онлайн.
+    return True
 
 
 async def fetch_machines_snapshot() -> list[dict]:
