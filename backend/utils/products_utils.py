@@ -533,7 +533,7 @@ async def compute_busy_dates_for_product(
         if rental.status == RentalStatus.COMPLETED:
             if not rental.actual_end_at:
                 continue
-            end = rental.actual_end_at + timedelta(hours=24)
+            end = rental.actual_end_at
         else:
             end = rental.planned_end_at
         _mark_range(start, end)
