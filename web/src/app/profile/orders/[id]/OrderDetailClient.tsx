@@ -171,6 +171,7 @@ function OrderDetailContent({ id }: { id: string }) {
   const [returnLockersLoading, setReturnLockersLoading] = useState(false);
   // Dialog for cancelling a paid reservation (payment_authorized)
   const [showRefundDialog, setShowRefundDialog] = useState(false);
+  const [showCancelRentalDialog, setShowCancelRentalDialog] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -762,24 +763,26 @@ function OrderDetailContent({ id }: { id: string }) {
                         Открыть ячейку
                       </button>
                     )}
-                    <button
-                      className="button button-secondary"
-                      type="button"
-                      disabled={busy || tooEarly}
-                      onClick={() => handleConfirmPickup(order.data.id)}
-                    >
-                      <PackageCheck size={18} />
-                      Я забрал
-                    </button>
+                    {order.data.status === "pickup_opened" ? (
+                      <button
+                        className="button button-secondary"
+                        type="button"
+                        disabled={busy || tooEarly}
+                        onClick={() => handleConfirmPickup(order.data.id)}
+                      >
+                        <PackageCheck size={18} />
+                        Я забрал
+                      </button>
+                    ) : null}
                     {order.data.status === "pickup_ready" ? (
                       <button
                         className="button button-secondary"
                         type="button"
                         disabled={busy}
-                        onClick={() => handleCancelRentalBeforePickup(order.data.id)}
+                        onClick={() => setShowCancelRentalDialog(true)}
                       >
                         <XCircle size={18} />
-                        Вернуть деньги
+                        Отменить
                       </button>
                     ) : null}
                   </>
@@ -809,9 +812,7 @@ function OrderDetailContent({ id }: { id: string }) {
                 onClick={() => handleCancelClick(order.data.id, order.data.status)}
               >
                 <XCircle size={18} />
-                {order.data.status === "payment_authorized"
-                  ? "Вернуть деньги"
-                  : "Отменить бронь"}
+                Отменить
               </button>
             ) : null}
 
@@ -935,6 +936,47 @@ function OrderDetailContent({ id }: { id: string }) {
               >
                 Да, я у постамата
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Cancel rental confirmation modal */}
+      {showCancelRentalDialog ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-box">
+            <div className="modal-icon">
+              <XCircle size={28} />
+            </div>
+            <h2 className="modal-title">Отменить аренду?</h2>
+            <p className="modal-text">
+              Вы точно хотите отменить аренду и вернуть деньги?
+            </p>
+            <div className="modal-actions">
+              <div className="modal-actions-row">
+                <button
+                  className="button button-primary"
+                  type="button"
+                  style={{ width: "100%" }}
+                  disabled={busy}
+                  onClick={async () => {
+                    setShowCancelRentalDialog(false);
+                    if (order?.data?.id) {
+                      await handleCancelRentalBeforePickup(order.data.id);
+                    }
+                  }}
+                >
+                  {busy ? "Отменяем" : "Да, отменить"}
+                </button>
+              </div>
+              <div className="modal-back">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelRentalDialog(false)}
+                >
+                  Назад
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -521,3 +521,5 @@
   font-size: 0.88rem;
   line-height: 1.45;
 }
+
+@media (max-width: 760px) { .app-shell, .app-main, .section-panel, .surface, .table-surface, .dashboard-layout, .metrics-column { min-width: 0; } }

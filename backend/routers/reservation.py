@@ -165,16 +165,26 @@ async def _get_available_inventory_unit(
     )
     active_reservations = (await db.scalars(res_stmt)).all()
 
+    from sqlalchemy import or_, and_
+    from datetime import timedelta
+    two_days_ago = datetime.now(timezone.utc) - timedelta(days=2)
+
     rent_stmt = select(Rental).where(
         Rental.inventory_unit_id.in_(unit_ids),
-        Rental.status.in_((
-            RentalStatus.PICKUP_READY,
-            RentalStatus.PICKUP_OPENED,
-            RentalStatus.ACTIVE,
-            RentalStatus.OVERDUE,
-            RentalStatus.RETURN_IN_PROGRESS,
-            RentalStatus.INCIDENT,
-        ))
+        or_(
+            Rental.status.in_((
+                RentalStatus.PICKUP_READY,
+                RentalStatus.PICKUP_OPENED,
+                RentalStatus.ACTIVE,
+                RentalStatus.OVERDUE,
+                RentalStatus.RETURN_IN_PROGRESS,
+                RentalStatus.INCIDENT,
+            )),
+            and_(
+                Rental.status == RentalStatus.COMPLETED,
+                Rental.actual_end_at >= two_days_ago,
+            )
+        )
     )
     active_rentals = (await db.scalars(rent_stmt)).all()
 
@@ -205,7 +215,12 @@ async def _get_available_inventory_unit(
         for rent in active_rentals:
             if rent.inventory_unit_id == unit.id:
                 r_start = to_utc(rent.starts_at or rent.created_at)
-                r_end = to_utc(rent.planned_end_at)
+                if rent.status == RentalStatus.COMPLETED:
+                    if not rent.actual_end_at:
+                        continue
+                    r_end = to_utc(rent.actual_end_at) + timedelta(hours=24)
+                else:
+                    r_end = to_utc(rent.planned_end_at)
                 if max(d_start, r_start) < min(d_end, r_end):
                     has_overlap = True
                     break

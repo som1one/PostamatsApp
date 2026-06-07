@@ -38,7 +38,7 @@ async def aggregate_available_in_city(
             # но при попытке оформить аренду reservation вернёт
             # ``LOCKER_NOT_BOOKABLE``. Полностью скрываем только OFFLINE.
             LockerLocation.status != LockerStatus.OFFLINE,
-            InventoryUnit.status == InventoryStatus.AVAILABLE,
+            InventoryUnit.status.in_((InventoryStatus.AVAILABLE, InventoryStatus.AWAITING_CONFIRMATION)),
             LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
         )
         .group_by(InventoryUnit.product_id)
@@ -69,7 +69,7 @@ async def aggregate_available_globally(
             # MAINTENANCE/DEGRADED, чтобы товары не пропадали с витрины,
             # пока постамат на обслуживании.
             LockerLocation.status != LockerStatus.OFFLINE,
-            InventoryUnit.status == InventoryStatus.AVAILABLE,
+            InventoryUnit.status.in_((InventoryStatus.AVAILABLE, InventoryStatus.AWAITING_CONFIRMATION)),
             LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
         )
         .group_by(InventoryUnit.product_id)
@@ -320,7 +320,7 @@ async def load_available_lockers_for_product(
                 case(
                     (
                         and_(
-                            InventoryUnit.status == InventoryStatus.AVAILABLE,
+                            InventoryUnit.status.in_((InventoryStatus.AVAILABLE, InventoryStatus.AWAITING_CONFIRMATION)),
                             LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY)
                         ),
                         1
@@ -461,6 +461,9 @@ async def compute_busy_dates_for_product(
     # 2) Аренды, занимающие даты: ещё не завершённые/не отменённые.
     # Аренду связываем с товаром через её inventory_unit (reservation_id
     # может быть NULL для ручных/служебных кейсов).
+    from sqlalchemy import or_, and_
+    two_days_ago = datetime.now(timezone.utc) - timedelta(days=2)
+
     busy_rental_statuses = (
         RentalStatus.PICKUP_READY,
         RentalStatus.PICKUP_OPENED,
@@ -470,7 +473,13 @@ async def compute_busy_dates_for_product(
         RentalStatus.INCIDENT,
     )
     rental_conditions = [
-        Rental.status.in_(busy_rental_statuses),
+        or_(
+            Rental.status.in_(busy_rental_statuses),
+            and_(
+                Rental.status == RentalStatus.COMPLETED,
+                Rental.actual_end_at >= two_days_ago,
+            )
+        ),
         InventoryUnit.product_id == product_id,
     ]
     if locker_id is not None:
@@ -510,6 +519,12 @@ async def compute_busy_dates_for_product(
 
     for rental in rentals:
         start = rental.starts_at or rental.created_at
-        _mark_range(start, rental.planned_end_at)
+        if rental.status == RentalStatus.COMPLETED:
+            if not rental.actual_end_at:
+                continue
+            end = rental.actual_end_at + timedelta(hours=24)
+        else:
+            end = rental.planned_end_at
+        _mark_range(start, end)
 
     return sorted(d.isoformat() for d in busy)
