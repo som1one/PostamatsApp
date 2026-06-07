@@ -325,6 +325,7 @@ async def get_product_busy_dates(
     product_id: UUID,
     db: AsyncSession = Depends(get_db),
     lockerId: str | None = Query(None),
+    reservationId: str | None = Query(None),
 ):
     """Список занятых дат (YYYY-MM-DD) для товара.
 
@@ -337,7 +338,10 @@ async def get_product_busy_dates(
         raise HTTPException(status_code=404, detail="PRODUCT_NOT_FOUND")
 
     locker_uuid = _parse_uuid_param(lockerId, "INVALID_LOCKER_ID")
-    busy = await compute_busy_dates_for_product(db, product_id, locker_id=locker_uuid)
+    reservation_uuid = _parse_uuid_param(reservationId, "INVALID_RESERVATION_ID")
+    busy = await compute_busy_dates_for_product(
+        db, product_id, locker_id=locker_uuid, exclude_reservation_id=reservation_uuid
+    )
     return {"data": {"productId": str(product_id), "busyDates": busy}}
 
 
