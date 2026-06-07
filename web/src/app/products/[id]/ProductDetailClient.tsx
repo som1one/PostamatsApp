@@ -420,15 +420,13 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
   }, [lockerId, product, rescheduleReservationId, selectedPlan]);
 
   // Занятые даты для календаря: зависят от товара и выбранного постамата.
-  // Свой reschedule-резерв исключаем на бэке через статусы (он CONFIRMED,
-  // но это редкий кейс; для UX блокировки достаточно общей картины).
   useEffect(() => {
     if (!product) {
       setBusyDates([]);
       return;
     }
     let active = true;
-    fetchProductBusyDates(product.id, lockerId || undefined)
+    fetchProductBusyDates(product.id, lockerId || undefined, rescheduleReservationId || undefined)
       .then((dates) => {
         if (active) setBusyDates(dates);
       })
@@ -440,7 +438,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
     return () => {
       active = false;
     };
-  }, [product, lockerId]);
+  }, [product, lockerId, rescheduleReservationId]);
 
   return (
     <PageChrome>

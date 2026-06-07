@@ -313,10 +313,14 @@ export async function fetchProductPricing(
 export async function fetchProductBusyDates(
   productId: string,
   lockerId?: string,
+  reservationId?: string,
 ): Promise<string[]> {
   const params = new URLSearchParams();
   if (lockerId) {
     params.set("lockerId", lockerId);
+  }
+  if (reservationId) {
+    params.set("reservationId", reservationId);
   }
   const qs = params.toString();
   const data = await requestJson<{ productId: string; busyDates: string[] }>(
