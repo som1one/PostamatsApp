@@ -51,6 +51,19 @@ def _create_payment_sync(
         "confirmation": {"type": "redirect", "return_url": return_url},
         "metadata": metadata,
         "description": "Аренда: оплата",
+        "receipt": {
+            "customer": {"email": "customer@naprokatberu.ru"},
+            "items": [
+                {
+                    "description": "Аренда",
+                    "quantity": "1.00",
+                    "amount": {"value": value_str, "currency": currency},
+                    "vat_code": 1,
+                    "payment_mode": "full_prepayment",
+                    "payment_subject": "service",
+                }
+            ],
+        },
     }
     idempotency_key = str(uuid.uuid4())
     payment = Payment.create(body, idempotency_key)
