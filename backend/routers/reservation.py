@@ -501,8 +501,8 @@ async def confirm_reservation(
     ):
         raise HTTPException(status_code=409, detail="RESERVATION_NOT_CONFIRMABLE")
 
-    # Платёж теперь опционален: если paymentId передан — проверяем, что он
-    # авторизован, как раньше. Если пусто — пропускаем шаг оплаты.
+    # В боевом режиме (YOOKASSA_DEV_STUB=false) оплата обязательна.
+    # В dev-stub режиме — можно подтверждать без paymentId.
     payment: Payment | None = None
     if payload.paymentId is not None:
         payment = await db.get(Payment, payload.paymentId)
@@ -517,6 +517,11 @@ async def confirm_reservation(
             PaymentStatus.CAPTURED,
         ):
             raise HTTPException(status_code=409, detail="PAYMENT_NOT_AUTHORIZED")
+    elif not settings.YOOKASSA_DEV_STUB:
+        # Боевой режим: paymentId не передан — проверяем, что бронь уже
+        # оплачена через webhook (статус PAYMENT_AUTHORIZED).
+        if reservation.status != ReservationStatus.PAYMENT_AUTHORIZED:
+            raise HTTPException(status_code=402, detail="PAYMENT_REQUIRED")
 
     locker = await db.get(LockerLocation, reservation.locker_id)
     if locker is None:
