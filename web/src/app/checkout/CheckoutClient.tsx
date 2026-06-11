@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Surface } from "@/components/Surface";
 import {
-  confirmReservation,
+  createPaymentPreauth,
   createReservation,
   fetchMe,
   fetchMyReservations,
@@ -18,6 +18,7 @@ import {
   fetchProductPricing,
   fetchReservation,
 } from "@/shared/api/endpoints";
+import { writePendingCheckout } from "@/shared/checkout/pending";
 import { ApiError } from "@/shared/api/client";
 import type {
   AppUser,
@@ -155,11 +156,26 @@ function CheckoutContent() {
         setReservation(currentReservation);
       }
 
-      // Юкасса временно отключена: подтверждаем бронь без платежа и сразу
-      // переходим в карточку аренды. startAt дублируем, чтобы зафиксировать
-      // выбранную дату в Rental.starts_at.
-      const rental = await confirmReservation(currentReservation.id, undefined, startAtISO);
-      router.push(`/profile/orders/${rental.id}`);
+      // Создаём платёж в YooKassa и перенаправляем пользователя на оплату.
+      setBusyLabel("Переходим к оплате");
+      const preauth = await createPaymentPreauth({
+        reservationId: currentReservation.id,
+      });
+
+      // Сохраняем данные для проверки статуса оплаты при возврате
+      writePendingCheckout({
+        reservationId: currentReservation.id,
+        paymentId: preauth.payment.id,
+        createdAt: new Date().toISOString(),
+      });
+
+      const confirmationUrl = preauth.confirmation?.confirmationUrl;
+      if (confirmationUrl) {
+        window.location.href = confirmationUrl;
+      } else {
+        // Если URL подтверждения не пришёл — переходим на страницу ожидания
+        router.push("/payment/return");
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.code === "LOCKER_OFFLINE") {
