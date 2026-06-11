@@ -35,7 +35,11 @@ inject_env_var "ADMIN_PANEL_URL" "${ADMIN_PANEL_URL-}"
 
 COMPOSE_ARGS=(--env-file deploy/.env -f deploy/docker-compose.beget.yml)
 
-docker compose "${COMPOSE_ARGS[@]}" build
+# Собираем образы последовательно, чтобы не вызывать OOM (Out Of Memory)
+# на серверах с небольшим объёмом оперативной памяти.
+docker compose "${COMPOSE_ARGS[@]}" build backend
+docker compose "${COMPOSE_ARGS[@]}" build migrate
+docker compose "${COMPOSE_ARGS[@]}" build web
 docker compose "${COMPOSE_ARGS[@]}" run --rm migrate
 docker compose "${COMPOSE_ARGS[@]}" up -d
 
