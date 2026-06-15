@@ -59,7 +59,7 @@ RESEND_MIN_INTERVAL_SECONDS = 30
 # ВНИМАНИЕ: это бэкдор в один конкретный аккаунт — не храните на нём ничего
 # чувствительного и удалите этот блок, когда тестовый доступ больше не нужен.
 TEST_LOGIN_PHONE = "+79990000000"
-TEST_LOGIN_CODE = "0760"
+TEST_LOGIN_CODE = "1111"
 
 
 def auth_error(status_code: int, code: str) -> HTTPException:
