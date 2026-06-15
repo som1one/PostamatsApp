@@ -1,13 +1,13 @@
 {
   "meta": {
-    "generatedAt": "2026-05-17T13:40:10.366260+00:00",
+    "generatedAt": "2026-06-15T15:18:38.235204+00:00",
     "sourceDb": "backend\\dev.sqlite3",
     "excludedSlugPrefixes": [
       "test-"
     ],
-    "productCount": 13,
+    "productCount": 17,
     "lockerCount": 5,
-    "inventoryUnitCount": 37
+    "inventoryUnitCount": 47
   },
   "categories": [
     {
@@ -151,6 +151,38 @@
       "originalName": "beri-bery-shurupovert.png",
       "kind": "PRODUCT_COVER",
       "repoAssetPath": "assets/uploads/items/beri-bery-shurupovert.png"
+    },
+    {
+      "fileKey": "uploads/items/jbl-partybox-520-v4.webp",
+      "mimeType": "image/webp",
+      "fileSize": 101142,
+      "originalName": "jbl-partybox-520-v4.webp",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/jbl-partybox-520-v4.webp"
+    },
+    {
+      "fileKey": "uploads/items/karaoke-v4.webp",
+      "mimeType": "image/webp",
+      "fileSize": 172758,
+      "originalName": "karaoke-v4.webp",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/karaoke-v4.webp"
+    },
+    {
+      "fileKey": "uploads/items/karcher-wd5-v4.webp",
+      "mimeType": "image/webp",
+      "fileSize": 76898,
+      "originalName": "karcher-wd5-v4.webp",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/karcher-wd5-v4.webp"
+    },
+    {
+      "fileKey": "uploads/items/puzzi-101-v4.webp",
+      "mimeType": "image/webp",
+      "fileSize": 52234,
+      "originalName": "puzzi-101-v4.webp",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/puzzi-101-v4.webp"
     }
   ],
   "products": [
@@ -183,6 +215,61 @@
       "isActive": true
     },
     {
+      "slug": "bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0",
+      "name": "Бытовой пылесос Karcher WD 5 S V-25522, 1.628-350.0",
+      "brand": null,
+      "shortDescription": null,
+      "fullDescription": null,
+      "rulesText": null,
+      "kitDescription": null,
+      "specsJson": null,
+      "categorySlug": "home",
+      "coverFileKey": "uploads/items/karcher-wd5-v4.webp",
+      "galleryFileKeys": [
+        "uploads/items/karcher-wd5-v4.webp"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "650.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "1170.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1660.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "3320.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 4
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
       "slug": "drel",
       "name": "Дрель",
       "brand": "Bosch",
@@ -205,6 +292,171 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "jbl-partybox520-moschnaya-portativnaya-bluetooth-stereosistema",
+      "name": "JBL Partybox520 Мощная портативная Bluetooth-стереосистема",
+      "brand": null,
+      "shortDescription": null,
+      "fullDescription": null,
+      "rulesText": null,
+      "kitDescription": null,
+      "specsJson": null,
+      "categorySlug": "home",
+      "coverFileKey": "uploads/items/jbl-partybox-520-v4.webp",
+      "galleryFileKeys": [
+        "uploads/items/jbl-partybox-520-v4.webp"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "900.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "1620.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "2300.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "4600.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 4
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "karaoke-sistema-s-dvumya-besprovodnymi-mikrofonami",
+      "name": "Караоке система с двумя беспроводными микрофонами",
+      "brand": null,
+      "shortDescription": null,
+      "fullDescription": null,
+      "rulesText": null,
+      "kitDescription": null,
+      "specsJson": null,
+      "categorySlug": "home",
+      "coverFileKey": "uploads/items/karaoke-v4.webp",
+      "galleryFileKeys": [
+        "uploads/items/karaoke-v4.webp"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "590.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "1060.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1500.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "3010.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 4
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "moyuschij-pylesos-puzzi-101-1-100-130-0",
+      "name": "Моющий пылесос Puzzi 101 1.100-130.0",
+      "brand": null,
+      "shortDescription": null,
+      "fullDescription": null,
+      "rulesText": null,
+      "kitDescription": null,
+      "specsJson": null,
+      "categorySlug": "home",
+      "coverFileKey": "uploads/items/puzzi-101-v4.webp",
+      "galleryFileKeys": [
+        "uploads/items/puzzi-101-v4.webp"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "1250.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "2250.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "3190.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "6390.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 4
         }
       ],
       "filter": null,
@@ -562,7 +814,7 @@
       "address": "Санкт-Петербург, Невский пр., 114",
       "lat": 59.931258,
       "lon": 30.360748,
-      "status": "OFFLINE",
+      "status": "ONLINE",
       "workingHoursJson": {
         "mode": "daily",
         "from": "08:00",
@@ -579,7 +831,7 @@
       "address": "Санкт-Петербург, Каменноостровский пр., 42",
       "lat": 59.966394,
       "lon": 30.311838,
-      "status": "OFFLINE",
+      "status": "ONLINE",
       "workingHoursJson": {
         "mode": "daily",
         "from": "09:00",
@@ -596,7 +848,7 @@
       "address": "Великий Новгород, ул. Кочетова, 10",
       "lat": 58.541245,
       "lon": 31.219804,
-      "status": "OFFLINE",
+      "status": "ONLINE",
       "workingHoursJson": {
         "mode": "daily",
         "from": "09:00",
@@ -619,9 +871,9 @@
         "from": "08:00",
         "to": "22:00"
       },
-      "externalProvider": "esi",
-      "externalLockerId": "0980",
-      "partnerName": "ESI",
+      "externalProvider": "seed",
+      "externalLockerId": "seed-vn-center",
+      "partnerName": "Dev Seed",
       "lastOnlineAt": null
     }
   ],
@@ -856,6 +1108,54 @@
     },
     {
       "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-nevsky",
+      "externalCellId": "seed-spb-nevsky-import-karaoke-sistema-s-dvumya-besprovodnymi-mikrofonami",
+      "label": "I10",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-nevsky",
+      "externalCellId": "seed-spb-nevsky-import-moyuschij-pylesos-puzzi-101-1-100-130-0",
+      "label": "I11",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-nevsky",
+      "externalCellId": "seed-spb-nevsky-import-jbl-partybox520-moschnaya-portativnaya-bluetooth-stereosistema",
+      "label": "I8",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-nevsky",
+      "externalCellId": "seed-spb-nevsky-import-bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0",
+      "label": "I9",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
       "lockerExternalLockerId": "seed-spb-petrogradka",
       "externalCellId": "seed-spb-petrogradka-cell-01",
       "label": "A1",
@@ -1011,8 +1311,56 @@
       "lastEventAt": null
     },
     {
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "0980",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-west",
+      "externalCellId": "seed-vn-west-import-karaoke-sistema-s-dvumya-besprovodnymi-mikrofonami",
+      "label": "I10",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-west",
+      "externalCellId": "seed-vn-west-import-moyuschij-pylesos-puzzi-101-1-100-130-0",
+      "label": "I11",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-west",
+      "externalCellId": "seed-vn-west-import-jbl-partybox520-moschnaya-portativnaya-bluetooth-stereosistema",
+      "label": "I8",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-west",
+      "externalCellId": "seed-vn-west-import-bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0",
+      "label": "I9",
+      "size": "M",
+      "status": "OCCUPIED",
+      "supportsReturn": true,
+      "lastOpenedAt": null,
+      "lastClosedAt": null,
+      "lastEventAt": null
+    },
+    {
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
       "externalCellId": "seed-vn-center-cell-01",
       "label": "A1",
       "size": "M",
@@ -1023,8 +1371,8 @@
       "lastEventAt": null
     },
     {
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "0980",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
       "externalCellId": "seed-vn-center-cell-02",
       "label": "A2",
       "size": "M",
@@ -1035,8 +1383,8 @@
       "lastEventAt": null
     },
     {
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "0980",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
       "externalCellId": "seed-vn-center-cell-03",
       "label": "A3",
       "size": "M",
@@ -1047,8 +1395,8 @@
       "lastEventAt": null
     },
     {
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "0980",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
       "externalCellId": "seed-vn-center-empty-1",
       "label": "B1",
       "size": "L",
@@ -1059,8 +1407,8 @@
       "lastEventAt": null
     },
     {
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "0980",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
       "externalCellId": "seed-vn-center-empty-2",
       "label": "B2",
       "size": "L",
@@ -1071,8 +1419,8 @@
       "lastEventAt": null
     },
     {
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "0980",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
       "externalCellId": "sync-velikiy-novgorod-seed-vn-center-c1",
       "label": "C1",
       "size": "L",
@@ -1083,8 +1431,8 @@
       "lastEventAt": null
     },
     {
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "0980",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
       "externalCellId": "sync-velikiy-novgorod-seed-vn-center-c2",
       "label": "C2",
       "size": "L",
@@ -1304,7 +1652,7 @@
       "conditionNote": "Готов к аренде",
       "purchasePrice": null,
       "purchaseDate": null,
-      "lastCheckAt": null
+      "lastCheckAt": "2026-06-04 20:01:45.531937"
     },
     {
       "productSlug": "polaroid",
@@ -1322,7 +1670,7 @@
       "lastCheckAt": null
     },
     {
-      "productSlug": "projektor",
+      "productSlug": "avtonomnyj-projektor",
       "lockerExternalProvider": "seed",
       "lockerExternalLockerId": "seed-spb-nevsky",
       "cellExternalCellId": "seed-spb-nevsky-cell-03",
@@ -1337,7 +1685,7 @@
       "lastCheckAt": null
     },
     {
-      "productSlug": "polaroid",
+      "productSlug": "perforator",
       "lockerExternalProvider": "seed",
       "lockerExternalLockerId": "seed-spb-nevsky",
       "cellExternalCellId": "seed-spb-nevsky-empty-2",
@@ -1377,6 +1725,66 @@
       "status": "AVAILABLE",
       "conditionGrade": null,
       "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "karaoke-sistema-s-dvumya-besprovodnymi-mikrofonami",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-nevsky",
+      "cellExternalCellId": "seed-spb-nevsky-import-karaoke-sistema-s-dvumya-besprovodnymi-mikrofonami",
+      "cellLabel": "I10",
+      "serialNumber": "SEED-SPB-NEVSKY-KARAOKE-SISTEMA-S-DVUMYA-BESPROVODNYMI-MIKROFONAMI-IMPORT",
+      "barcode": "seed-spb-nevsky-karaoke-sistema-s-dvumya-besprovodnymi-mikrofonami-import",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "moyuschij-pylesos-puzzi-101-1-100-130-0",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-nevsky",
+      "cellExternalCellId": "seed-spb-nevsky-import-moyuschij-pylesos-puzzi-101-1-100-130-0",
+      "cellLabel": "I11",
+      "serialNumber": "SEED-SPB-NEVSKY-MOYUSCHIJ-PYLESOS-PUZZI-101-1-100-130-0-IMPORT",
+      "barcode": "seed-spb-nevsky-moyuschij-pylesos-puzzi-101-1-100-130-0-import",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "jbl-partybox520-moschnaya-portativnaya-bluetooth-stereosistema",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-nevsky",
+      "cellExternalCellId": "seed-spb-nevsky-import-jbl-partybox520-moschnaya-portativnaya-bluetooth-stereosistema",
+      "cellLabel": "I8",
+      "serialNumber": "SEED-SPB-NEVSKY-JBL-PARTYBOX520-MOSCHNAYA-PORTATIVNAYA-BLUETOOTH-STEREOSISTEMA-IMPORT",
+      "barcode": "seed-spb-nevsky-jbl-partybox520-moschnaya-portativnaya-bluetooth-stereosistema-import",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-nevsky",
+      "cellExternalCellId": "seed-spb-nevsky-import-bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0",
+      "cellLabel": "I9",
+      "serialNumber": "SEED-SPB-NEVSKY-BYTOVOJ-PYLESOS-KARCHER-WD-5-S-V-25522-1-628-350-0-IMPORT",
+      "barcode": "seed-spb-nevsky-bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0-import",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
       "purchasePrice": null,
       "purchaseDate": null,
       "lastCheckAt": null
@@ -1437,6 +1845,36 @@
       "status": "AVAILABLE",
       "conditionGrade": "A",
       "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "perforator-elitech",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-petrogradka",
+      "cellExternalCellId": "seed-spb-petrogradka-empty-1",
+      "cellLabel": "B1",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "projektor",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-spb-petrogradka",
+      "cellExternalCellId": "seed-spb-petrogradka-empty-2",
+      "cellLabel": "B2",
+      "serialNumber": null,
+      "barcode": null,
+      "status": "AVAILABLE",
+      "conditionGrade": null,
+      "conditionNote": null,
       "purchasePrice": null,
       "purchaseDate": null,
       "lastCheckAt": null
@@ -1547,9 +1985,69 @@
       "lastCheckAt": null
     },
     {
+      "productSlug": "karaoke-sistema-s-dvumya-besprovodnymi-mikrofonami",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-west",
+      "cellExternalCellId": "seed-vn-west-import-karaoke-sistema-s-dvumya-besprovodnymi-mikrofonami",
+      "cellLabel": "I10",
+      "serialNumber": "SEED-VN-WEST-KARAOKE-SISTEMA-S-DVUMYA-BESPROVODNYMI-MIKROFONAMI-IMPORT",
+      "barcode": "seed-vn-west-karaoke-sistema-s-dvumya-besprovodnymi-mikrofonami-import",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "moyuschij-pylesos-puzzi-101-1-100-130-0",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-west",
+      "cellExternalCellId": "seed-vn-west-import-moyuschij-pylesos-puzzi-101-1-100-130-0",
+      "cellLabel": "I11",
+      "serialNumber": "SEED-VN-WEST-MOYUSCHIJ-PYLESOS-PUZZI-101-1-100-130-0-IMPORT",
+      "barcode": "seed-vn-west-moyuschij-pylesos-puzzi-101-1-100-130-0-import",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "jbl-partybox520-moschnaya-portativnaya-bluetooth-stereosistema",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-west",
+      "cellExternalCellId": "seed-vn-west-import-jbl-partybox520-moschnaya-portativnaya-bluetooth-stereosistema",
+      "cellLabel": "I8",
+      "serialNumber": "SEED-VN-WEST-JBL-PARTYBOX520-MOSCHNAYA-PORTATIVNAYA-BLUETOOTH-STEREOSISTEMA-IMPORT",
+      "barcode": "seed-vn-west-jbl-partybox520-moschnaya-portativnaya-bluetooth-stereosistema-import",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
+      "productSlug": "bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-west",
+      "cellExternalCellId": "seed-vn-west-import-bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0",
+      "cellLabel": "I9",
+      "serialNumber": "SEED-VN-WEST-BYTOVOJ-PYLESOS-KARCHER-WD-5-S-V-25522-1-628-350-0-IMPORT",
+      "barcode": "seed-vn-west-bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0-import",
+      "status": "AVAILABLE",
+      "conditionGrade": "A",
+      "conditionNote": "Готов к аренде",
+      "purchasePrice": null,
+      "purchaseDate": null,
+      "lastCheckAt": null
+    },
+    {
       "productSlug": "rashodniki-instax",
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "0980",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
       "cellExternalCellId": "seed-vn-center-cell-01",
       "cellLabel": "A1",
       "serialNumber": "SEED-VN-CENTER-PLAYSTATION-5-SLIM-1",
@@ -1563,8 +2061,8 @@
     },
     {
       "productSlug": "robot-mojshchik-okon",
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "0980",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
       "cellExternalCellId": "seed-vn-center-cell-02",
       "cellLabel": "A2",
       "serialNumber": "SEED-VN-CENTER-NINTENDO-SWITCH-OLED-1",
@@ -1578,8 +2076,8 @@
     },
     {
       "productSlug": "shurupovert",
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "0980",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
       "cellExternalCellId": "seed-vn-center-cell-03",
       "cellLabel": "A3",
       "serialNumber": "SEED-VN-CENTER-XGIMI-MOGO-2-PRO-1",
@@ -1592,9 +2090,9 @@
       "lastCheckAt": null
     },
     {
-      "productSlug": "playstation-5",
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "0980",
+      "productSlug": "polaroid",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
       "cellExternalCellId": "seed-vn-center-empty-1",
       "cellLabel": "B1",
       "serialNumber": null,
@@ -1607,9 +2105,9 @@
       "lastCheckAt": null
     },
     {
-      "productSlug": "perforator",
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "0980",
+      "productSlug": "avtonomnyj-projektor",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
       "cellExternalCellId": "seed-vn-center-empty-2",
       "cellLabel": "B2",
       "serialNumber": null,
@@ -1623,8 +2121,8 @@
     },
     {
       "productSlug": "moyushchij-pylesos",
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "0980",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
       "cellExternalCellId": "sync-velikiy-novgorod-seed-vn-center-c1",
       "cellLabel": "C1",
       "serialNumber": null,
@@ -1638,8 +2136,8 @@
     },
     {
       "productSlug": "paroochistitel-karcher",
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "0980",
+      "lockerExternalProvider": "seed",
+      "lockerExternalLockerId": "seed-vn-center",
       "cellExternalCellId": "sync-velikiy-novgorod-seed-vn-center-c2",
       "cellLabel": "C2",
       "serialNumber": null,
@@ -1654,7 +2152,11 @@
   ],
   "managedProductSlugs": [
     "avtonomnyj-projektor",
+    "bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0",
     "drel",
+    "jbl-partybox520-moschnaya-portativnaya-bluetooth-stereosistema",
+    "karaoke-sistema-s-dvumya-besprovodnymi-mikrofonami",
+    "moyuschij-pylesos-puzzi-101-1-100-130-0",
     "moyushchij-pylesos",
     "otparivatel",
     "paroochistitel-karcher",

@@ -32,3 +32,4 @@ frontend-dev-*.err.log
 chrome-home-*.log
 chrome-home-*.err.log
 chrome-home-*.html
+assets/runtime-uploads/

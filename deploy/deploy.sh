@@ -70,9 +70,11 @@ if [ "${backend_ready}" -eq 1 ]; then
   docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
     python -m scripts.migrate_lockers_to_real
 
-  # echo "[deploy] running scripts.fix_manual_products (updating images)"
-  # docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
-  #   python -m scripts.fix_manual_products
+  echo "[deploy] applying catalog bundle (idempotent)"
+  docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
+    python -m scripts.apply_catalog_bundle \
+      --bundle /app/deploy/catalog-sync.bundle.json \
+      --apply --force
 else
-  echo "[deploy] WARNING: backend container did not reach running state, skipping locker migration" >&2
+  echo "[deploy] WARNING: backend container did not reach running state, skipping locker migration and catalog sync" >&2
 fi
