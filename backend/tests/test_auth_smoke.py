@@ -158,7 +158,7 @@ class AuthSmokeTests(unittest.IsolatedAsyncioTestCase):
 
         response = await self.client.post(
             "/auth/confirm-code",
-            json={"verificationSessionId": session_id, "code": "0760"},
+            json={"verificationSessionId": session_id, "code": "1111"},
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()["data"]
