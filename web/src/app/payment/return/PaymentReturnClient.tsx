@@ -214,10 +214,10 @@ function PaymentReturnContent() {
   }
 
   const status = rental?.status || payment?.status || "pending";
-  const title = rental ? "PIN готов" : "Проверяем статус";
+  const title = rental ? "Оплата подтверждена" : "Проверяем статус";
   const subtitle = rental
-    ? "Бронь подтверждена. Ниже уже есть PIN для получения."
-    : "После подтверждения платежа здесь появится PIN и ссылка на аренду.";
+    ? "Бронь подтверждена. Перейдите к заказу, чтобы открыть ячейку и забрать товар."
+    : "После подтверждения платежа здесь появится ссылка на ваш заказ.";
 
   return (
     <>
@@ -267,7 +267,7 @@ function PaymentReturnContent() {
               disabled={busy}
               onClick={handleDevBypass}
             >
-              {busy ? "Готовим PIN" : "Тест без оплаты"}
+              {busy ? "Подготовка" : "Тест без оплаты"}
             </button>
           ) : null}
 
@@ -278,7 +278,7 @@ function PaymentReturnContent() {
               disabled={busy}
               onClick={() => setShowCancelDialog(true)}
             >
-              {busy ? "Отменяем" : "Отменить оплату"}
+              {busy ? "Отменяем" : "Отменить"}
             </button>
           ) : null}
         </Surface>
@@ -297,17 +297,16 @@ function PaymentReturnContent() {
 
           {rental ? (
             <>
-              <div className="payment-pin-card">
-                <span className="payment-pin-label">PIN</span>
-                <strong className="payment-pin-value">{rental.pickupPin}</strong>
+              <div className="alert alert-success">
+                Оплата прошла успешно. Подойдите к постамату и откройте ячейку на странице заказа.
               </div>
-              <Link className="button button-primary" href="/rentals">
-                Мои аренды
+              <Link className="button button-primary" href={`/profile/orders/${rental.id}`}>
+                Открыть ячейку
               </Link>
             </>
           ) : (
             <div className="alert">
-              После подтверждения здесь появится PIN и переход к аренде.
+              После подтверждения здесь появится переход к заказу.
             </div>
           )}
         </Surface>
@@ -320,9 +319,9 @@ function PaymentReturnContent() {
             <div className="modal-icon">
               <RotateCcw size={26} />
             </div>
-            <h2 className="modal-title">Вернуть деньги?</h2>
+            <h2 className="modal-title">Отменить бронь?</h2>
             <p className="modal-text">
-              Вы уверены, что хотите вернуть деньги? Вы можете перенести запись на другое время — просто выберите новый товар и постамат в каталоге.
+              Вы уверены, что хотите отменить? Средства вернутся на карту. Вы можете выбрать другой товар и постамат в каталоге.
             </p>
             <div className="modal-actions">
               <button
@@ -346,7 +345,7 @@ function PaymentReturnContent() {
                 disabled={busy}
                 onClick={handleCancelPayment}
               >
-                {busy ? "Отменяем" : "Да, вернуть деньги"}
+                {busy ? "Отменяем" : "Да, отменить"}
               </button>
             </div>
           </div>

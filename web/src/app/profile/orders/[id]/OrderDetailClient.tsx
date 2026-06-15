@@ -950,7 +950,7 @@ function OrderDetailContent({ id }: { id: string }) {
             </div>
             <h2 className="modal-title">Отменить аренду?</h2>
             <p className="modal-text">
-              Вы точно хотите отменить аренду и вернуть деньги?
+              Вы точно хотите отменить? Средства вернутся на карту.
             </p>
             <div className="modal-actions">
               <div className="modal-actions-row">
@@ -989,9 +989,9 @@ function OrderDetailContent({ id }: { id: string }) {
             <div className="modal-icon">
               <XCircle size={28} />
             </div>
-            <h2 className="modal-title">Вернуть деньги?</h2>
+            <h2 className="modal-title">Отменить бронь?</h2>
             <p className="modal-text">
-              Вы уверены, что хотите вернуть деньги? Вы можете перенести запись на другое время в следующем шаге.
+              Вы уверены, что хотите отменить? Средства вернутся на карту. Вы можете перенести запись на другое время.
             </p>
             <div className="modal-actions">
               <div className="modal-actions-row">
@@ -1009,7 +1009,7 @@ function OrderDetailContent({ id }: { id: string }) {
                   disabled={busy}
                   onClick={handleRefundConfirm}
                 >
-                  {busy ? "Отменяем" : "Да, вернуть деньги"}
+                  {busy ? "Отменяем" : "Да, отменить"}
                 </button>
               </div>
               <div className="modal-back">

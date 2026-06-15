@@ -25,7 +25,7 @@ import { Surface } from "@/components/Surface";
 import {
   cancelReservation,
   confirmRentalReturn,
-  confirmReservation,
+  createPaymentPreauth,
   fetchMyReservations,
   fetchReservation,
   fetchRentals,
@@ -34,6 +34,7 @@ import {
 import { ApiError } from "@/shared/api/client";
 import type { RentalListItem, UpcomingReservation } from "@/shared/api/types";
 import { buildRescheduleProductHref } from "@/shared/checkout/reschedule";
+import { writePendingCheckout } from "@/shared/checkout/pending";
 import { formatCountRu, formatDateTime } from "@/shared/format";
 import { resolvePublicAssetUrl } from "@/shared/media";
 import { isRentalFinished } from "@/shared/rentalStatus";
@@ -248,12 +249,25 @@ function RentalsContent() {
     setBusy(reservation.id, true);
     setItemError(reservation.id, "");
     try {
-      // Юкасса временно отключена: подтверждаем бронь без платежа и сразу
-      // открываем карточку аренды.
-      const rental = await confirmReservation(reservation.id);
-      router.push(`/profile/orders/${rental.id}`);
+      // Создаём платёж через ЮKassa и перенаправляем на страницу оплаты.
+      const preauth = await createPaymentPreauth({
+        reservationId: reservation.id,
+      });
+
+      writePendingCheckout({
+        reservationId: reservation.id,
+        paymentId: preauth.payment.id,
+        createdAt: new Date().toISOString(),
+      });
+
+      const confirmationUrl = preauth.confirmation?.confirmationUrl;
+      if (confirmationUrl) {
+        window.location.href = confirmationUrl;
+      } else {
+        router.push("/payment/return");
+      }
     } catch (err) {
-      let msg = "Не удалось оформить аренду";
+      let msg = "Не удалось оформить оплату";
       if (err instanceof ApiError) {
         if (err.code === "LOCKER_OFFLINE") {
           msg =
@@ -521,7 +535,7 @@ function RentalsContent() {
                                 onClick={(e) => handleCancelClick(reservation, e)}
                               >
                                 <XCircle size={15} />
-                                {reservation.status === "payment_authorized" ? "Вернуть деньги" : "Отменить"}
+                                Отменить
                               </button>
                             ) : null}
                           </div>
@@ -647,9 +661,9 @@ function RentalsContent() {
             <div className="modal-icon">
               <XCircle size={26} />
             </div>
-            <h2 className="modal-title">Вернуть деньги?</h2>
+            <h2 className="modal-title">Отменить бронь?</h2>
             <p className="modal-text">
-              Вы уверены, что хотите вернуть деньги? Вы можете перенести запись на другое время в следующем шаге.
+              Вы уверены, что хотите отменить? Средства вернутся на карту. Вы можете перенести запись на другое время.
             </p>
             <div className="modal-actions">
               <div className="modal-actions-row">
@@ -667,7 +681,7 @@ function RentalsContent() {
                   disabled={pendingCancelId ? (busyIds[pendingCancelId] ?? false) : false}
                   onClick={handleRefundConfirm}
                 >
-                  Да, вернуть деньги
+                  Да, отменить
                 </button>
               </div>
               <div className="modal-back">
