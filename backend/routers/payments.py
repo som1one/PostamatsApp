@@ -53,6 +53,34 @@ async def get_payment(
         raise HTTPException(status_code=404, detail="PAYMENT_NOT_FOUND")
     if payment.user_id != user.id:
         raise HTTPException(status_code=403, detail="PAYMENT_FORBIDDEN")
+
+    # Active polling fallback: если платёж pending дольше 10с и есть
+    # provider_payment_id — проверяем статус напрямую в ЮKassa.
+    # Это покрывает случай, когда webhook не дошёл или задержался.
+    if (
+        payment.status == PaymentStatus.PENDING
+        and payment.provider_payment_id
+        and payment.created_at is not None
+    ):
+        from backend.utils.yookassa_service import fetch_yookassa_payment_status
+        from backend.utils.payment_flow import _map_yookassa_status_to_payment_status
+
+        age_seconds = (datetime.now(timezone.utc) - payment.created_at).total_seconds()
+        if age_seconds > 10:
+            yk_status = await fetch_yookassa_payment_status(payment.provider_payment_id)
+            if yk_status:
+                new_status = _map_yookassa_status_to_payment_status(yk_status)
+                if new_status is not None and new_status != PaymentStatus.PENDING:
+                    payment.status = new_status
+                    payment.processed_at = datetime.now(timezone.utc)
+                    # Также обновляем бронь если платёж confirmed
+                    if new_status in (PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED) and payment.reservation_id:
+                        res = await db.get(Reservation, payment.reservation_id)
+                        if res is not None and res.status == ReservationStatus.AWAITING_PAYMENT:
+                            res.status = ReservationStatus.PAYMENT_AUTHORIZED
+                    await db.commit()
+                    await db.refresh(payment)
+
     return {"data": {"payment": serialize_payment_for_user(payment)}}
 
 

@@ -170,3 +170,33 @@ async def create_yookassa_preauth_payment(
             metadata=metadata,
         ),
     )
+
+
+def _find_payment_sync(provider_payment_id: str) -> dict[str, Any]:
+    from yookassa import Configuration, Payment
+
+    Configuration.configure(settings.YOOKASSA_SHOP_ID, settings.YOOKASSA_SECRET_KEY)
+    payment = Payment.find_one(provider_payment_id)
+    return {"status": payment.status}
+
+
+async def fetch_yookassa_payment_status(provider_payment_id: str) -> str | None:
+    """Запрашивает актуальный статус платежа напрямую из ЮKassa API.
+
+    Возвращает строку статуса ('pending', 'waiting_for_capture', 'succeeded',
+    'canceled') или None если запрос не удался.
+    """
+    if settings.YOOKASSA_DEV_STUB:
+        return None
+    if not settings.YOOKASSA_SHOP_ID or not settings.YOOKASSA_SECRET_KEY:
+        return None
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: _find_payment_sync(provider_payment_id),
+        )
+        return result.get("status")
+    except Exception:
+        logger.warning("Failed to fetch payment status from YooKassa: %s", provider_payment_id)
+        return None

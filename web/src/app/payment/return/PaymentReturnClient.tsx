@@ -83,7 +83,21 @@ function PaymentReturnContent() {
         setPayment(pay);
         setReservation(res);
 
+        // Платёж подтверждён — создаём аренду.
         if (pay.status === "authorized" || pay.status === "captured") {
+          const createdRental = await confirmReservation(res.id, pay.id);
+          if (!active) {
+            return;
+          }
+          setRental(createdRental);
+          clearPendingCheckout();
+          setPending(null);
+          return;
+        }
+
+        // Фоллбэк: вебхук от ЮKassa обновил бронь, но платёж ещё pending
+        // в нашей БД (редко, но бывает при задержке обновления кеша).
+        if (res.status === "payment_authorized") {
           const createdRental = await confirmReservation(res.id, pay.id);
           if (!active) {
             return;
