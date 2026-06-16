@@ -76,6 +76,15 @@ function todayInputValue() {
   return `${year}-${month}-${day}`;
 }
 
+function tomorrowInputValue() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const year = tomorrow.getFullYear();
+  const month = String(tomorrow.getMonth() + 1).padStart(2, "0");
+  const day = String(tomorrow.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function formatRangeNote(plan: PricePlan): string {
   return `${formatMoney(plan.baseAmount, plan.currency)}`;
 }
@@ -93,7 +102,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [lockerId, setLockerId] = useState("");
   const [date, setDate] = useState(todayInputValue);
-  const [endDate, setEndDate] = useState(todayInputValue);
+  const [endDate, setEndDate] = useState(tomorrowInputValue);
   const [pricing, setPricing] = useState<PricingQuote | null>(null);
   const [busyDates, setBusyDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
