@@ -263,10 +263,10 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
   }, [product]);
   const startDateTime = date || "";
   const checkoutHref =
-    product && selectedPlan && lockerId && date && rangeDays >= 2
-      ? `/checkout?productId=${product.id}&lockerId=${lockerId}&durationType=${selectedPlan.durationType}&durationValue=${Math.max(rangeDays, 2)}&startAt=${encodeURIComponent(date)}${rescheduleReservationId ? `&reservationId=${encodeURIComponent(rescheduleReservationId)}` : ""}`
+    product && selectedPlan && lockerId && date
+      ? `/checkout?productId=${product.id}&lockerId=${lockerId}&durationType=${selectedPlan.durationType}&durationValue=${selectedPlan.durationValue}&startAt=${encodeURIComponent(date)}${rescheduleReservationId ? `&reservationId=${encodeURIComponent(rescheduleReservationId)}` : ""}`
       : "/catalog";
-  const canCheckout = Boolean(product && selectedPlan && lockerId && date && rangeDays >= 2);
+  const canCheckout = Boolean(product && selectedPlan && lockerId && date);
 
   useCitySync(cities, cityId, setCityId);
 
@@ -528,7 +528,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                       Или выберите готовый тариф со скидкой:
                     </p>
                     <RentalDurationSelector
-                      plans={dayPlans.filter((p) => p.durationValue >= 2)}
+                      plans={dayPlans}
                       selectedPlanId={
                         selectedPlan && rangeDays === selectedPlan.durationValue
                           ? selectedPlan.id
