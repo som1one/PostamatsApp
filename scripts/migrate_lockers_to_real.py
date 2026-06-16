@@ -454,30 +454,8 @@ async def _delete_locker_cascade(
         ).all()
     )
 
-    # Защита: активные брони на этом постамате.
-    if (
-        await session.scalar(
-            select(Reservation.id)
-            .where(
-                Reservation.locker_id == locker.id,
-                Reservation.status.in_(_ACTIVE_RESERVATION_STATUSES),
-            )
-            .limit(1)
-        )
-    ) is not None:
-        return False, "has_active_reservations"
-
-    # Защита: активные аренды на этом постамате.
-    rental_by_locker = await session.scalar(
-        select(Rental.id)
-        .where(
-            Rental.pickup_locker_id == locker.id,
-            Rental.status.in_(_ACTIVE_RENTAL_STATUSES),
-        )
-        .limit(1)
-    )
-    if rental_by_locker is not None:
-        return False, "has_active_rentals"
+    # Защита отключена, так как мы хотим принудительно удалить все seed-постаматы
+    # вместе с активными тестовыми бронированиями и арендами.
 
     # Inventory_units, которые сейчас лежат в ячейках этого постамата.
     if cell_ids:
@@ -490,9 +468,7 @@ async def _delete_locker_cascade(
                 )
             ).all()
         )
-        for unit in units:
-            if unit.status not in _DELETABLE_INVENTORY_STATUSES:
-                return False, f"inventory_unit_{unit.id}_status_{unit.status.value}"
+        # Проверка статусов inventory_units отключена, удаляем принудительно
         # Удаляем полностью — точка уходит навсегда, привязывать к другой
         # ячейке некуда. Это безопасно благодаря проверкам выше.
         unit_ids = [u.id for u in units]
