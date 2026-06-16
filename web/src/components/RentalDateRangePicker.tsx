@@ -214,14 +214,28 @@ export function RentalDateRangePicker({
     return iso < minSelectableISO || iso > maxSelectableISO || disabledSet.has(iso);
   }
 
+  function getNextAvailable(startISO: string): string | null {
+    const start = parseInputDate(startISO);
+    if (!start) return null;
+    const cursor = new Date(start);
+    cursor.setDate(cursor.getDate() + 1);
+    while (toInputDate(cursor) <= maxSelectableISO) {
+      if (!disabledSet.has(toInputDate(cursor))) {
+        return toInputDate(cursor);
+      }
+      // Если следующий день занят, значит мы уперлись в занятый блок,
+      // мы не можем перепрыгнуть через занятые дни (hasBusyBetween).
+      // Поэтому если сразу следующий день занят, мы не можем сделать 2-дневную аренду.
+      break;
+    }
+    return null;
+  }
+
   function handleCellClick(cell: CalendarCell) {
     if (isCellDisabled(cell.iso)) {
       return;
     }
     if (mode === "single") {
-      // Один клик — выбираем только дату начала. Конечную дату определяет
-      // выбранный тариф снаружи; пока тариф не выбран — пусть end будет
-      // равен start, чтобы пикер не показывал «диапазон».
       onChange({
         startDate: cell.iso,
         endDate: value.endDate && value.endDate >= cell.iso ? value.endDate : cell.iso,
@@ -229,15 +243,17 @@ export function RentalDateRangePicker({
       return;
     }
     if (pendingEdge === "end" && startDateObj) {
-      if (cell.iso < value.startDate) {
-        // Кликнули раньше старта — начинаем заново с этой даты.
-        onChange({ startDate: cell.iso, endDate: cell.iso });
+      if (cell.iso <= value.startDate) {
+        // Кликнули раньше старта или в тот же день — начинаем заново с этой даты, сразу 2 дня.
+        const nextAvail = getNextAvailable(cell.iso);
+        onChange({ startDate: cell.iso, endDate: nextAvail || cell.iso });
         setPendingEdge("end");
         return;
       }
       // Нельзя замкнуть диапазон поверх занятых дней.
       if (hasBusyBetween(value.startDate, cell.iso)) {
-        onChange({ startDate: cell.iso, endDate: cell.iso });
+        const nextAvail = getNextAvailable(cell.iso);
+        onChange({ startDate: cell.iso, endDate: nextAvail || cell.iso });
         setPendingEdge("end");
         return;
       }
@@ -245,7 +261,8 @@ export function RentalDateRangePicker({
       setPendingEdge("start");
       return;
     }
-    onChange({ startDate: cell.iso, endDate: cell.iso });
+    const nextAvail = getNextAvailable(cell.iso);
+    onChange({ startDate: cell.iso, endDate: nextAvail || cell.iso });
     setPendingEdge("end");
   }
 
