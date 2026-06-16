@@ -131,53 +131,19 @@ class DeleteTarget:
     match_external_id: str
 
 
-TARGETS: tuple[TargetState, ...] = (
-    # СПб Невский — фейковая витрина: статус MAINTENANCE, чтобы товары
-    # отображались в каталоге Питера, но кнопка «Оформить аренду» была
-    # заблокирована (бэкенд при reservation вернёт LOCKER_NOT_BOOKABLE).
-    TargetState(
-        match_provider="seed",
-        match_external_id="seed-spb-nevsky",
-        new_provider="seed",
-        new_external_id="seed-spb-nevsky",
-        new_status=LockerStatus.MAINTENANCE,
-        new_partner_name="Dev Seed",
-    ),
-    # В.Новгород Центр — настоящий ESI PST_0980. Серийник у провайдера
-    # хранится с префиксом `PST_`, без префикса ESI отвечает 404.
-    TargetState(
-        match_provider="seed",
-        match_external_id="seed-vn-center",
-        new_provider="esi",
-        new_external_id="PST_0980",
-        new_status=LockerStatus.ONLINE,
-        new_partner_name="ESI",
-        new_name="Великий Новгород Центр",
-        new_address="Великий Новгород, Большая Санкт-Петербургская ул., 39",
-    ),
-    # В.Новгород Западный — выключаем (seed, OFFLINE, остаётся в каталоге
-    # как тестовая точка).
-    TargetState(
-        match_provider="seed",
-        match_external_id="seed-vn-west",
-        new_provider="seed",
-        new_external_id="seed-vn-west",
-        new_status=LockerStatus.OFFLINE,
-        new_partner_name="Dev Seed",
-    ),
-)
-
+TARGETS: tuple[TargetState, ...] = ()
 
 # Постаматы, подлежащие полному удалению вместе с ячейками.
 DELETE_TARGETS: tuple[DeleteTarget, ...] = (
     DeleteTarget(match_provider="seed", match_external_id="seed-spb-petrogradka"),
     DeleteTarget(match_provider="esi", match_external_id="test-moscow-fake-001"),
+    DeleteTarget(match_provider="seed", match_external_id="seed-spb-nevsky"),
+    DeleteTarget(match_provider="seed", match_external_id="seed-vn-center"),
+    DeleteTarget(match_provider="seed", match_external_id="seed-vn-west"),
 )
 
 
-INVENTORY_SYNC_TARGETS: tuple[tuple[tuple[str, str], tuple[str, str]], ...] = (
-    (("seed", "seed-spb-nevsky"), ("esi", "PST_0980")),
-)
+INVENTORY_SYNC_TARGETS: tuple[tuple[tuple[str, str], tuple[str, str]], ...] = ()
 
 
 CITY_PRODUCT_REMOVALS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -530,34 +496,72 @@ async def _delete_locker_cascade(
         # Удаляем полностью — точка уходит навсегда, привязывать к другой
         # ячейке некуда. Это безопасно благодаря проверкам выше.
         unit_ids = [u.id for u in units]
-        if unit_ids:
-            rentals_list = (await session.scalars(select(Rental.id).where(Rental.inventory_unit_id.in_(unit_ids)))).all()
-            if rentals_list:
-                return_reqs = (await session.scalars(select(ReturnRequest.id).where(ReturnRequest.rental_id.in_(rentals_list)))).all()
-                if return_reqs:
-                    await session.execute(delete(EsiEventLog).where(EsiEventLog.matched_return_request_id.in_(return_reqs)))
-                await session.execute(delete(ReturnRequest).where(ReturnRequest.rental_id.in_(rentals_list)))
-                
-                payments = (await session.scalars(select(Payment.id).where(Payment.rental_id.in_(rentals_list)))).all()
-                if payments:
-                    await session.execute(delete(PaymentEvent).where(PaymentEvent.payment_id.in_(payments)))
-                await session.execute(delete(Payment).where(Payment.rental_id.in_(rentals_list)))
-                
-                await session.execute(delete(EsiEventLog).where(EsiEventLog.matched_rental_id.in_(rentals_list)))
-                await session.execute(delete(RentalEvent).where(RentalEvent.rental_id.in_(rentals_list)))
-                await session.execute(delete(ConditionReport).where(ConditionReport.rental_id.in_(rentals_list)))
-                await session.execute(delete(Rental).where(Rental.id.in_(rentals_list)))
+        
+    from sqlalchemy import or_
 
-            reservations_list = (await session.scalars(select(Reservation.id).where(Reservation.inventory_unit_id.in_(unit_ids)))).all()
-            if reservations_list:
-                payments_res = (await session.scalars(select(Payment.id).where(Payment.reservation_id.in_(reservations_list)))).all()
-                if payments_res:
-                    await session.execute(delete(PaymentEvent).where(PaymentEvent.payment_id.in_(payments_res)))
-                await session.execute(delete(Payment).where(Payment.reservation_id.in_(reservations_list)))
-                await session.execute(delete(Reservation).where(Reservation.id.in_(reservations_list)))
+    # Find all rentals referencing units or the locker directly
+    r_conditions = [
+        Rental.pickup_locker_id == locker.id,
+        Rental.return_locker_id == locker.id,
+    ]
+    if unit_ids:
+        r_conditions.append(Rental.inventory_unit_id.in_(unit_ids))
+    rentals_list = (await session.scalars(select(Rental.id).where(or_(*r_conditions)))).all()
 
-            await session.execute(delete(InventoryMovement).where(InventoryMovement.inventory_unit_id.in_(unit_ids)))
-            await session.execute(delete(ConditionReport).where(ConditionReport.inventory_unit_id.in_(unit_ids)))
+    if rentals_list:
+        return_reqs = (await session.scalars(select(ReturnRequest.id).where(ReturnRequest.rental_id.in_(rentals_list)))).all()
+        if return_reqs:
+            await session.execute(delete(EsiEventLog).where(EsiEventLog.matched_return_request_id.in_(return_reqs)))
+        await session.execute(delete(ReturnRequest).where(ReturnRequest.rental_id.in_(rentals_list)))
+        
+        payments = (await session.scalars(select(Payment.id).where(Payment.rental_id.in_(rentals_list)))).all()
+        if payments:
+            await session.execute(delete(PaymentEvent).where(PaymentEvent.payment_id.in_(payments)))
+        await session.execute(delete(Payment).where(Payment.rental_id.in_(rentals_list)))
+        
+        await session.execute(delete(EsiEventLog).where(EsiEventLog.matched_rental_id.in_(rentals_list)))
+        await session.execute(delete(RentalEvent).where(RentalEvent.rental_id.in_(rentals_list)))
+        await session.execute(delete(ConditionReport).where(ConditionReport.rental_id.in_(rentals_list)))
+        await session.execute(delete(Rental).where(Rental.id.in_(rentals_list)))
+
+    # Also any ReturnRequests tied directly to the locker
+    rr_conds = [ReturnRequest.drop_locker_id == locker.id]
+    if cell_ids:
+        rr_conds.append(ReturnRequest.drop_locker_cell_id.in_(cell_ids))
+    return_reqs_l = (await session.scalars(select(ReturnRequest.id).where(or_(*rr_conds)))).all()
+    if return_reqs_l:
+        await session.execute(delete(EsiEventLog).where(EsiEventLog.matched_return_request_id.in_(return_reqs_l)))
+        await session.execute(delete(ReturnRequest).where(ReturnRequest.id.in_(return_reqs_l)))
+
+    # Find all reservations referencing units or the locker directly
+    res_conditions = [Reservation.locker_id == locker.id]
+    if unit_ids:
+        res_conditions.append(Reservation.inventory_unit_id.in_(unit_ids))
+    reservations_list = (await session.scalars(select(Reservation.id).where(or_(*res_conditions)))).all()
+
+    if reservations_list:
+        payments_res = (await session.scalars(select(Payment.id).where(Payment.reservation_id.in_(reservations_list)))).all()
+        if payments_res:
+            await session.execute(delete(PaymentEvent).where(PaymentEvent.payment_id.in_(payments_res)))
+        await session.execute(delete(Payment).where(Payment.reservation_id.in_(reservations_list)))
+        await session.execute(delete(Reservation).where(Reservation.id.in_(reservations_list)))
+
+    # InventoryMovements referencing the locker
+    im_conds = [
+        InventoryMovement.from_locker_id == locker.id,
+        InventoryMovement.to_locker_id == locker.id,
+    ]
+    if cell_ids:
+        im_conds.append(InventoryMovement.from_locker_cell_id.in_(cell_ids))
+        im_conds.append(InventoryMovement.to_locker_cell_id.in_(cell_ids))
+    if unit_ids:
+        im_conds.append(InventoryMovement.inventory_unit_id.in_(unit_ids))
+    await session.execute(delete(InventoryMovement).where(or_(*im_conds)))
+
+    if unit_ids:
+        await session.execute(delete(ConditionReport).where(ConditionReport.inventory_unit_id.in_(unit_ids)))
+    
+    if cell_ids:
         for unit in units:
             await session.delete(unit)
         await session.flush()
