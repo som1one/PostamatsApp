@@ -68,6 +68,8 @@ done
 if [ "${backend_ready}" -eq 1 ]; then
   echo "[deploy] applying catalog bundle (idempotent)"
   docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
+    python -m scripts.delete_extra_cells
+  docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
     python -m scripts.apply_catalog_bundle \
       --bundle /app/deploy/catalog-sync.bundle.json \
       --apply --force
