@@ -525,9 +525,9 @@ async def _delete_locker_cascade(
         await session.execute(delete(Rental).where(Rental.id.in_(rentals_list)))
 
     # Also any ReturnRequests tied directly to the locker
-    rr_conds = [ReturnRequest.drop_locker_id == locker.id]
+    rr_conds = [ReturnRequest.locker_id == locker.id]
     if cell_ids:
-        rr_conds.append(ReturnRequest.drop_locker_cell_id.in_(cell_ids))
+        rr_conds.append(ReturnRequest.cell_id.in_(cell_ids))
     return_reqs_l = (await session.scalars(select(ReturnRequest.id).where(or_(*rr_conds)))).all()
     if return_reqs_l:
         await session.execute(delete(EsiEventLog).where(EsiEventLog.matched_return_request_id.in_(return_reqs_l)))
@@ -552,8 +552,8 @@ async def _delete_locker_cascade(
         InventoryMovement.to_locker_id == locker.id,
     ]
     if cell_ids:
-        im_conds.append(InventoryMovement.from_locker_cell_id.in_(cell_ids))
-        im_conds.append(InventoryMovement.to_locker_cell_id.in_(cell_ids))
+        im_conds.append(InventoryMovement.from_cell_id.in_(cell_ids))
+        im_conds.append(InventoryMovement.to_cell_id.in_(cell_ids))
     if unit_ids:
         im_conds.append(InventoryMovement.inventory_unit_id.in_(unit_ids))
     await session.execute(delete(InventoryMovement).where(or_(*im_conds)))
