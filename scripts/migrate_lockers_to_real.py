@@ -543,7 +543,7 @@ async def _delete_locker_cascade(
                     await session.execute(delete(PaymentEvent).where(PaymentEvent.payment_id.in_(payments)))
                 await session.execute(delete(Payment).where(Payment.rental_id.in_(rentals_list)))
                 
-                await session.execute(delete(EsiEventLog).where(EsiEventLog.rental_id.in_(rentals_list)))
+                await session.execute(delete(EsiEventLog).where(EsiEventLog.matched_rental_id.in_(rentals_list)))
                 await session.execute(delete(RentalEvent).where(RentalEvent.rental_id.in_(rentals_list)))
                 await session.execute(delete(ConditionReport).where(ConditionReport.rental_id.in_(rentals_list)))
                 await session.execute(delete(Rental).where(Rental.id.in_(rentals_list)))
