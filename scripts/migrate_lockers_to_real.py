@@ -523,6 +523,7 @@ async def _delete_locker_cascade(
         # ячейке некуда. Это безопасно благодаря проверкам выше.
         for unit in units:
             await session.delete(unit)
+        await session.flush()
 
     # Удаляем все ячейки этого постамата, потом сам постамат.
     if cell_ids:
