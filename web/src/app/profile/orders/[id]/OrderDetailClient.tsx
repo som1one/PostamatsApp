@@ -719,51 +719,16 @@ function OrderDetailContent({ id }: { id: string }) {
                   <>
                     <p className="muted detail-actions-hint">
                       {tooEarly
-                        ? `Получение запланировано на ${dateLabel}. Кнопка станет активной за час до этого времени.`
-                        : "Подойдите к постамату и нажмите «Открыть ячейку». Когда заберёте товар, нажмите «Я забрал» — аренда начнётся."}
+                        ? `Получение запланировано на ${dateLabel}. PIN-код появится за час до этого времени.`
+                        : "Подойдите к постамату и введите этот PIN-код на клавиатуре для открытия ячейки. Когда заберёте товар, нажмите «Я забрал»."}
                     </p>
-                    {openConfirmId === order.data.id ? (
-                      <div className="pickup-open-confirm" role="alert">
-                        <div className="pickup-open-confirm-head">
-                          <AlertTriangle size={18} />
-                          <strong>Будьте рядом с постаматом</strong>
-                        </div>
-                        <p className="pickup-open-confirm-text">
-                          Ячейка откроется сразу после нажатия. Убедитесь, что
-                          вы стоите у постамата и готовы забрать товар.
-                        </p>
-                        <div className="pickup-open-confirm-actions">
-                          <button
-                            className="button button-primary"
-                            type="button"
-                            disabled={busy || openCountdown > 0}
-                            onClick={() => handleOpenCell(order.data.id)}
-                          >
-                            <Key size={18} />
-                            {openCountdown > 0 ? `Открыть (${openCountdown})` : "Открыть"}
-                          </button>
-                          <button
-                            className="button button-secondary"
-                            type="button"
-                            disabled={busy}
-                            onClick={cancelOpenCellConfirm}
-                          >
-                            Отмена
-                          </button>
-                        </div>
+                    {!tooEarly && order.detail?.pickupPin ? (
+                      <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px" }}>
+                        <div style={{ fontSize: "14px", color: "#166534", marginBottom: "4px" }}>Ваш PIN-код:</div>
+                        <div style={{ fontSize: "32px", fontWeight: "bold", letterSpacing: "4px", color: "#15803d" }}>{order.detail.pickupPin}</div>
                       </div>
-                    ) : (
-                      <button
-                        className="button button-primary"
-                        type="button"
-                        disabled={busy || tooEarly}
-                        onClick={() => startOpenCellConfirm(order.data.id)}
-                      >
-                        <Key size={18} />
-                        Открыть ячейку
-                      </button>
-                    )}
-                    {order.data.status === "pickup_opened" ? (
+                    ) : null}
+                    {order.data.status === "pickup_opened" || (!tooEarly && order.detail?.pickupPin) ? (
                       <button
                         className="button button-secondary"
                         type="button"
@@ -776,7 +741,7 @@ function OrderDetailContent({ id }: { id: string }) {
                     ) : null}
                     {order.data.status === "pickup_ready" ? (
                       <button
-                        className="button button-secondary"
+                        className="button button-ghost"
                         type="button"
                         disabled={busy}
                         onClick={() => setShowCancelRentalDialog(true)}
