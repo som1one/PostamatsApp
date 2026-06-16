@@ -143,10 +143,7 @@ DELETE_TARGETS: tuple[DeleteTarget, ...] = (
 INVENTORY_SYNC_TARGETS: tuple[tuple[tuple[str, str], tuple[str, str]], ...] = ()
 
 
-CITY_PRODUCT_REMOVALS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("spb", ("perforator-elitech", "projektor")),
-)
-
+CITY_PRODUCT_REMOVALS: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
 # Статусы броней/аренд, при которых удалять постамат опасно — это
 # реальные пользовательские операции в полёте.
