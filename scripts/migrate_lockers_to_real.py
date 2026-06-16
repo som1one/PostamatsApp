@@ -528,8 +528,8 @@ async def _delete_locker_cascade(
         if unit_ids:
             await session.execute(delete(InventoryMovement).where(InventoryMovement.inventory_unit_id.in_(unit_ids)))
             await session.execute(delete(ConditionReport).where(ConditionReport.inventory_unit_id.in_(unit_ids)))
-            await session.execute(delete(Reservation).where(Reservation.inventory_unit_id.in_(unit_ids)))
             await session.execute(delete(Rental).where(Rental.inventory_unit_id.in_(unit_ids)))
+            await session.execute(delete(Reservation).where(Reservation.inventory_unit_id.in_(unit_ids)))
         for unit in units:
             await session.delete(unit)
         await session.flush()
