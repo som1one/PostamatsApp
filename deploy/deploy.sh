@@ -66,6 +66,10 @@ while :; do
 done
 
 if [ "${backend_ready}" -eq 1 ]; then
+  echo "[deploy] running scripts.wipe_spb to clean SPB before sync"
+  docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
+    python -m scripts.wipe_spb
+
   echo "[deploy] applying catalog bundle (idempotent)"
   docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
     python -m scripts.delete_extra_cells
