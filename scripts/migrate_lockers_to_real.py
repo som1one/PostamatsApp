@@ -48,6 +48,7 @@ from backend.core.database import SessionLocal, engine  # noqa: E402
 from backend.models.city import City  # noqa: E402
 from backend.models.enums import (  # noqa: E402
     InventoryStatus,
+    LockerCellStatus,
     LockerStatus,
     RentalStatus,
     ReservationStatus,
