@@ -62,6 +62,11 @@ from backend.models.inventory_movement import InventoryMovement  # noqa: E402
 from backend.models.condition_report import ConditionReport  # noqa: E402
 from backend.models.reservation import Reservation  # noqa: E402
 from backend.models.reservation import Reservation  # noqa: E402
+from backend.models.rental_event import RentalEvent  # noqa: E402
+from backend.models.esi_event_log import EsiEventLog  # noqa: E402
+from backend.models.payment import Payment  # noqa: E402
+from backend.models.payment_event import PaymentEvent  # noqa: E402
+from backend.models.return_request import ReturnRequest  # noqa: E402
 
 # При flush SQLAlchemy строит граф таблиц по всем FK у моделей,
 # зарегистрированных в Base.metadata. У ``LockerLocation`` есть
@@ -526,10 +531,33 @@ async def _delete_locker_cascade(
         # ячейке некуда. Это безопасно благодаря проверкам выше.
         unit_ids = [u.id for u in units]
         if unit_ids:
+            rentals_list = (await session.scalars(select(Rental.id).where(Rental.inventory_unit_id.in_(unit_ids)))).all()
+            if rentals_list:
+                return_reqs = (await session.scalars(select(ReturnRequest.id).where(ReturnRequest.rental_id.in_(rentals_list)))).all()
+                if return_reqs:
+                    await session.execute(delete(EsiEventLog).where(EsiEventLog.matched_return_request_id.in_(return_reqs)))
+                await session.execute(delete(ReturnRequest).where(ReturnRequest.rental_id.in_(rentals_list)))
+                
+                payments = (await session.scalars(select(Payment.id).where(Payment.rental_id.in_(rentals_list)))).all()
+                if payments:
+                    await session.execute(delete(PaymentEvent).where(PaymentEvent.payment_id.in_(payments)))
+                await session.execute(delete(Payment).where(Payment.rental_id.in_(rentals_list)))
+                
+                await session.execute(delete(EsiEventLog).where(EsiEventLog.rental_id.in_(rentals_list)))
+                await session.execute(delete(RentalEvent).where(RentalEvent.rental_id.in_(rentals_list)))
+                await session.execute(delete(ConditionReport).where(ConditionReport.rental_id.in_(rentals_list)))
+                await session.execute(delete(Rental).where(Rental.id.in_(rentals_list)))
+
+            reservations_list = (await session.scalars(select(Reservation.id).where(Reservation.inventory_unit_id.in_(unit_ids)))).all()
+            if reservations_list:
+                payments_res = (await session.scalars(select(Payment.id).where(Payment.reservation_id.in_(reservations_list)))).all()
+                if payments_res:
+                    await session.execute(delete(PaymentEvent).where(PaymentEvent.payment_id.in_(payments_res)))
+                await session.execute(delete(Payment).where(Payment.reservation_id.in_(reservations_list)))
+                await session.execute(delete(Reservation).where(Reservation.id.in_(reservations_list)))
+
             await session.execute(delete(InventoryMovement).where(InventoryMovement.inventory_unit_id.in_(unit_ids)))
             await session.execute(delete(ConditionReport).where(ConditionReport.inventory_unit_id.in_(unit_ids)))
-            await session.execute(delete(Rental).where(Rental.inventory_unit_id.in_(unit_ids)))
-            await session.execute(delete(Reservation).where(Reservation.inventory_unit_id.in_(unit_ids)))
         for unit in units:
             await session.delete(unit)
         await session.flush()
