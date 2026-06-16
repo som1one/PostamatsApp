@@ -58,6 +58,9 @@ from backend.models.locker_cell import LockerCell  # noqa: E402
 from backend.models.locker_location import LockerLocation  # noqa: E402
 from backend.models.product import Product  # noqa: E402
 from backend.models.rental import Rental  # noqa: E402
+from backend.models.inventory_movement import InventoryMovement  # noqa: E402
+from backend.models.condition_report import ConditionReport  # noqa: E402
+from backend.models.reservation import Reservation  # noqa: E402
 from backend.models.reservation import Reservation  # noqa: E402
 
 # При flush SQLAlchemy строит граф таблиц по всем FK у моделей,
@@ -521,6 +524,12 @@ async def _delete_locker_cascade(
                 return False, f"inventory_unit_{unit.id}_status_{unit.status.value}"
         # Удаляем полностью — точка уходит навсегда, привязывать к другой
         # ячейке некуда. Это безопасно благодаря проверкам выше.
+        unit_ids = [u.id for u in units]
+        if unit_ids:
+            await session.execute(delete(InventoryMovement).where(InventoryMovement.inventory_unit_id.in_(unit_ids)))
+            await session.execute(delete(ConditionReport).where(ConditionReport.inventory_unit_id.in_(unit_ids)))
+            await session.execute(delete(Reservation).where(Reservation.inventory_unit_id.in_(unit_ids)))
+            await session.execute(delete(Rental).where(Rental.inventory_unit_id.in_(unit_ids)))
         for unit in units:
             await session.delete(unit)
         await session.flush()
