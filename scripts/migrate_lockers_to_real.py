@@ -137,9 +137,7 @@ TARGETS: tuple[TargetState, ...] = ()
 DELETE_TARGETS: tuple[DeleteTarget, ...] = (
     DeleteTarget(match_provider="seed", match_external_id="seed-spb-petrogradka"),
     DeleteTarget(match_provider="esi", match_external_id="test-moscow-fake-001"),
-    DeleteTarget(match_provider="seed", match_external_id="seed-spb-nevsky"),
     DeleteTarget(match_provider="seed", match_external_id="seed-vn-center"),
-    DeleteTarget(match_provider="seed", match_external_id="seed-vn-west"),
 )
 
 
@@ -456,6 +454,9 @@ async def _delete_locker_cascade(
 
     # Защита отключена, так как мы хотим принудительно удалить все seed-постаматы
     # вместе с активными тестовыми бронированиями и арендами.
+
+    unit_ids = []
+    units = []
 
     # Inventory_units, которые сейчас лежат в ячейках этого постамата.
     if cell_ids:
