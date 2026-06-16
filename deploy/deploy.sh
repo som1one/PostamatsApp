@@ -77,6 +77,8 @@ if [ "${backend_ready}" -eq 1 ]; then
   echo "[deploy] running scripts.migrate_lockers_to_real (idempotent)"
   docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
     python -m scripts.migrate_lockers_to_real
+  docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
+    python -m scripts.save_spb_catalog
 else
   echo "[deploy] WARNING: backend container did not reach running state, skipping locker migration and catalog sync" >&2
 fi
