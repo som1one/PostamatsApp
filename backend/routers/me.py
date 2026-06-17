@@ -376,6 +376,23 @@ async def list_my_reservations(
     if not reservations:
         return {"data": {"reservations": []}}
 
+    # ── Reconciliation: если бронь в awaiting_payment, но платёж уже
+    # прошёл (webhook задержался), обновляем статус брони на лету. ──
+    awaiting = [r for r in reservations if r.status == ReservationStatus.AWAITING_PAYMENT]
+    if awaiting:
+        awaiting_ids = [r.id for r in awaiting]
+        payment_stmt = select(Payment).where(
+            Payment.reservation_id.in_(awaiting_ids),
+            Payment.status.in_((PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED)),
+        )
+        confirmed_payments = (await db.scalars(payment_stmt)).all()
+        confirmed_reservation_ids = {p.reservation_id for p in confirmed_payments}
+        if confirmed_reservation_ids:
+            for r in reservations:
+                if r.id in confirmed_reservation_ids and r.status == ReservationStatus.AWAITING_PAYMENT:
+                    r.status = ReservationStatus.PAYMENT_AUTHORIZED
+            await db.commit()
+
     product_ids = list({reservation.product_id for reservation in reservations})
     products = (
         (await db.scalars(select(Product).where(Product.id.in_(product_ids)))).all()

@@ -178,7 +178,11 @@ function CheckoutContent() {
       }
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.code === "LOCKER_OFFLINE") {
+        if (err.code === "PAYMENT_ALREADY_EXISTS") {
+          // Оплата по этой брони уже прошла — переходим к заказам.
+          router.push("/profile/orders");
+          return;
+        } else if (err.code === "LOCKER_OFFLINE") {
           setError(
             "Постамат сейчас офлайн. Попробуйте чуть позже — в ночные часы устройство может уходить в режим обслуживания.",
           );

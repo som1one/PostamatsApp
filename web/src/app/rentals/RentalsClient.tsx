@@ -13,6 +13,7 @@ import {
   PackageCheck,
   RotateCcw,
   XCircle,
+  Copy,
   ArrowLeftRight,
   type LucideIcon,
 } from "lucide-react";
@@ -267,6 +268,12 @@ function RentalsContent() {
         router.push("/payment/return");
       }
     } catch (err) {
+      if (err instanceof ApiError && err.code === "PAYMENT_ALREADY_EXISTS") {
+        // Оплата уже прошла — перезагружаем список, чтобы обновить статус брони.
+        await load();
+        setBusy(reservation.id, false);
+        return;
+      }
       let msg = "Не удалось оформить оплату";
       if (err instanceof ApiError) {
         if (err.code === "LOCKER_OFFLINE") {
@@ -599,6 +606,27 @@ function RentalsContent() {
                         ) : null}
                         {itemErr ? (
                           <p className="muted small" style={{ color: "var(--danger, #dd362d)" }}>{itemErr}</p>
+                        ) : null}
+                        {rental.pickupPin && ["pickup_ready", "pickup_opened"].includes(rental.status) ? (
+                          <div className="pickup-pin-display" style={{ padding: "12px", backgroundColor: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0", display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "12px", marginBottom: "12px" }}>
+                            <div>
+                              <div style={{ fontSize: "12px", color: "#166534", marginBottom: "2px" }}>Ваш PIN-код:</div>
+                              <div style={{ fontSize: "24px", fontWeight: "bold", letterSpacing: "2px", color: "#15803d" }}>{rental.pickupPin}</div>
+                            </div>
+                            <button
+                              type="button"
+                              className="button button-ghost button-sm"
+                              style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(rental.pickupPin!);
+                                alert("PIN-код скопирован");
+                              }}
+                              title="Скопировать PIN-код"
+                            >
+                              <Copy size={18} />
+                            </button>
+                          </div>
                         ) : null}
                         {canReturn ? (
                           <div className="card-actions" onClick={(e) => e.stopPropagation()}>
