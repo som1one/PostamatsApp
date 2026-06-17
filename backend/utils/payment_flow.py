@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def payment_blocks_new_preauth(p: Payment) -> bool:
-    return p.status not in (PaymentStatus.FAILED, PaymentStatus.CANCELLED, PaymentStatus.REFUNDED)
+    return p.status in (PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED)
 
 
 async def ensure_no_active_payment_for_reservation(db: AsyncSession, reservation_id: UUID) -> None:

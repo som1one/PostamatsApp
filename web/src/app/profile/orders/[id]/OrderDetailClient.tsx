@@ -16,6 +16,7 @@ import {
   RefreshCw,
   RotateCcw,
   XCircle,
+  Copy,
   type LucideIcon,
 } from "lucide-react";
 import { PageChrome } from "@/components/PageChrome";
@@ -598,8 +599,14 @@ function OrderDetailContent({ id }: { id: string }) {
                   <span>Адрес</span>
                   <strong>{order.data.locker.address || "—"}</strong>
                 </div>
+                {order.data.pickupAt ? (
+                  <div className="meta-line">
+                    <span>Получение</span>
+                    <strong>{formatDateTime(order.data.pickupAt)}</strong>
+                  </div>
+                ) : null}
                 <div className="meta-line">
-                  <span>Забрать до</span>
+                  <span>{order.data.status === "payment_authorized" ? "Бронь активна до" : "Оплатить до"}</span>
                   <strong>{formatDateTime(order.data.expiresAt)}</strong>
                 </div>
                 {order.data.cancelledAt ? (
@@ -638,8 +645,8 @@ function OrderDetailContent({ id }: { id: string }) {
                       <div className="rental-deadline rental-deadline-success">
                         <CheckCircle2 size={16} />
                         <div>
-                          <strong>До выдачи: {duration}</strong>
-                          <span>Оплата подтверждена. Заберите до {formatDateTime(order.data.expiresAt)}.</span>
+                          <strong>Оплата подтверждена</strong>
+                          <span>{order.data.pickupAt ? `Получение запланировано на ${formatDateTime(order.data.pickupAt)}.` : `Бронь активна до ${formatDateTime(order.data.expiresAt)}.`}</span>
                         </div>
                       </div>
                     );
@@ -649,7 +656,7 @@ function OrderDetailContent({ id }: { id: string }) {
                       <Clock3 size={16} />
                       <div>
                         <strong>До отмены брони: {duration}</strong>
-                        <span>Оплатите и заберите до {formatDateTime(order.data.expiresAt)}.</span>
+                        <span>Оплатите до {formatDateTime(order.data.expiresAt)}.</span>
                       </div>
                     </div>
                   );
@@ -723,9 +730,23 @@ function OrderDetailContent({ id }: { id: string }) {
                         : "Подойдите к постамату и введите этот PIN-код на клавиатуре для открытия ячейки. Когда заберёте товар, нажмите «Я забрал»."}
                     </p>
                     {!tooEarly && order.detail?.pickupPin ? (
-                      <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px" }}>
+                      <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px", position: "relative" }}>
                         <div style={{ fontSize: "14px", color: "#166534", marginBottom: "4px" }}>Ваш PIN-код:</div>
-                        <div style={{ fontSize: "32px", fontWeight: "bold", letterSpacing: "4px", color: "#15803d" }}>{order.detail.pickupPin}</div>
+                        <div style={{ fontSize: "32px", fontWeight: "bold", letterSpacing: "4px", color: "#15803d", display: "flex", alignItems: "center", justifyContent: "center", gap: "12px" }}>
+                          {order.detail.pickupPin}
+                          <button
+                            type="button"
+                            className="button button-ghost button-sm"
+                            style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
+                            onClick={() => {
+                              navigator.clipboard.writeText(order.detail!.pickupPin!);
+                              alert("PIN-код скопирован");
+                            }}
+                            title="Скопировать PIN-код"
+                          >
+                            <Copy size={20} />
+                          </button>
+                        </div>
                       </div>
                     ) : null}
                     {order.data.status === "pickup_opened" || (!tooEarly && order.detail?.pickupPin) ? (

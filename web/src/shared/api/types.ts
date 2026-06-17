@@ -249,6 +249,7 @@ export type PresignUploadResponse = {
 export type RentalListItem = {
   id: string;
   status: string;
+  pickupPin?: string | null;
   cancelReason?: string | null;
   startsAt?: string | null;
   plannedEndAt?: string | null;

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Boxes, MapPinned } from "lucide-react";
+import { ArrowLeft, Boxes, MapPinned, PackageCheck } from "lucide-react";
 import {
   CitySelector,
   readSavedCityId,
@@ -567,6 +567,30 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                   </>
                 ) : null}
               </section>
+
+              <div className="product-mobile-checkout">
+                {canCheckout && selectedLocker?.name && selectedLocker?.status === "online" ? (
+                  isAuthed ? (
+                    <Link className="button button-primary" href={checkoutHref} style={{ width: '100%' }}>
+                      <PackageCheck size={18} />
+                      Оформить аренду
+                    </Link>
+                  ) : (
+                    <button
+                      className="button button-primary"
+                      type="button"
+                      style={{ width: '100%' }}
+                      onClick={() => {
+                        const current = encodeURIComponent(window.location.pathname + window.location.search);
+                        window.location.href = `/login?next=${current}`;
+                      }}
+                    >
+                      <PackageCheck size={18} />
+                      Войти для оформления
+                    </button>
+                  )
+                ) : null}
+              </div>
 
               <section className="surface detail-panel rental-step-panel rental-step-panel-locker">
                 <div className="card-row">

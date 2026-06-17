@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeftRight, CreditCard, PackageCheck, RotateCcw, ShoppingBag } from "lucide-react";
+import { ArrowLeftRight, CreditCard, PackageCheck, RotateCcw, ShoppingBag, Copy } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { PageChrome } from "@/components/PageChrome";
 import { PageHeader } from "@/components/PageHeader";
@@ -261,10 +261,7 @@ function PaymentReturnContent() {
               <span>Создан</span>
               <strong>{formatDateTime(pending?.createdAt)}</strong>
             </div>
-            <div className="meta-line">
-              <span>ID платежа</span>
-              <strong className="payment-return-id">{payment?.id || pending?.paymentId}</strong>
-            </div>
+
           </div>
 
           {payment?.status === "pending" ? (
@@ -311,11 +308,31 @@ function PaymentReturnContent() {
 
           {rental ? (
             <>
+              {rental.pickupPin ? (
+                <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px", position: "relative" }}>
+                  <div style={{ fontSize: "14px", color: "#166534", marginBottom: "4px" }}>Ваш PIN-код:</div>
+                  <div style={{ fontSize: "32px", fontWeight: "bold", letterSpacing: "4px", color: "#15803d", display: "flex", alignItems: "center", justifyContent: "center", gap: "12px" }}>
+                    {rental.pickupPin}
+                    <button
+                      type="button"
+                      className="button button-ghost button-sm"
+                      style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(rental.pickupPin);
+                        alert("PIN-код скопирован");
+                      }}
+                      title="Скопировать PIN-код"
+                    >
+                      <Copy size={20} />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <div className="alert alert-success">
-                Оплата прошла успешно. Подойдите к постамату и откройте ячейку на странице заказа.
+                Оплата прошла успешно. Подойдите к постамату и введите PIN-код для открытия ячейки.
               </div>
               <Link className="button button-primary" href={`/profile/orders/${rental.id}`}>
-                Открыть ячейку
+                Открыть заказ
               </Link>
             </>
           ) : (
