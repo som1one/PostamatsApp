@@ -1,8 +1,9 @@
 import asyncio
 from backend.core.database import SessionLocal
 from backend.models.product import Product
-from backend.models.inventory import InventoryUnit
-from backend.models.locker import LockerCell, LockerLocation
+from backend.models.inventory_unit import InventoryUnit
+from backend.models.locker_cell import LockerCell
+from backend.models.locker_location import LockerLocation
 from backend.models.city import City
 from sqlalchemy import select
 
@@ -30,10 +31,10 @@ async def _run():
             slugs.add(r.slug)
             
         output.append("")
-        output.append(f"Total unique slugs: {len(slugs)}")
-        
-        with open("/app/deploy/spb_catalog_dump.md", "w") as f:
-            f.write("\n".join(output))
+        result_text = "\n".join(output)
+        print("============== CATALOG DUMP ==============")
+        print(result_text)
+        print("==========================================")
 
 def main():
     asyncio.run(_run())
