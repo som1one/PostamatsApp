@@ -145,6 +145,16 @@ INVENTORY_SYNC_TARGETS: tuple[tuple[tuple[str, str], tuple[str, str]], ...] = ()
 
 CITY_PRODUCT_REMOVALS: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
+
+# Постаматы, которые нужно очистить: удаляем все ячейки и юниты, а также
+# связанные брони/аренды/платежи, но сам постамат оставляем (статус и пр.
+# берётся из bundle). Нужно для seed-постаматов, которые остаются видимыми
+# (или OFFLINE), но не должны содержать товары — иначе на проде в них
+# зависают оплаты.
+EMPTY_LOCKER_TARGETS: tuple[tuple[str, str], ...] = (
+    ("seed", "seed-vn-west"),
+)
+
 # Статусы броней/аренд, при которых удалять постамат опасно — это
 # реальные пользовательские операции в полёте.
 _ACTIVE_RESERVATION_STATUSES: frozenset[ReservationStatus] = frozenset(
@@ -420,25 +430,16 @@ def _apply_target(locker: LockerLocation, target: TargetState) -> bool:
     return changed
 
 
-async def _delete_locker_cascade(
-    session: AsyncSession, target: DeleteTarget
-) -> tuple[bool, str]:
-    """Удаляет постамат вместе с ячейками и пустыми inventory_units.
+async def _purge_locker_contents(
+    session: AsyncSession, locker: LockerLocation
+) -> None:
+    """Сносит ячейки, юниты и все зависимые записи (брони, аренды, платежи,
+    события ESI, перемещения, отчёты состояния) у постамата.
 
-    Возвращает (deleted, reason). ``deleted=True`` означает, что точка
-    была найдена и удалена. ``deleted=False`` + reason описывает, почему
-    миграция должна остановиться (есть активные брони/аренды) или почему
-    удалять было нечего (точку уже удалили раньше).
+    Сам ``locker`` не удаляется — это делает caller, если нужно.
     """
 
-    locker = await session.scalar(
-        select(LockerLocation).where(
-            LockerLocation.external_provider == target.match_provider,
-            LockerLocation.external_locker_id == target.match_external_id,
-        )
-    )
-    if locker is None:
-        return False, "not_found"
+    from sqlalchemy import or_
 
     cell_ids = list(
         (
@@ -448,13 +449,8 @@ async def _delete_locker_cascade(
         ).all()
     )
 
-    # Защита отключена, так как мы хотим принудительно удалить все seed-постаматы
-    # вместе с активными тестовыми бронированиями и арендами.
-
-    unit_ids = []
     units = []
-
-    # Inventory_units, которые сейчас лежат в ячейках этого постамата.
+    unit_ids = []
     if cell_ids:
         units = list(
             (
@@ -465,14 +461,8 @@ async def _delete_locker_cascade(
                 )
             ).all()
         )
-        # Проверка статусов inventory_units отключена, удаляем принудительно
-        # Удаляем полностью — точка уходит навсегда, привязывать к другой
-        # ячейке некуда. Это безопасно благодаря проверкам выше.
         unit_ids = [u.id for u in units]
-        
-    from sqlalchemy import or_
 
-    # Find all rentals referencing units or the locker directly
     r_conditions = [
         Rental.pickup_locker_id == locker.id,
         Rental.return_locker_id == locker.id,
@@ -486,18 +476,17 @@ async def _delete_locker_cascade(
         if return_reqs:
             await session.execute(delete(EsiEventLog).where(EsiEventLog.matched_return_request_id.in_(return_reqs)))
         await session.execute(delete(ReturnRequest).where(ReturnRequest.rental_id.in_(rentals_list)))
-        
+
         payments = (await session.scalars(select(Payment.id).where(Payment.rental_id.in_(rentals_list)))).all()
         if payments:
             await session.execute(delete(PaymentEvent).where(PaymentEvent.payment_id.in_(payments)))
         await session.execute(delete(Payment).where(Payment.rental_id.in_(rentals_list)))
-        
+
         await session.execute(delete(EsiEventLog).where(EsiEventLog.matched_rental_id.in_(rentals_list)))
         await session.execute(delete(RentalEvent).where(RentalEvent.rental_id.in_(rentals_list)))
         await session.execute(delete(ConditionReport).where(ConditionReport.rental_id.in_(rentals_list)))
         await session.execute(delete(Rental).where(Rental.id.in_(rentals_list)))
 
-    # Also any ReturnRequests tied directly to the locker
     rr_conds = [ReturnRequest.locker_id == locker.id]
     if cell_ids:
         rr_conds.append(ReturnRequest.cell_id.in_(cell_ids))
@@ -506,7 +495,6 @@ async def _delete_locker_cascade(
         await session.execute(delete(EsiEventLog).where(EsiEventLog.matched_return_request_id.in_(return_reqs_l)))
         await session.execute(delete(ReturnRequest).where(ReturnRequest.id.in_(return_reqs_l)))
 
-    # Find all reservations referencing units or the locker directly
     res_conditions = [Reservation.locker_id == locker.id]
     if unit_ids:
         res_conditions.append(Reservation.inventory_unit_id.in_(unit_ids))
@@ -519,7 +507,6 @@ async def _delete_locker_cascade(
         await session.execute(delete(Payment).where(Payment.reservation_id.in_(reservations_list)))
         await session.execute(delete(Reservation).where(Reservation.id.in_(reservations_list)))
 
-    # InventoryMovements referencing the locker
     im_conds = [
         InventoryMovement.from_locker_id == locker.id,
         InventoryMovement.to_locker_id == locker.id,
@@ -533,17 +520,59 @@ async def _delete_locker_cascade(
 
     if unit_ids:
         await session.execute(delete(ConditionReport).where(ConditionReport.inventory_unit_id.in_(unit_ids)))
-    
+
     if cell_ids:
         for unit in units:
             await session.delete(unit)
         await session.flush()
-
-    # Удаляем все ячейки этого постамата, потом сам постамат.
-    if cell_ids:
         await session.execute(delete(LockerCell).where(LockerCell.id.in_(cell_ids)))
+
+
+async def _delete_locker_cascade(
+    session: AsyncSession, target: DeleteTarget
+) -> tuple[bool, str]:
+    """Удаляет постамат вместе с ячейками и зависимыми записями."""
+
+    locker = await session.scalar(
+        select(LockerLocation).where(
+            LockerLocation.external_provider == target.match_provider,
+            LockerLocation.external_locker_id == target.match_external_id,
+        )
+    )
+    if locker is None:
+        return False, "not_found"
+
+    await _purge_locker_contents(session, locker)
     await session.delete(locker)
     return True, "deleted"
+
+
+async def _empty_locker_inventory(
+    session: AsyncSession, *, provider: str, external_id: str
+) -> tuple[bool, str]:
+    """Очищает постамат: убирает ячейки и юниты, сам постамат остаётся.
+
+    Возвращает (changed, reason). ``changed=False`` + ``"already_empty"`` —
+    постамат был и так пустой, миграции делать нечего.
+    """
+
+    locker = await session.scalar(
+        select(LockerLocation).where(
+            LockerLocation.external_provider == provider,
+            LockerLocation.external_locker_id == external_id,
+        )
+    )
+    if locker is None:
+        return False, "not_found"
+
+    cell_count = await session.scalar(
+        select(func.count(LockerCell.id)).where(LockerCell.locker_id == locker.id)
+    )
+    if not cell_count:
+        return False, "already_empty"
+
+    await _purge_locker_contents(session, locker)
+    return True, "emptied"
 
 
 async def _run() -> int:
@@ -621,6 +650,34 @@ async def _run() -> int:
                 products_by_slug=products_by_slug,
             ):
                 updates += 1
+
+        for empty_provider, empty_external_id in EMPTY_LOCKER_TARGETS:
+            changed, reason = await _empty_locker_inventory(
+                session,
+                provider=empty_provider,
+                external_id=empty_external_id,
+            )
+            if changed:
+                updates += 1
+                logger.info(
+                    "Emptied locker provider=%s external_id=%s",
+                    empty_provider,
+                    empty_external_id,
+                )
+            elif reason == "already_empty":
+                skipped += 1
+                logger.info(
+                    "Locker provider=%s external_id=%s already empty — skip",
+                    empty_provider,
+                    empty_external_id,
+                )
+            else:
+                missing += 1
+                logger.warning(
+                    "Locker to empty not found: provider=%s external_id=%s",
+                    empty_provider,
+                    empty_external_id,
+                )
 
         for delete_target in DELETE_TARGETS:
             ok, reason = await _delete_locker_cascade(session, delete_target)

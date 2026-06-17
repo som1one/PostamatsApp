@@ -1,68 +1,110 @@
+"""Приводит сид-постаматы в bundle к нужному состоянию.
+
+- `seed-vn-west` (фейковый Великий Новгород): без ячеек и инвентаря,
+  статус OFFLINE. Раньше там лежали тестовые товары, по которым
+  на проде зависала оплата.
+- `seed-spb-nevsky` (единственный СПб): ровно тот же набор товаров,
+  что в реальном новгородском `esi/PST_0980` — 1:1 по slug'ам и количеству.
+
+Скрипт идемпотентный: ходит по bundle, удаляет всё связанное с
+этими двумя локерами и пересобирает СПб как зеркало PST_0980.
+"""
+
 import json
+from pathlib import Path
 
-def main():
-    with open("deploy/catalog-sync.bundle.json", "r", encoding="utf-8") as f:
-        bundle = json.load(f)
+BUNDLE_PATH = Path("deploy/catalog-sync.bundle.json")
 
-    # 1. Remove previously added extra cells/units
-    bundle["cells"] = [c for c in bundle["cells"] if not c["externalCellId"].startswith("seed-spb-nevsky-extra-")]
-    
-    # Filter inventoryUnits robustly by checking cellExternalCellId
+VN_WEST_LOCKER = "seed-vn-west"
+SPB_NEVSKY_LOCKER = "seed-spb-nevsky"
+SPB_NEVSKY_PROVIDER = "seed"
+SOURCE_LOCKER = "PST_0980"
+
+
+def _is_locker_cell(cell: dict, locker_id: str) -> bool:
+    return cell.get("lockerExternalLockerId") == locker_id
+
+
+def _is_locker_unit(unit: dict, locker_id: str) -> bool:
+    return unit.get("lockerExternalLockerId") == locker_id
+
+
+def main() -> None:
+    bundle = json.loads(BUNDLE_PATH.read_text(encoding="utf-8"))
+
+    # 1. seed-vn-west: убираем все ячейки/юниты, гасим в OFFLINE.
+    for locker in bundle["lockers"]:
+        if locker.get("externalLockerId") == VN_WEST_LOCKER:
+            locker["status"] = "OFFLINE"
+    bundle["cells"] = [
+        cell for cell in bundle["cells"] if not _is_locker_cell(cell, VN_WEST_LOCKER)
+    ]
     bundle["inventoryUnits"] = [
-        u for u in bundle["inventoryUnits"] 
-        if not (u.get("cellExternalCellId") and u["cellExternalCellId"].startswith("seed-spb-nevsky-extra-"))
+        unit for unit in bundle["inventoryUnits"] if not _is_locker_unit(unit, VN_WEST_LOCKER)
     ]
 
-    # 2. Duplicate cells from PST_0980 to seed-spb-nevsky
-    pst_cells = [c for c in bundle["cells"] if c["lockerExternalLockerId"] == "PST_0980"]
-    new_cells = []
-    
-    cell_mapping = {} # old_cell_id -> new_cell_id
-    label_mapping = {} # old_cell_id -> new_label
-    
-    for c in pst_cells:
-        new_c = c.copy()
-        new_c["lockerExternalProvider"] = "seed"
-        new_c["lockerExternalLockerId"] = "seed-spb-nevsky"
-        
-        old_id = c["externalCellId"]
-        new_id = f"seed-spb-nevsky-extra-{c['label']}"
-        new_c["externalCellId"] = new_id
-        
-        new_label = f"E-{c['label']}"
-        new_c["label"] = new_label
-        
-        new_cells.append(new_c)
-        cell_mapping[old_id] = new_id
-        label_mapping[old_id] = new_label
+    # 2. seed-spb-nevsky: полная зачистка + зеркало PST_0980.
+    bundle["cells"] = [
+        cell for cell in bundle["cells"] if not _is_locker_cell(cell, SPB_NEVSKY_LOCKER)
+    ]
+    bundle["inventoryUnits"] = [
+        unit for unit in bundle["inventoryUnits"] if not _is_locker_unit(unit, SPB_NEVSKY_LOCKER)
+    ]
 
-    bundle["cells"].extend(new_cells)
+    pst_cells = [cell for cell in bundle["cells"] if _is_locker_cell(cell, SOURCE_LOCKER)]
+    pst_units = [unit for unit in bundle["inventoryUnits"] if _is_locker_unit(unit, SOURCE_LOCKER)]
 
-    # 3. Duplicate inventory units from PST_0980 to seed-spb-nevsky
-    pst_units = [u for u in bundle["inventoryUnits"] if u["lockerExternalLockerId"] == "PST_0980"]
-    new_units = []
+    # Сопоставление старой ячейки PST → новой ячейки СПб, чтобы units
+    # после копирования указывали на правильную пару (externalCellId, label).
+    cell_id_remap: dict[str, str] = {}
+    cell_label_remap: dict[str, str] = {}
 
-    for idx, u in enumerate(pst_units):
-        new_u = u.copy()
-        new_u["lockerExternalProvider"] = "seed"
-        new_u["lockerExternalLockerId"] = "seed-spb-nevsky"
-        
-        old_cell_id = u["cellExternalCellId"]
-        if old_cell_id in cell_mapping:
-            new_u["cellExternalCellId"] = cell_mapping[old_cell_id]
-            new_u["cellLabel"] = label_mapping[old_cell_id]
-        
-        if new_u.get("serialNumber"):
-            new_u["serialNumber"] = f"SEED-SPB-NEVSKY-EXTRA-{idx}-{new_u['serialNumber']}"
-        if new_u.get("barcode"):
-            new_u["barcode"] = f"seed-spb-nevsky-extra-{idx}-{new_u['barcode']}"
-            
-        new_units.append(new_u)
+    new_spb_cells = []
+    for cell in pst_cells:
+        new_cell = cell.copy()
+        new_cell["lockerExternalProvider"] = SPB_NEVSKY_PROVIDER
+        new_cell["lockerExternalLockerId"] = SPB_NEVSKY_LOCKER
 
-    bundle["inventoryUnits"].extend(new_units)
-    
-    with open("deploy/catalog-sync.bundle.json", "w", encoding="utf-8") as f:
-        json.dump(bundle, f, ensure_ascii=False, indent=2)
+        old_external_id = cell["externalCellId"]
+        new_external_id = f"{SPB_NEVSKY_LOCKER}-mirror-{old_external_id}"
+        new_cell["externalCellId"] = new_external_id
+
+        new_label = f"M-{cell['label']}"
+        new_cell["label"] = new_label
+
+        cell_id_remap[old_external_id] = new_external_id
+        cell_label_remap[old_external_id] = new_label
+        new_spb_cells.append(new_cell)
+
+    bundle["cells"].extend(new_spb_cells)
+
+    new_spb_units = []
+    for idx, unit in enumerate(pst_units):
+        new_unit = unit.copy()
+        new_unit["lockerExternalProvider"] = SPB_NEVSKY_PROVIDER
+        new_unit["lockerExternalLockerId"] = SPB_NEVSKY_LOCKER
+
+        old_cell_id = unit["cellExternalCellId"]
+        if old_cell_id in cell_id_remap:
+            new_unit["cellExternalCellId"] = cell_id_remap[old_cell_id]
+            new_unit["cellLabel"] = cell_label_remap[old_cell_id]
+
+        # serial/barcode уникальны по БД — префиксуем, чтобы не конфликтовать
+        # с оригинальными в PST_0980.
+        if new_unit.get("serialNumber"):
+            new_unit["serialNumber"] = f"SEED-SPB-NEVSKY-MIRROR-{idx}-{new_unit['serialNumber']}"
+        if new_unit.get("barcode"):
+            new_unit["barcode"] = f"seed-spb-nevsky-mirror-{idx}-{new_unit['barcode']}"
+
+        new_spb_units.append(new_unit)
+
+    bundle["inventoryUnits"].extend(new_spb_units)
+
+    BUNDLE_PATH.write_text(
+        json.dumps(bundle, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
 
 if __name__ == "__main__":
     main()
