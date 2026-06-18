@@ -174,6 +174,7 @@ function OrderDetailContent({ id }: { id: string }) {
   const [showRefundDialog, setShowRefundDialog] = useState(false);
   const [showCancelRentalDialog, setShowCancelRentalDialog] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
+  const [pinCopied, setPinCopied] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -744,7 +745,7 @@ function OrderDetailContent({ id }: { id: string }) {
                     </p>
                     {!tooEarly && order.detail?.pickupPin ? (
                       <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px" }}>
-                        <div style={{ fontSize: "13px", color: "#166534", marginBottom: "4px" }}>Ваш PIN-код:</div>
+                        <div style={{ fontSize: "13px", color: "#166534", marginBottom: "4px" }}>{pinCopied ? "Скопировано ✓" : "Ваш PIN-код:"}</div>
                         <div style={{ fontSize: "32px", fontWeight: "bold", fontFamily: "monospace", color: "#15803d", display: "inline-flex", alignItems: "center", gap: "12px" }}>
                           {order.detail.pickupPin}
                           <button
@@ -753,6 +754,8 @@ function OrderDetailContent({ id }: { id: string }) {
                             style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
                             onClick={() => {
                               navigator.clipboard.writeText(order.detail!.pickupPin!);
+                              setPinCopied(true);
+                              setTimeout(() => setPinCopied(false), 2000);
                             }}
                             title="Скопировать PIN-код"
                           >
