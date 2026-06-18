@@ -56,6 +56,7 @@ function PaymentReturnContent() {
   const [cancelled, setCancelled] = useState(false);
   const [pending, setPending] = useState<PendingCheckout | null | undefined>(undefined);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [pinCopied, setPinCopied] = useState(false);
 
   useEffect(() => {
     if (!isReady) return;
@@ -313,7 +314,7 @@ function PaymentReturnContent() {
             <>
               {rental.pickupPin ? (
                 <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px" }}>
-                  <div style={{ fontSize: "14px", color: "#166534", marginBottom: "4px" }}>Ваш PIN-код:</div>
+                  <div style={{ fontSize: "14px", color: "#166534", marginBottom: "4px" }}>{pinCopied ? "Скопировано ✓" : "Ваш PIN-код:"}</div>
                   <div style={{ fontSize: "32px", fontWeight: "bold", fontFamily: "monospace", color: "#15803d", display: "inline-flex", alignItems: "center", gap: "12px" }}>
                     {rental.pickupPin}
                     <button
@@ -322,6 +323,8 @@ function PaymentReturnContent() {
                       style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
                       onClick={() => {
                         navigator.clipboard.writeText(rental.pickupPin);
+                        setPinCopied(true);
+                        setTimeout(() => setPinCopied(false), 2000);
                       }}
                       title="Скопировать PIN-код"
                     >
