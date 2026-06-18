@@ -456,6 +456,7 @@ export async function requestRentalReturn(rentalId: string, lockerId?: string) {
       status: string;
       lockerId: string;
       cellLabel?: string;
+      pin?: string;
       instructions?: string;
     };
   }>(`/me/rentals/${rentalId}/return-request`, {

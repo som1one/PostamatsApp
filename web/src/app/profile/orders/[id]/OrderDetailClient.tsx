@@ -175,6 +175,7 @@ function OrderDetailContent({ id }: { id: string }) {
   const [showCancelRentalDialog, setShowCancelRentalDialog] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
   const [pinCopied, setPinCopied] = useState(false);
+  const [returnPin, setReturnPin] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -275,9 +276,11 @@ function OrderDetailContent({ id }: { id: string }) {
     setMessage("");
     setError("");
     try {
-      // Возврат всегда в постамат выдачи (без выбора)
       const result = await requestRentalReturn(rentalId);
-      setMessage(result.return.instructions || "Возврат запущен.");
+      if (result.return.pin) {
+        setReturnPin(result.return.pin);
+      }
+      setMessage(result.return.instructions || "Ячейка открыта. Положите товар и закройте дверцу.");
       await load();
     } catch (err) {
       if (err instanceof ApiError && err.code === "LOCKER_OFFLINE") {
@@ -793,9 +796,30 @@ function OrderDetailContent({ id }: { id: string }) {
             {/* Confirm return — once locker is opened we wait for the user to confirm */}
             {!isReservation && order.data.status === "return_in_progress" ? (
               <>
+                {returnPin ? (
+                  <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px" }}>
+                    <div style={{ fontSize: "13px", color: "#166534", marginBottom: "4px" }}>PIN для возврата:</div>
+                    <div style={{ fontSize: "32px", fontWeight: "bold", fontFamily: "monospace", color: "#15803d", display: "inline-flex", alignItems: "center", gap: "12px" }}>
+                      {returnPin}
+                      <button
+                        type="button"
+                        className="button button-ghost button-sm"
+                        style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
+                        onClick={() => {
+                          navigator.clipboard.writeText(returnPin);
+                          setPinCopied(true);
+                          setTimeout(() => setPinCopied(false), 2000);
+                        }}
+                        title="Скопировать PIN-код"
+                      >
+                        <Copy size={20} />
+                      </button>
+                    </div>
+                    {pinCopied ? <div style={{ fontSize: "12px", color: "#166534", marginTop: "4px" }}>Скопировано ✓</div> : null}
+                  </div>
+                ) : null}
                 <p className="muted detail-actions-hint">
-                  Положите товар в открытую ячейку и закройте дверцу. Затем нажмите
-                  «Я вернул товар», чтобы завершить аренду.
+                  Подойдите к постамату, введите PIN-код и положите товар в ячейку. Закройте дверцу и нажмите «Я вернул товар».
                 </p>
                 <button
                   className="button button-primary"
