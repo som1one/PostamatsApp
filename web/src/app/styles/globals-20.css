@@ -144,6 +144,8 @@
 }.detail-actions .detail-actions-hint {
   grid-column: 1 / -1;
   margin: 0 0 4px;
+}.detail-actions .pickup-pin-display {
+  grid-column: 1 / -1;
 }.detail-actions .button {
   width: 100%;
   justify-content: center;
