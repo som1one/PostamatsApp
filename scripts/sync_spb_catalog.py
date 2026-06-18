@@ -18,7 +18,7 @@ BUNDLE_PATH = Path("deploy/catalog-sync.bundle.json")
 VN_WEST_LOCKER = "seed-vn-west"
 SPB_NEVSKY_LOCKER = "seed-spb-nevsky"
 SPB_NEVSKY_PROVIDER = "seed"
-SOURCE_LOCKER = "PST_0980"
+SOURCE_LOCKER = "PST_1234"
 
 
 def _is_locker_cell(cell: dict, locker_id: str) -> bool:

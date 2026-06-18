@@ -215,25 +215,9 @@ PRODUCT_SEEDS = (
 
 LOCKER_SEEDS = (
     {
-        "city_slug": "spb",
-        "external_provider": "seed",
-        "external_locker_id": "seed-spb-petrogradka",
-        "name": "СПб Петроградская",
-        "address": "Санкт-Петербург, Каменноостровский пр., 42",
-        "lat": 59.966394,
-        "lon": 30.311838,
-        "status": LockerStatus.OFFLINE,
-        "working_hours": {"mode": "daily", "from": "09:00", "to": "22:00"},
-        "inventory": {
-            "nintendo-switch-oled": 1,
-            "bosch-ixo-7": 2,
-            "dyson-am09": 1,
-        },
-    },
-    {
         "city_slug": "velikiy-novgorod",
         "external_provider": "esi",
-        "external_locker_id": "0980",
+        "external_locker_id": "PST_1234",
         "name": "Великий Новгород Центр",
         "address": "Великий Новгород, Большая Санкт-Петербургская ул., 39",
         "lat": 58.533147,
@@ -244,22 +228,6 @@ LOCKER_SEEDS = (
             "playstation-5-slim": 1,
             "nintendo-switch-oled": 1,
             "xgimi-mogo-2-pro": 1,
-        },
-    },
-    {
-        "city_slug": "velikiy-novgorod",
-        "external_provider": "seed",
-        "external_locker_id": "seed-vn-west",
-        "name": "Великий Новгород Западный",
-        "address": "Великий Новгород, ул. Кочетова, 10",
-        "lat": 58.541245,
-        "lon": 31.219804,
-        "status": LockerStatus.OFFLINE,
-        "working_hours": {"mode": "daily", "from": "09:00", "to": "21:00"},
-        "inventory": {
-            "karcher-se-3-compact": 1,
-            "bosch-ixo-7": 1,
-            "dyson-am09": 1,
         },
     },
 )

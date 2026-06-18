@@ -6,8 +6,8 @@
       "test-"
     ],
     "productCount": 17,
-    "lockerCount": 5,
-    "inventoryUnitCount": 47
+    "lockerCount": 2,
+    "inventoryUnitCount": 14
   },
   "categories": [
     {
@@ -813,40 +813,6 @@
       "lastOnlineAt": null
     },
     {
-      "citySlug": "spb",
-      "name": "СПб Петроградская",
-      "address": "Санкт-Петербург, Каменноостровский пр., 42",
-      "lat": 59.966394,
-      "lon": 30.311838,
-      "status": "ONLINE",
-      "workingHoursJson": {
-        "mode": "daily",
-        "from": "09:00",
-        "to": "22:00"
-      },
-      "externalProvider": "seed",
-      "externalLockerId": "seed-spb-petrogradka",
-      "partnerName": "Dev Seed",
-      "lastOnlineAt": null
-    },
-    {
-      "citySlug": "velikiy-novgorod",
-      "name": "Великий Новгород Западный",
-      "address": "Великий Новгород, ул. Кочетова, 10",
-      "lat": 58.541245,
-      "lon": 31.219804,
-      "status": "OFFLINE",
-      "workingHoursJson": {
-        "mode": "daily",
-        "from": "09:00",
-        "to": "21:00"
-      },
-      "externalProvider": "seed",
-      "externalLockerId": "seed-vn-west",
-      "partnerName": "Dev Seed",
-      "lastOnlineAt": null
-    },
-    {
       "citySlug": "velikiy-novgorod",
       "name": "Великий Новгород Центр",
       "address": "Великий Новгород, Большая Санкт-Петербургская ул., 39",
@@ -859,99 +825,15 @@
         "to": "22:00"
       },
       "externalProvider": "esi",
-      "externalLockerId": "PST_0980",
+      "externalLockerId": "PST_1234",
       "partnerName": "Dev Seed",
       "lastOnlineAt": null
     }
   ],
   "cells": [
     {
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "externalCellId": "seed-spb-petrogradka-cell-01",
-      "label": "A1",
-      "size": "M",
-      "status": "OCCUPIED",
-      "supportsReturn": true,
-      "lastOpenedAt": null,
-      "lastClosedAt": null,
-      "lastEventAt": null
-    },
-    {
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "externalCellId": "seed-spb-petrogradka-cell-02",
-      "label": "A2",
-      "size": "M",
-      "status": "OCCUPIED",
-      "supportsReturn": true,
-      "lastOpenedAt": null,
-      "lastClosedAt": null,
-      "lastEventAt": null
-    },
-    {
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "externalCellId": "seed-spb-petrogradka-cell-03",
-      "label": "A3",
-      "size": "M",
-      "status": "OCCUPIED",
-      "supportsReturn": true,
-      "lastOpenedAt": null,
-      "lastClosedAt": null,
-      "lastEventAt": null
-    },
-    {
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "externalCellId": "seed-spb-petrogradka-cell-04",
-      "label": "A4",
-      "size": "M",
-      "status": "OCCUPIED",
-      "supportsReturn": true,
-      "lastOpenedAt": null,
-      "lastClosedAt": null,
-      "lastEventAt": null
-    },
-    {
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "externalCellId": "seed-spb-petrogradka-empty-1",
-      "label": "B1",
-      "size": "L",
-      "status": "OCCUPIED",
-      "supportsReturn": true,
-      "lastOpenedAt": null,
-      "lastClosedAt": null,
-      "lastEventAt": null
-    },
-    {
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "externalCellId": "seed-spb-petrogradka-empty-2",
-      "label": "B2",
-      "size": "L",
-      "status": "OCCUPIED",
-      "supportsReturn": true,
-      "lastOpenedAt": null,
-      "lastClosedAt": null,
-      "lastEventAt": null
-    },
-    {
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "externalCellId": "sync-spb-seed-spb-petrogradka-c1",
-      "label": "C1",
-      "size": "L",
-      "status": "OCCUPIED",
-      "supportsReturn": true,
-      "lastOpenedAt": null,
-      "lastClosedAt": null,
-      "lastEventAt": null
-    },
-    {
       "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_0980",
+      "lockerExternalLockerId": "PST_1234",
       "externalCellId": "seed-vn-center-cell-01",
       "label": "A1",
       "size": "M",
@@ -963,7 +845,7 @@
     },
     {
       "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_0980",
+      "lockerExternalLockerId": "PST_1234",
       "externalCellId": "seed-vn-center-cell-02",
       "label": "A2",
       "size": "M",
@@ -975,7 +857,7 @@
     },
     {
       "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_0980",
+      "lockerExternalLockerId": "PST_1234",
       "externalCellId": "seed-vn-center-cell-03",
       "label": "A3",
       "size": "M",
@@ -987,7 +869,7 @@
     },
     {
       "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_0980",
+      "lockerExternalLockerId": "PST_1234",
       "externalCellId": "seed-vn-center-empty-1",
       "label": "B1",
       "size": "L",
@@ -999,7 +881,7 @@
     },
     {
       "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_0980",
+      "lockerExternalLockerId": "PST_1234",
       "externalCellId": "seed-vn-center-empty-2",
       "label": "B2",
       "size": "L",
@@ -1011,7 +893,7 @@
     },
     {
       "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_0980",
+      "lockerExternalLockerId": "PST_1234",
       "externalCellId": "sync-velikiy-novgorod-seed-vn-center-c1",
       "label": "C1",
       "size": "L",
@@ -1023,7 +905,7 @@
     },
     {
       "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_0980",
+      "lockerExternalLockerId": "PST_1234",
       "externalCellId": "sync-velikiy-novgorod-seed-vn-center-c2",
       "label": "C2",
       "size": "L",
@@ -1120,114 +1002,9 @@
   ],
   "inventoryUnits": [
     {
-      "productSlug": "drel",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "cellExternalCellId": "seed-spb-petrogradka-cell-01",
-      "cellLabel": "A1",
-      "serialNumber": "SEED-SPB-PETROGRADKA-NINTENDO-SWITCH-OLED-1",
-      "barcode": "seed-spb-petrogradka-nintendo-switch-oled-1",
-      "status": "AVAILABLE",
-      "conditionGrade": "A",
-      "conditionNote": "Готов к аренде",
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
-      "productSlug": "moyushchij-pylesos",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "cellExternalCellId": "seed-spb-petrogradka-cell-02",
-      "cellLabel": "A2",
-      "serialNumber": "SEED-SPB-PETROGRADKA-BOSCH-IXO-7-1",
-      "barcode": "seed-spb-petrogradka-bosch-ixo-7-1",
-      "status": "AVAILABLE",
-      "conditionGrade": "A",
-      "conditionNote": "Готов к аренде",
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
-      "productSlug": "otparivatel",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "cellExternalCellId": "seed-spb-petrogradka-cell-03",
-      "cellLabel": "A3",
-      "serialNumber": "SEED-SPB-PETROGRADKA-BOSCH-IXO-7-2",
-      "barcode": "seed-spb-petrogradka-bosch-ixo-7-2",
-      "status": "AVAILABLE",
-      "conditionGrade": "A",
-      "conditionNote": "Готов к аренде",
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
-      "productSlug": "paroochistitel-karcher",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "cellExternalCellId": "seed-spb-petrogradka-cell-04",
-      "cellLabel": "A4",
-      "serialNumber": "SEED-SPB-PETROGRADKA-DYSON-AM09-1",
-      "barcode": "seed-spb-petrogradka-dyson-am09-1",
-      "status": "AVAILABLE",
-      "conditionGrade": "A",
-      "conditionNote": "Готов к аренде",
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
-      "productSlug": "perforator-elitech",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "cellExternalCellId": "seed-spb-petrogradka-empty-1",
-      "cellLabel": "B1",
-      "serialNumber": null,
-      "barcode": null,
-      "status": "AVAILABLE",
-      "conditionGrade": null,
-      "conditionNote": null,
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
-      "productSlug": "projektor",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "cellExternalCellId": "seed-spb-petrogradka-empty-2",
-      "cellLabel": "B2",
-      "serialNumber": null,
-      "barcode": null,
-      "status": "AVAILABLE",
-      "conditionGrade": null,
-      "conditionNote": null,
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
-      "productSlug": "shurupovert",
-      "lockerExternalProvider": "seed",
-      "lockerExternalLockerId": "seed-spb-petrogradka",
-      "cellExternalCellId": "sync-spb-seed-spb-petrogradka-c1",
-      "cellLabel": "C1",
-      "serialNumber": null,
-      "barcode": null,
-      "status": "AVAILABLE",
-      "conditionGrade": null,
-      "conditionNote": null,
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
       "productSlug": "rashodniki-instax",
       "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_0980",
+      "lockerExternalLockerId": "PST_1234",
       "cellExternalCellId": "seed-vn-center-cell-01",
       "cellLabel": "A1",
       "serialNumber": "SEED-VN-CENTER-PLAYSTATION-5-SLIM-1",
@@ -1242,7 +1019,7 @@
     {
       "productSlug": "robot-mojshchik-okon",
       "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_0980",
+      "lockerExternalLockerId": "PST_1234",
       "cellExternalCellId": "seed-vn-center-cell-02",
       "cellLabel": "A2",
       "serialNumber": "SEED-VN-CENTER-NINTENDO-SWITCH-OLED-1",
@@ -1257,7 +1034,7 @@
     {
       "productSlug": "shurupovert",
       "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_0980",
+      "lockerExternalLockerId": "PST_1234",
       "cellExternalCellId": "seed-vn-center-cell-03",
       "cellLabel": "A3",
       "serialNumber": "SEED-VN-CENTER-XGIMI-MOGO-2-PRO-1",
@@ -1272,7 +1049,7 @@
     {
       "productSlug": "polaroid",
       "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_0980",
+      "lockerExternalLockerId": "PST_1234",
       "cellExternalCellId": "seed-vn-center-empty-1",
       "cellLabel": "B1",
       "serialNumber": null,
@@ -1287,7 +1064,7 @@
     {
       "productSlug": "avtonomnyj-projektor",
       "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_0980",
+      "lockerExternalLockerId": "PST_1234",
       "cellExternalCellId": "seed-vn-center-empty-2",
       "cellLabel": "B2",
       "serialNumber": null,
@@ -1302,7 +1079,7 @@
     {
       "productSlug": "moyushchij-pylesos",
       "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_0980",
+      "lockerExternalLockerId": "PST_1234",
       "cellExternalCellId": "sync-velikiy-novgorod-seed-vn-center-c1",
       "cellLabel": "C1",
       "serialNumber": null,
@@ -1317,7 +1094,7 @@
     {
       "productSlug": "paroochistitel-karcher",
       "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_0980",
+      "lockerExternalLockerId": "PST_1234",
       "cellExternalCellId": "sync-velikiy-novgorod-seed-vn-center-c2",
       "cellLabel": "C2",
       "serialNumber": null,
