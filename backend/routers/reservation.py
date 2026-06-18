@@ -218,6 +218,10 @@ async def _get_available_inventory_unit(
                 if rent.status == RentalStatus.COMPLETED:
                     if not rent.actual_end_at:
                         continue
+                    # Если inventory уже AVAILABLE (оператор подтвердил),
+                    # аренда не блокирует новые бронирования.
+                    if unit.status == InventoryStatus.AVAILABLE:
+                        continue
                     r_end = to_utc(rent.actual_end_at) + timedelta(hours=24)
                 else:
                     r_end = to_utc(rent.planned_end_at)
