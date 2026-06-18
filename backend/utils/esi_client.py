@@ -41,12 +41,7 @@ class EsiDiscoveryError(Exception):
 def _get_esi_headers() -> dict[str, str]:
     headers: dict[str, str] = {}
     if settings.ESI_API_KEY:
-        # Провайдер ESI ожидает токен в заголовке `Authorization: Bearer …`
-        # для маршрутов уровня одной машины (`/machine/{serial}`,
-        # `/set-cell/...`). Заголовок `X-Api-Key` принимался только частью
-        # эндпоинтов (например, `/machines`) и приводил к 404 «serial not
-        # found» там, где машина существует. Используем единообразно Bearer.
-        headers["Authorization"] = f"Bearer {settings.ESI_API_KEY}"
+        headers["X-Api-Key"] = settings.ESI_API_KEY
     return headers
 
 
@@ -189,15 +184,13 @@ def _cell_status_from_esi_state(state: str | None) -> LockerCellStatus | None:
 def _esi_state_payload(state: str | None) -> str:
     """Переводит наш внутренний state в значение, ожидаемое ESI API.
 
-    Провайдер принимает только `unassigned | assigned | blocked`. Внутри
-    кода исторически фигурируют `vacant | occupied | blocked` — оставлены
-    как алиасы, чтобы не ломать вызывающий код.
+    Провайдер принимает `vacant | occupied | blocked`.
     """
     normalized = (state or "").strip().lower()
     if normalized in ("vacant", "unassigned", ""):
-        return "unassigned"
+        return "vacant"
     if normalized in ("occupied", "assigned"):
-        return "assigned"
+        return "occupied"
     if normalized == "blocked":
         return "blocked"
     return normalized
@@ -315,9 +308,9 @@ async def sync_cell_state(
 
     esi_state = _esi_state_payload(state)
     # ESI отвергает запрос с непустым `pin`, если ячейка переводится
-    # в `unassigned` (свободную). Поэтому при освобождении принудительно
+    # в `vacant` (свободную). Поэтому при освобождении принудительно
     # стираем pin, что бы ни пришло сверху.
-    esi_pin = "" if esi_state == "unassigned" else (pin or "0000")
+    esi_pin = "" if esi_state == "vacant" else (pin or "0000")
     await _esi_post(
         f"/set-cell/{serial}/{external_cell_id}",
         payload={"state": esi_state, "pin": esi_pin},
@@ -668,8 +661,8 @@ async def esi_trigger_return_cell_open(
         raise EsiReturnOpenError("ESI_NOT_CONFIGURED")
 
     try:
-        # Бронируем ячейку под возврат: ESI ожидает `assigned` + pin
-        # (`unassigned` с непустым pin провайдер не принимает). После этого
+        # Бронируем ячейку под возврат: ESI ожидает `occupied` + pin
+        # (`vacant` с непустым pin провайдер не принимает). После этого
         # принудительно открываем дверцу — клиент кладёт товар.
         await _esi_post(
             f"/set-cell/{serial}/{external_cell_id}",
