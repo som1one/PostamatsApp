@@ -85,6 +85,7 @@ async def serialize_return_request_payload(
         "cellId": str(request.cell_id),
         "cellLabel": label,
         "pin": request.pin,
+        "instructions": f"Введите PIN-код {request.pin} на клавиатуре постамата, положите товар в ячейку {label} и закройте дверцу.",
         "expiresAt": request.deadline_at.isoformat(),
     }
 

@@ -151,15 +151,18 @@ async def start_rental_return(
     deadline = generate_return_deadline(now)
 
     try:
-        await esi_trigger_return_cell_open(
+        # Только резервируем ячейку с PIN-кодом. Клиент сам введёт PIN
+        # на клавиатуре постамата — дверца откроется.
+        from backend.utils.esi_client import sync_cell_state, EsiOpenError
+        await sync_cell_state(
             db,
             locker_id=return_locker_id,
             cell_id=cell.id,
-            rental_id=rental.id,
+            state="occupied",
             pin=return_pin,
         )
-    except EsiReturnOpenError as exc:
-        code = exc.code
+    except EsiOpenError as exc:
+        code = str(exc)
         if code in ("ESI_HTTP_ERROR", "ESI_OPEN_FAILED"):
             raise ReturnRequestError("ESI_OPEN_FAILED") from exc
         if code == "ESI_NOT_CONFIGURED":
@@ -170,17 +173,17 @@ async def start_rental_return(
     rental.return_locker_id = return_locker_id
     rental.status = RentalStatus.RETURN_IN_PROGRESS
     unit.status = InventoryStatus.RETURN_PENDING
-    cell.status = LockerCellStatus.OPENED
+    cell.status = LockerCellStatus.RESERVED
 
     return_request = ReturnRequest(
         rental_id=rental.id,
         locker_id=return_locker_id,
         cell_id=cell.id,
         pin=return_pin,
-        status=ReturnRequestStatus.LOCKER_OPENED,
+        status=ReturnRequestStatus.CREATED,
         requested_at=now,
         deadline_at=deadline,
-        opened_at=now,
+        opened_at=None,
     )
     db.add(return_request)
 
