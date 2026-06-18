@@ -96,7 +96,8 @@
 }.product-hero-copy .order-summary-compact .summary-total {
   font-size: 30px;
 }.product-mobile-equipment,
-.product-mobile-checkout {
+.product-mobile-checkout,
+.product-mobile-summary {
   display: none;
 }.product-hero-facts {
   display: grid;

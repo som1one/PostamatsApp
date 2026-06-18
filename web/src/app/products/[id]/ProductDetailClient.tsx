@@ -489,20 +489,6 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
               <div className="product-mobile-equipment">
                 <ProductEquipment product={product} />
               </div>
-              <OrderSummary
-                product={product}
-                lockerName={selectedLocker?.name}
-                lockerAddress={selectedLocker?.address}
-                lockerStatus={selectedLocker?.status}
-                plan={selectedPlan}
-                pricing={pricing}
-                startDateTime={startDateTime}
-                canCheckout={canCheckout}
-                checkoutHref={checkoutHref}
-                isAuthed={isAuthed}
-                variant="compact"
-                showProduct={false}
-              />
             </div>
           </section>
 
@@ -569,6 +555,22 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
               </section>
 
               <div className="product-mobile-checkout">
+                <div className="product-mobile-summary">
+                  <OrderSummary
+                    product={product}
+                    lockerName={selectedLocker?.name}
+                    lockerAddress={selectedLocker?.address}
+                    lockerStatus={selectedLocker?.status}
+                    plan={selectedPlan}
+                    pricing={pricing}
+                    startDateTime={startDateTime}
+                    canCheckout={canCheckout}
+                    checkoutHref={checkoutHref}
+                    isAuthed={isAuthed}
+                    variant="compact"
+                    showProduct={false}
+                  />
+                </div>
                 {canCheckout && selectedLocker?.name && selectedLocker?.status === "online" ? (
                   isAuthed ? (
                     <Link className="button button-primary" href={checkoutHref} style={{ width: '100%' }}>
