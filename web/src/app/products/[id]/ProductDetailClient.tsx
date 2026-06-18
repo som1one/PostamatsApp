@@ -489,20 +489,22 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
               <div className="product-mobile-equipment">
                 <ProductEquipment product={product} />
               </div>
-              <OrderSummary
-                product={product}
-                lockerName={selectedLocker?.name}
-                lockerAddress={selectedLocker?.address}
-                lockerStatus={selectedLocker?.status}
-                plan={selectedPlan}
-                pricing={pricing}
-                startDateTime={startDateTime}
-                canCheckout={canCheckout}
-                checkoutHref={checkoutHref}
-                isAuthed={isAuthed}
-                variant="compact"
-                showProduct={false}
-              />
+              <div className="product-hero-summary">
+                <OrderSummary
+                  product={product}
+                  lockerName={selectedLocker?.name}
+                  lockerAddress={selectedLocker?.address}
+                  lockerStatus={selectedLocker?.status}
+                  plan={selectedPlan}
+                  pricing={pricing}
+                  startDateTime={startDateTime}
+                  canCheckout={canCheckout}
+                  checkoutHref={checkoutHref}
+                  isAuthed={isAuthed}
+                  variant="compact"
+                  showProduct={false}
+                />
+              </div>
             </div>
           </section>
 
@@ -567,6 +569,23 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                   </>
                 ) : null}
               </section>
+
+              <div className="product-mobile-summary">
+                <OrderSummary
+                  product={product}
+                  lockerName={selectedLocker?.name}
+                  lockerAddress={selectedLocker?.address}
+                  lockerStatus={selectedLocker?.status}
+                  plan={selectedPlan}
+                  pricing={pricing}
+                  startDateTime={startDateTime}
+                  canCheckout={canCheckout}
+                  checkoutHref={checkoutHref}
+                  isAuthed={isAuthed}
+                  variant="compact"
+                  showProduct={false}
+                />
+              </div>
 
               <section className="surface detail-panel rental-step-panel rental-step-panel-locker">
                 <div className="card-row">

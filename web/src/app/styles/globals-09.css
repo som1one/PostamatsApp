@@ -96,8 +96,10 @@
 }.product-hero-copy .order-summary-compact .summary-total {
   font-size: 30px;
 }.product-mobile-equipment,
-.product-mobile-checkout {
+.product-mobile-summary {
   display: none;
+}.product-hero-summary {
+  display: block;
 }.product-hero-facts {
   display: grid;
   gap: 10px;

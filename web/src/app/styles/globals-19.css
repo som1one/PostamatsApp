@@ -81,8 +81,11 @@
   }
 
   .product-mobile-equipment,
-  .product-mobile-checkout {
+  .product-mobile-summary {
     display: block;
+  }
+  .product-hero-summary {
+    display: none;
   }
   .product-mobile-checkout {
     margin-bottom: 24px;
