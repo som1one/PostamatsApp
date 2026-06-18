@@ -131,7 +131,9 @@ async def list_inventory_lockers(
 
     lockers = (
         await db.scalars(
-            select(LockerLocation).order_by(LockerLocation.name.asc())
+            select(LockerLocation)
+            .where(LockerLocation.status != LockerStatus.OFFLINE)
+            .order_by(LockerLocation.name.asc())
         )
     ).all()
     if not lockers:
@@ -151,7 +153,10 @@ async def list_inventory_lockers(
             LockerCell.status,
             func.count(LockerCell.id),
         )
-        .where(LockerCell.locker_id.in_(locker_ids))
+        .where(
+            LockerCell.locker_id.in_(locker_ids),
+            LockerCell.status != LockerCellStatus.DISABLED,
+        )
         .group_by(LockerCell.locker_id, LockerCell.status)
     )
     cell_rows = (await db.execute(cells_stmt)).all()
@@ -199,7 +204,10 @@ async def list_inventory_locker_cells(
     cells = (
         await db.scalars(
             select(LockerCell)
-            .where(LockerCell.locker_id == locker_id)
+            .where(
+                LockerCell.locker_id == locker_id,
+                LockerCell.status != LockerCellStatus.DISABLED,
+            )
             .order_by(LockerCell.label.asc().nulls_last(), LockerCell.created_at.asc())
         )
     ).all()
