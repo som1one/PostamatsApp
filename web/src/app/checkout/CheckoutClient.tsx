@@ -166,6 +166,7 @@ function CheckoutContent() {
       writePendingCheckout({
         reservationId: currentReservation.id,
         paymentId: preauth.payment.id,
+        userId: user?.id || "",
         createdAt: new Date().toISOString(),
       });
 

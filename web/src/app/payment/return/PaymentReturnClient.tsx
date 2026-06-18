@@ -24,6 +24,7 @@ import {
   readPendingCheckout,
 } from "@/shared/checkout/pending";
 import { formatDateTime, formatMoney } from "@/shared/format";
+import { useAuth } from "@/shared/auth/auth-context";
 
 const DEV_PAYMENT_BYPASS_ENABLED =
   process.env.NEXT_PUBLIC_ENABLE_DEV_PAYMENT_BYPASS === "true";
@@ -40,6 +41,7 @@ export function PaymentReturnClient() {
 
 function PaymentReturnContent() {
   const router = useRouter();
+  const { session, isReady } = useAuth();
   const [payment, setPayment] = useState<PaymentSummary | null>(null);
   const [reservation, setReservation] = useState<ReservationSummary | null>(null);
   const [rental, setRental] = useState<{
@@ -56,8 +58,9 @@ function PaymentReturnContent() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   useEffect(() => {
-    setPending(readPendingCheckout());
-  }, []);
+    if (!isReady) return;
+    setPending(readPendingCheckout(session?.user?.id));
+  }, [session, isReady]);
 
   useEffect(() => {
     if (pending === undefined || pending === null || cancelled) {

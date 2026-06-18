@@ -39,6 +39,7 @@ import { writePendingCheckout } from "@/shared/checkout/pending";
 import { formatCountRu, formatDateTime } from "@/shared/format";
 import { resolvePublicAssetUrl } from "@/shared/media";
 import { isRentalFinished } from "@/shared/rentalStatus";
+import { useAuth } from "@/shared/auth/auth-context";
 
 const DEV_PAYMENT_BYPASS_ENABLED =
   process.env.NEXT_PUBLIC_ENABLE_DEV_PAYMENT_BYPASS === "true";
@@ -193,6 +194,7 @@ export function RentalsClient() {
 
 function RentalsContent() {
   const router = useRouter();
+  const { session } = useAuth();
   const [status, setStatus] = useState("");
   const [reservations, setReservations] = useState<UpcomingReservation[]>([]);
   const [rentals, setRentals] = useState<RentalListItem[]>([]);
@@ -258,6 +260,7 @@ function RentalsContent() {
       writePendingCheckout({
         reservationId: reservation.id,
         paymentId: preauth.payment.id,
+        userId: session?.user?.id || "",
         createdAt: new Date().toISOString(),
       });
 
