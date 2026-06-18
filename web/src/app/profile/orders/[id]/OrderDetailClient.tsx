@@ -683,7 +683,10 @@ function OrderDetailContent({ id }: { id: string }) {
                 ) : (
                   <div className="meta-line">
                     <span>Начало аренды</span>
-                    <strong>—</strong>
+                    <strong>{order.detail?.startsAt
+                      ? new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(order.detail.startsAt))
+                      : "—"
+                    }</strong>
                   </div>
                 )}
                 <div className="meta-line">
@@ -740,25 +743,23 @@ function OrderDetailContent({ id }: { id: string }) {
                         : "Подойдите к постамату и введите этот PIN-код на клавиатуре для открытия ячейки. Когда заберёте товар, нажмите «Я забрал»."}
                     </p>
                     {!tooEarly && order.detail?.pickupPin ? (
-                      <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-                        <div>
-                          <div style={{ fontSize: "13px", color: "#166534", marginBottom: "4px" }}>Ваш PIN-код:</div>
-                          <div style={{ fontSize: "32px", fontWeight: "bold", fontFamily: "monospace", color: "#15803d" }}>
-                            {order.detail.pickupPin}
-                          </div>
+                      <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px" }}>
+                        <div style={{ fontSize: "13px", color: "#166534", marginBottom: "4px" }}>Ваш PIN-код:</div>
+                        <div style={{ fontSize: "32px", fontWeight: "bold", fontFamily: "monospace", color: "#15803d", display: "inline-flex", alignItems: "center", gap: "12px" }}>
+                          {order.detail.pickupPin}
+                          <button
+                            type="button"
+                            className="button button-ghost button-sm"
+                            style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
+                            onClick={() => {
+                              navigator.clipboard.writeText(order.detail!.pickupPin!);
+                              alert("PIN-код скопирован");
+                            }}
+                            title="Скопировать PIN-код"
+                          >
+                            <Copy size={20} />
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          className="button button-ghost button-sm"
-                          style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
-                          onClick={() => {
-                            navigator.clipboard.writeText(order.detail!.pickupPin!);
-                            alert("PIN-код скопирован");
-                          }}
-                          title="Скопировать PIN-код"
-                        >
-                          <Copy size={20} />
-                        </button>
                       </div>
                     ) : null}
                     {order.data.status === "pickup_opened" || (!tooEarly && order.detail?.pickupPin) ? (

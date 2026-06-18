@@ -312,25 +312,23 @@ function PaymentReturnContent() {
           {rental ? (
             <>
               {rental.pickupPin ? (
-                <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-                  <div>
-                    <div style={{ fontSize: "14px", color: "#166534", marginBottom: "4px" }}>Ваш PIN-код:</div>
-                    <div style={{ fontSize: "32px", fontWeight: "bold", fontFamily: "monospace", color: "#15803d" }}>
-                      {rental.pickupPin}
-                    </div>
+                <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px" }}>
+                  <div style={{ fontSize: "14px", color: "#166534", marginBottom: "4px" }}>Ваш PIN-код:</div>
+                  <div style={{ fontSize: "32px", fontWeight: "bold", fontFamily: "monospace", color: "#15803d", display: "inline-flex", alignItems: "center", gap: "12px" }}>
+                    {rental.pickupPin}
+                    <button
+                      type="button"
+                      className="button button-ghost button-sm"
+                      style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(rental.pickupPin);
+                        alert("PIN-код скопирован");
+                      }}
+                      title="Скопировать PIN-код"
+                    >
+                      <Copy size={20} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="button button-ghost button-sm"
-                    style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
-                    onClick={() => {
-                      navigator.clipboard.writeText(rental.pickupPin);
-                      alert("PIN-код скопирован");
-                    }}
-                    title="Скопировать PIN-код"
-                  >
-                    <Copy size={20} />
-                  </button>
                 </div>
               ) : null}
               <div className="alert alert-success">
