@@ -623,7 +623,6 @@ function RentalsContent() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 navigator.clipboard.writeText(rental.pickupPin!);
-                                alert("PIN-код скопирован");
                               }}
                               title="Скопировать PIN-код"
                             >

@@ -322,7 +322,6 @@ function PaymentReturnContent() {
                       style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
                       onClick={() => {
                         navigator.clipboard.writeText(rental.pickupPin);
-                        alert("PIN-код скопирован");
                       }}
                       title="Скопировать PIN-код"
                     >
