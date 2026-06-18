@@ -489,6 +489,20 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
               <div className="product-mobile-equipment">
                 <ProductEquipment product={product} />
               </div>
+              <OrderSummary
+                product={product}
+                lockerName={selectedLocker?.name}
+                lockerAddress={selectedLocker?.address}
+                lockerStatus={selectedLocker?.status}
+                plan={selectedPlan}
+                pricing={pricing}
+                startDateTime={startDateTime}
+                canCheckout={canCheckout}
+                checkoutHref={checkoutHref}
+                isAuthed={isAuthed}
+                variant="compact"
+                showProduct={false}
+              />
             </div>
           </section>
 
@@ -553,46 +567,6 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                   </>
                 ) : null}
               </section>
-
-              <div className="product-mobile-checkout">
-                <div className="product-mobile-summary">
-                  <OrderSummary
-                    product={product}
-                    lockerName={selectedLocker?.name}
-                    lockerAddress={selectedLocker?.address}
-                    lockerStatus={selectedLocker?.status}
-                    plan={selectedPlan}
-                    pricing={pricing}
-                    startDateTime={startDateTime}
-                    canCheckout={canCheckout}
-                    checkoutHref={checkoutHref}
-                    isAuthed={isAuthed}
-                    variant="compact"
-                    showProduct={false}
-                  />
-                </div>
-                {canCheckout && selectedLocker?.name && selectedLocker?.status === "online" ? (
-                  isAuthed ? (
-                    <Link className="button button-primary" href={checkoutHref} style={{ width: '100%' }}>
-                      <PackageCheck size={18} />
-                      Оформить аренду
-                    </Link>
-                  ) : (
-                    <button
-                      className="button button-primary"
-                      type="button"
-                      style={{ width: '100%' }}
-                      onClick={() => {
-                        const current = encodeURIComponent(window.location.pathname + window.location.search);
-                        window.location.href = `/login?next=${current}`;
-                      }}
-                    >
-                      <PackageCheck size={18} />
-                      Войти для оформления
-                    </button>
-                  )
-                ) : null}
-              </div>
 
               <section className="surface detail-panel rental-step-panel rental-step-panel-locker">
                 <div className="card-row">

@@ -81,8 +81,7 @@
   }
 
   .product-mobile-equipment,
-  .product-mobile-checkout,
-  .product-mobile-summary {
+  .product-mobile-checkout {
     display: block;
   }
   .product-mobile-checkout {
