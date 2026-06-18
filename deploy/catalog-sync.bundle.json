@@ -6,8 +6,8 @@
       "test-"
     ],
     "productCount": 17,
-    "lockerCount": 2,
-    "inventoryUnitCount": 14
+    "lockerCount": 1,
+    "inventoryUnitCount": 7
   },
   "categories": [
     {
@@ -811,110 +811,9 @@
       "externalLockerId": "seed-spb-nevsky",
       "partnerName": "Dev Seed",
       "lastOnlineAt": null
-    },
-    {
-      "citySlug": "velikiy-novgorod",
-      "name": "Великий Новгород Центр",
-      "address": "Великий Новгород, Большая Санкт-Петербургская ул., 39",
-      "lat": 58.533147,
-      "lon": 31.269947,
-      "status": "ONLINE",
-      "workingHoursJson": {
-        "mode": "daily",
-        "from": "08:00",
-        "to": "22:00"
-      },
-      "externalProvider": "esi",
-      "externalLockerId": "PST_1234",
-      "partnerName": "Dev Seed",
-      "lastOnlineAt": null
     }
   ],
   "cells": [
-    {
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_1234",
-      "externalCellId": "seed-vn-center-cell-01",
-      "label": "A1",
-      "size": "M",
-      "status": "OCCUPIED",
-      "supportsReturn": true,
-      "lastOpenedAt": null,
-      "lastClosedAt": null,
-      "lastEventAt": null
-    },
-    {
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_1234",
-      "externalCellId": "seed-vn-center-cell-02",
-      "label": "A2",
-      "size": "M",
-      "status": "OCCUPIED",
-      "supportsReturn": true,
-      "lastOpenedAt": null,
-      "lastClosedAt": null,
-      "lastEventAt": null
-    },
-    {
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_1234",
-      "externalCellId": "seed-vn-center-cell-03",
-      "label": "A3",
-      "size": "M",
-      "status": "OCCUPIED",
-      "supportsReturn": true,
-      "lastOpenedAt": null,
-      "lastClosedAt": null,
-      "lastEventAt": null
-    },
-    {
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_1234",
-      "externalCellId": "seed-vn-center-empty-1",
-      "label": "B1",
-      "size": "L",
-      "status": "OCCUPIED",
-      "supportsReturn": true,
-      "lastOpenedAt": null,
-      "lastClosedAt": null,
-      "lastEventAt": null
-    },
-    {
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_1234",
-      "externalCellId": "seed-vn-center-empty-2",
-      "label": "B2",
-      "size": "L",
-      "status": "OCCUPIED",
-      "supportsReturn": true,
-      "lastOpenedAt": null,
-      "lastClosedAt": null,
-      "lastEventAt": null
-    },
-    {
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_1234",
-      "externalCellId": "sync-velikiy-novgorod-seed-vn-center-c1",
-      "label": "C1",
-      "size": "L",
-      "status": "OCCUPIED",
-      "supportsReturn": true,
-      "lastOpenedAt": null,
-      "lastClosedAt": null,
-      "lastEventAt": null
-    },
-    {
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_1234",
-      "externalCellId": "sync-velikiy-novgorod-seed-vn-center-c2",
-      "label": "C2",
-      "size": "L",
-      "status": "OCCUPIED",
-      "supportsReturn": true,
-      "lastOpenedAt": null,
-      "lastClosedAt": null,
-      "lastEventAt": null
-    },
     {
       "lockerExternalProvider": "seed",
       "lockerExternalLockerId": "seed-spb-nevsky",
@@ -1001,111 +900,6 @@
     }
   ],
   "inventoryUnits": [
-    {
-      "productSlug": "rashodniki-instax",
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_1234",
-      "cellExternalCellId": "seed-vn-center-cell-01",
-      "cellLabel": "A1",
-      "serialNumber": "SEED-VN-CENTER-PLAYSTATION-5-SLIM-1",
-      "barcode": "seed-vn-center-playstation-5-slim-1",
-      "status": "AVAILABLE",
-      "conditionGrade": "A",
-      "conditionNote": "Готов к аренде",
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
-      "productSlug": "robot-mojshchik-okon",
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_1234",
-      "cellExternalCellId": "seed-vn-center-cell-02",
-      "cellLabel": "A2",
-      "serialNumber": "SEED-VN-CENTER-NINTENDO-SWITCH-OLED-1",
-      "barcode": "seed-vn-center-nintendo-switch-oled-1",
-      "status": "AVAILABLE",
-      "conditionGrade": "A",
-      "conditionNote": "Готов к аренде",
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
-      "productSlug": "shurupovert",
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_1234",
-      "cellExternalCellId": "seed-vn-center-cell-03",
-      "cellLabel": "A3",
-      "serialNumber": "SEED-VN-CENTER-XGIMI-MOGO-2-PRO-1",
-      "barcode": "seed-vn-center-xgimi-mogo-2-pro-1",
-      "status": "AVAILABLE",
-      "conditionGrade": "A",
-      "conditionNote": "Готов к аренде",
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
-      "productSlug": "polaroid",
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_1234",
-      "cellExternalCellId": "seed-vn-center-empty-1",
-      "cellLabel": "B1",
-      "serialNumber": null,
-      "barcode": null,
-      "status": "AVAILABLE",
-      "conditionGrade": null,
-      "conditionNote": null,
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
-      "productSlug": "avtonomnyj-projektor",
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_1234",
-      "cellExternalCellId": "seed-vn-center-empty-2",
-      "cellLabel": "B2",
-      "serialNumber": null,
-      "barcode": null,
-      "status": "AVAILABLE",
-      "conditionGrade": null,
-      "conditionNote": null,
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
-      "productSlug": "moyushchij-pylesos",
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_1234",
-      "cellExternalCellId": "sync-velikiy-novgorod-seed-vn-center-c1",
-      "cellLabel": "C1",
-      "serialNumber": null,
-      "barcode": null,
-      "status": "AVAILABLE",
-      "conditionGrade": null,
-      "conditionNote": null,
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
-    {
-      "productSlug": "paroochistitel-karcher",
-      "lockerExternalProvider": "esi",
-      "lockerExternalLockerId": "PST_1234",
-      "cellExternalCellId": "sync-velikiy-novgorod-seed-vn-center-c2",
-      "cellLabel": "C2",
-      "serialNumber": null,
-      "barcode": null,
-      "status": "AVAILABLE",
-      "conditionGrade": null,
-      "conditionNote": null,
-      "purchasePrice": null,
-      "purchaseDate": null,
-      "lastCheckAt": null
-    },
     {
       "productSlug": "rashodniki-instax",
       "lockerExternalProvider": "seed",
