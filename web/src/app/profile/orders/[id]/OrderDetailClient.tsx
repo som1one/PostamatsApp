@@ -271,59 +271,19 @@ function OrderDetailContent({ id }: { id: string }) {
   }
 
   async function handleReturn(rentalId: string) {
-    const pickupLockerId =
-      order && order.type === "rental" ? order.detail?.pickupLocker.id : "";
-    setReturnLockerId(pickupLockerId || "");
-    setReturnLockers([]);
-    setReturnLockersLoading(true);
-    setMessage("");
-    setError("");
-
-    void fetchAllLockers()
-      .then((items) => {
-        const pickup = items.find((locker) => locker.id === pickupLockerId);
-        const cityId = pickup?.cityId;
-        const sameCity = cityId
-          ? items.filter(
-              (locker) =>
-                locker.cityId === cityId && locker.status === "online",
-            )
-          : pickup
-            ? [pickup]
-            : [];
-        setReturnLockers(sameCity);
-        setReturnLockerId((current) =>
-          sameCity.some((locker) => locker.id === current)
-            ? current
-            : pickup?.id || sameCity[0]?.id || "",
-        );
-      })
-      .catch(() => {
-        setReturnLockers([]);
-      })
-      .finally(() => {
-        setReturnLockersLoading(false);
-      });
-
-    const confirmed = await askReturnConfirm(rentalId);
-    if (!confirmed) return;
     setBusy(true);
     setMessage("");
     setError("");
     try {
-      const result = await requestRentalReturn(
-        rentalId,
-        returnLockerIdRef.current || undefined,
-      );
+      // Возврат всегда в постамат выдачи (без выбора)
+      const result = await requestRentalReturn(rentalId);
       setMessage(result.return.instructions || "Возврат запущен.");
       await load();
     } catch (err) {
-      if (err instanceof ApiError && err.code === "RETURN_LOCKER_DIFFERENT_CITY") {
-        setError("Возврат возможен только в постамат того же города.");
-      } else if (err instanceof ApiError && err.code === "LOCKER_OFFLINE") {
-        setError("Постамат сейчас офлайн. Выберите другую точку.");
+      if (err instanceof ApiError && err.code === "LOCKER_OFFLINE") {
+        setError("Постамат сейчас офлайн. Попробуйте позже.");
       } else if (err instanceof ApiError && err.code === "RETURN_CELL_NOT_AVAILABLE") {
-        setError("В выбранном постамате нет свободных ячеек. Попробуйте другой.");
+        setError("В постамате нет свободных ячеек для возврата. Попробуйте позже.");
       } else {
         setError(err instanceof Error ? err.message : "Не удалось начать возврат");
       }
@@ -869,78 +829,6 @@ function OrderDetailContent({ id }: { id: string }) {
           </div>
         </Surface>
       </div>
-
-      {/* Return confirmation modal */}
-      {returnConfirmId !== null ? (
-        <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal-box modal-box-wide">
-            <div className="modal-icon">
-              <RotateCcw size={28} />
-            </div>
-            <h2 className="modal-title">Куда вернуть товар?</h2>
-            <p className="modal-text">
-              Можно вернуть в любой постамат того же города. После подтверждения ячейка
-              откроется физически — убедитесь, что вы уже у выбранной точки, положите
-              предмет и закройте дверцу.
-            </p>
-            <div className="return-locker-picker">
-              <div className="return-locker-list">
-                {returnLockersLoading && !returnLockers.length ? (
-                  <div className="muted small">Загружаем постаматы…</div>
-                ) : null}
-                {!returnLockersLoading && !returnLockers.length ? (
-                  <div className="muted small">
-                    Не удалось загрузить список — будет использован постамат выдачи.
-                  </div>
-                ) : null}
-                {returnLockers.map((locker) => {
-                  const isSelected = returnLockerId === locker.id;
-                  return (
-                    <button
-                      type="button"
-                      key={locker.id}
-                      className={`product-locker-card ${isSelected ? "is-selected" : ""}`}
-                      onClick={() => setReturnLockerId(locker.id)}
-                    >
-                      <div className="product-locker-card-row">
-                        <strong>{locker.name}</strong>
-                        {isSelected ? <em>Выбран</em> : null}
-                      </div>
-                      <span>{locker.address}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {returnLockers.length ? (
-                <div className="return-locker-map">
-                  <YandexMap
-                    lockers={returnLockers}
-                    selectedLockerId={returnLockerId}
-                    onSelectLocker={setReturnLockerId}
-                  />
-                </div>
-              ) : null}
-            </div>
-            <div className="modal-actions">
-              <button
-                className="button button-secondary"
-                type="button"
-                onClick={() => handleConfirmReturn(false)}
-              >
-                Отмена
-              </button>
-              <button
-                className="button button-primary"
-                type="button"
-                disabled={!returnLockerId}
-                onClick={() => handleConfirmReturn(true)}
-              >
-                Да, я у постамата
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {/* Cancel rental confirmation modal */}
       {showCancelRentalDialog ? (
