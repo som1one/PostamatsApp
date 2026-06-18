@@ -614,7 +614,7 @@ function RentalsContent() {
                           <div className="pickup-pin-display" style={{ padding: "12px", backgroundColor: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0", display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "12px", marginBottom: "12px" }}>
                             <div>
                               <div style={{ fontSize: "12px", color: "#166534", marginBottom: "2px" }}>Ваш PIN-код:</div>
-                              <div style={{ fontSize: "24px", fontWeight: "bold", letterSpacing: "2px", color: "#15803d" }}>{rental.pickupPin}</div>
+                              <div style={{ fontSize: "24px", fontWeight: "bold", fontFamily: "monospace", color: "#15803d" }}>{rental.pickupPin}</div>
                             </div>
                             <button
                               type="button"
