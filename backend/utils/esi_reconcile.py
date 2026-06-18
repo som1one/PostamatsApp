@@ -143,7 +143,6 @@ async def reconcile_esi_and_returns() -> None:
             active_requests = list((await db.scalars(active_requests_stmt)).all())
             for request in active_requests:
                 if request.status not in (
-                    ReturnRequestStatus.CREATED,
                     ReturnRequestStatus.LOCKER_OPENED,
                     ReturnRequestStatus.AWAITING_CLOSE,
                 ):

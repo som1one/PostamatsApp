@@ -33,17 +33,12 @@ def calculate_expires_at(now: datetime, pickup_window_minutes: int) -> datetime:
 
 
 def _end_of_local_day_after(starts_at: datetime, days: int) -> datetime:
-    """Возвращает 23:59:59 локального дня, наступающего через `days` суток
-    после локальной даты `starts_at`.
+    """Возвращает момент ровно через `days * 24` часов после `starts_at`.
 
-    То есть аренда на 1 день, начатая 18.06, заканчивается 19.06 в 23:59:59.
-    Аренда на 2 дня — 20.06 в 23:59:59 и так далее.
+    То есть аренда на 1 день, начатая в 15:22, заканчивается завтра в 15:22.
     Результат возвращается в UTC.
     """
-    starts_local = ensure_utc(starts_at).astimezone(LOCAL_DAY_TZ)
-    last_day_local = (starts_local + timedelta(days=max(days, 1))).date()
-    end_local = datetime.combine(last_day_local, time(23, 59, 59), tzinfo=LOCAL_DAY_TZ)
-    return end_local.astimezone(timezone.utc)
+    return ensure_utc(starts_at) + timedelta(days=max(days, 1))
 
 
 def calculate_planned_end_at(starts_at: datetime, duration_type: str, duration_value: int) -> datetime:

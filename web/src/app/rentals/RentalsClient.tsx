@@ -355,47 +355,10 @@ function RentalsContent() {
   }
 
   // ── Return rental: simple action returning to pickup locker ──
-  // For other lockers user goes to the order detail page.
-  async function handleReturnRental(rental: RentalListItem, e: React.MouseEvent) {
+  // Redirect to order detail page for return flow
+  function handleReturnRental(rental: RentalListItem, e: React.MouseEvent) {
     e.stopPropagation();
-    setBusy(rental.id, true);
-    setItemError(rental.id, "");
-    try {
-      // Без явного lockerId — backend по умолчанию использует postamat выдачи
-      // (см. backend/routers/me.py: return-request endpoint).
-      await requestRentalReturn(rental.id);
-      // Локально переводим карточку в return_in_progress, чтобы карточка обновилась
-      // без полной перезагрузки списка.
-      setRentals((prev) =>
-        prev.map((r) => (r.id === rental.id ? { ...r, status: "return_in_progress" } : r)),
-      );
-      // Подгружаем актуальное состояние — там может быть свежий deadline.
-      void load();
-    } catch (err) {
-      let msg = "Не удалось начать возврат";
-      if (err instanceof ApiError) {
-        if (err.code === "LOCKER_OFFLINE") {
-          msg = "Постамат сейчас офлайн. Откройте детали заказа и выберите другой постамат.";
-        } else if (err.code === "RETURN_CELL_NOT_AVAILABLE") {
-          msg = "В постамате выдачи нет свободных ячеек. Выберите другой через детали заказа.";
-        } else if (err.code === "RETURN_LOCKER_DIFFERENT_CITY") {
-          msg = "Возврат возможен только в постамат того же города.";
-        } else if (err.code === "INVALID_RENTAL_STATUS") {
-          msg = "Возврат уже оформлен или аренда завершена.";
-        } else if (err.code === "LOCKER_OPEN_NOT_CONFIRMED") {
-          msg = "Команда отправлена, но постамат не подтвердил открытие. Подойдите к ячейке и попробуйте ещё раз через минуту.";
-        } else if (err.code === "ESI_OPEN_FAILED") {
-          msg = "Не удалось открыть ячейку. Попробуйте ещё раз через минуту.";
-        } else if (err.message) {
-          msg = err.message;
-        }
-      } else if (err instanceof Error) {
-        msg = err.message;
-      }
-      setItemError(rental.id, msg);
-    } finally {
-      setBusy(rental.id, false);
-    }
+    router.push(`/profile/orders/${rental.id}`);
   }
 
   async function handleConfirmReturnRental(rental: RentalListItem, e: React.MouseEvent) {
@@ -645,21 +608,13 @@ function RentalsContent() {
                         ) : null}
                         {canConfirmReturn ? (
                           <div className="card-actions" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              className="button button-primary button-sm"
-                              type="button"
-                              disabled={busy}
-                              onClick={(e) => handleConfirmReturnRental(rental, e)}
-                            >
-                              <CheckCircle2 size={15} />
-                              {busy ? "Подтверждаем…" : "Я положил товар"}
-                            </button>
                             <Link
                               href={`/profile/orders/${rental.id}`}
-                              className="button button-ghost button-sm"
+                              className="button button-primary button-sm"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              Детали
+                              <RotateCcw size={15} />
+                              Детали возврата
                             </Link>
                           </div>
                         ) : null}
