@@ -311,35 +311,45 @@ function PaymentReturnContent() {
           <p className="muted">{reservation?.locker?.address}</p>
 
           {rental ? (
-            <>
-              {rental.pickupPin ? (
-                <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px" }}>
-                  <div style={{ fontSize: "14px", color: "#166534", marginBottom: "4px" }}>{pinCopied ? "Скопировано ✓" : "Ваш PIN-код:"}</div>
-                  <div style={{ fontSize: "32px", fontWeight: "bold", fontFamily: "monospace", color: "#15803d", display: "inline-flex", alignItems: "center", gap: "12px" }}>
-                    {rental.pickupPin}
-                    <button
-                      type="button"
-                      className="button button-ghost button-sm"
-                      style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
-                      onClick={() => {
-                        navigator.clipboard.writeText(rental.pickupPin);
-                        setPinCopied(true);
-                        setTimeout(() => setPinCopied(false), 2000);
-                      }}
-                      title="Скопировать PIN-код"
-                    >
-                      <Copy size={20} />
-                    </button>
+            (() => {
+              const PICKUP_LEAD_GRACE_MS = 60 * 60 * 1000;
+              const pickupAtStr = reservation?.pickupAt;
+              const pickupAtMs = pickupAtStr ? new Date(pickupAtStr).getTime() : 0;
+              const tooEarly = pickupAtMs > 0 && Date.now() < pickupAtMs - PICKUP_LEAD_GRACE_MS;
+              return (
+                <>
+                  {!tooEarly && rental.pickupPin ? (
+                    <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px" }}>
+                      <div style={{ fontSize: "14px", color: "#166534", marginBottom: "4px" }}>{pinCopied ? "Скопировано ✓" : "Ваш PIN-код:"}</div>
+                      <div style={{ fontSize: "32px", fontWeight: "bold", fontFamily: "monospace", color: "#15803d", display: "inline-flex", alignItems: "center", gap: "12px" }}>
+                        {rental.pickupPin}
+                        <button
+                          type="button"
+                          className="button button-ghost button-sm"
+                          style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
+                          onClick={() => {
+                            navigator.clipboard.writeText(rental.pickupPin);
+                            setPinCopied(true);
+                            setTimeout(() => setPinCopied(false), 2000);
+                          }}
+                          title="Скопировать PIN-код"
+                        >
+                          <Copy size={20} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="alert alert-success">
+                    {tooEarly
+                      ? `Оплата подтверждена. PIN-код появится ближе к дате получения.`
+                      : "Оплата прошла успешно. Подойдите к постамату и введите PIN-код для открытия ячейки."}
                   </div>
-                </div>
-              ) : null}
-              <div className="alert alert-success">
-                Оплата прошла успешно. Подойдите к постамату и введите PIN-код для открытия ячейки.
-              </div>
-              <Link className="button button-primary" href={`/profile/orders/${rental.id}`}>
-                Открыть заказ
-              </Link>
-            </>
+                  <Link className="button button-primary" href={`/profile/orders/${rental.id}`}>
+                    Открыть заказ
+                  </Link>
+                </>
+              );
+            })()
           ) : (
             <div className="alert">
               После подтверждения здесь появится переход к заказу.
