@@ -434,7 +434,7 @@ async def compute_busy_dates_for_product(
     from backend.models.locker_cell import LockerCell
     from backend.models.rental import Rental
     from backend.models.reservation import Reservation
-    from backend.models.enums import RentalStatus, ReservationStatus
+    from backend.models.enums import RentalStatus, ReservationStatus, InventoryStatus
 
     local_tz = timezone(timedelta(hours=3))
 
@@ -481,6 +481,9 @@ async def compute_busy_dates_for_product(
             and_(
                 Rental.status == RentalStatus.COMPLETED,
                 Rental.actual_end_at >= two_days_ago,
+                # Если оператор уже подтвердил возврат (инвентарь AVAILABLE),
+                # дату считаем свободной — товар снова готов к аренде.
+                InventoryUnit.status != InventoryStatus.AVAILABLE,
             )
         ),
         InventoryUnit.product_id == product_id,
