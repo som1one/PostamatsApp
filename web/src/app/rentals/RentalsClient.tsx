@@ -642,13 +642,6 @@ function RentalsContent() {
                               <RotateCcw size={15} />
                               {busy ? "Открываем ячейку…" : "Вернуть"}
                             </button>
-                            <Link
-                              href={`/profile/orders/${rental.id}`}
-                              className="button button-ghost button-sm"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              Выбрать другой постамат
-                            </Link>
                           </div>
                         ) : null}
                         {canConfirmReturn ? (
