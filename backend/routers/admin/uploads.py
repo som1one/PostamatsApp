@@ -103,10 +103,13 @@ async def presign_admin_upload(
         await db.rollback()
         logger.exception("admin upload presign failed")
         raise HTTPException(status_code=500, detail=str(exc) or "STORAGE_PRESIGN_FAILED") from None
-    except Exception:
+    except Exception as exc:
         await db.rollback()
         logger.exception("admin presign upload failed")
-        raise HTTPException(status_code=500, detail="STORAGE_PRESIGN_FAILED") from None
+        raise HTTPException(
+            status_code=500,
+            detail=f"STORAGE_PRESIGN_FAILED: {type(exc).__name__}: {exc}"[:200],
+        ) from None
 
     return {
         "data": {
