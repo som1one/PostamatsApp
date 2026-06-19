@@ -67,7 +67,7 @@ async def presign_admin_upload(
         original_name=payload.fileName,
         kind=media_kind,
         uploaded_by_user_id=None,
-        uploaded_by_admin_id=admin.id,
+        uploaded_by_admin_id=None,
         created_at=now,
     )
     db.add(media)
@@ -106,7 +106,10 @@ async def presign_admin_upload(
     except Exception as exc:
         await db.rollback()
         logger.exception("admin presign upload failed")
-        raise HTTPException(status_code=500, detail="STORAGE_PRESIGN_FAILED") from None
+        raise HTTPException(
+            status_code=500,
+            detail=f"STORAGE_PRESIGN_FAILED: {type(exc).__name__}: {exc}"[:500],
+        ) from None
 
     return {
         "data": {
