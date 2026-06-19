@@ -469,53 +469,39 @@ async def delete_admin_product(
     if product is None:
         raise HTTPException(status_code=404, detail="PRODUCT_NOT_FOUND")
 
-    # Delete related records first (FK constraints)
-    from backend.models.product_image import ProductImage
-    from backend.models.price_plan import PricePlan
-    from backend.models.product_filter import ProductFilter
-
-    await db.execute(select(ProductImage).where(ProductImage.product_id == product_id).execution_options(synchronize_session="fetch"))
-    images = (await db.scalars(select(ProductImage).where(ProductImage.product_id == product_id))).all()
-    for img in images:
-        await db.delete(img)
-
-    plans = (await db.scalars(select(PricePlan).where(PricePlan.product_id == product_id))).all()
-    for plan in plans:
-        await db.delete(plan)
-
-    # Delete inventory units that aren't referenced by active rentals/reservations
-    units = (await db.scalars(select(InventoryUnit).where(InventoryUnit.product_id == product_id))).all()
-    for unit in units:
-        try:
-            await db.delete(unit)
-            await db.flush()
-        except Exception:
-            await db.rollback()
-            # Can't delete unit (has FK refs) — just retire it
-            unit.status = "RETIRED"
-            await db.flush()
-
-    # Try to delete product filters
-    try:
-        from backend.models.product_filter import ProductFilter
-        filters = (await db.scalars(select(ProductFilter).where(ProductFilter.product_id == product_id))).all()
-        for f in filters:
-            await db.delete(f)
-    except Exception:
-        pass
-
     product_name = product.name
     product_slug = product.slug
 
+    # Cascading cleanup: delete all related records
+    from sqlalchemy import delete as sql_delete, text
+
     try:
-        await db.delete(product)
+        # Delete inventory movements referencing units of this product
+        await db.execute(text("""
+            DELETE FROM inventory_movements WHERE inventory_unit_id IN (
+                SELECT id FROM inventory_units WHERE product_id = :pid
+            )
+        """), {"pid": str(product_id)})
+
+        # Delete inventory units
+        await db.execute(text("DELETE FROM inventory_units WHERE product_id = :pid"), {"pid": str(product_id)})
+
+        # Delete product images
+        await db.execute(text("DELETE FROM product_images WHERE product_id = :pid"), {"pid": str(product_id)})
+
+        # Delete price plans
+        await db.execute(text("DELETE FROM price_plans WHERE product_id = :pid"), {"pid": str(product_id)})
+
+        # Delete product filters
+        await db.execute(text("DELETE FROM product_filters WHERE product_id = :pid"), {"pid": str(product_id)})
+
+        # Delete the product itself
+        await db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": str(product_id)})
+
         await db.commit()
     except Exception as exc:
         await db.rollback()
-        # If can't delete (FK constraints from rentals/reservations), deactivate instead
-        product.is_active = False
-        await db.commit()
-        return {"data": {"deleted": False, "deactivated": True, "productId": str(product_id), "reason": "Has active references"}}
+        raise HTTPException(status_code=500, detail=f"PRODUCT_DELETE_FAILED: {exc}") from exc
 
     record_admin_audit(
         db,
