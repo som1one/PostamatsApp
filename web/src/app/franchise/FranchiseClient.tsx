@@ -128,7 +128,7 @@ export function FranchiseClient() {
           <p className="eyebrow">Новый формат шеринга</p>
           <h2 className="section-heading">Аренда через постаматы — следующий шаг рынка совместного потребления</h2>
         </div>
-        <div className="benefit-grid">
+        <div className="benefit-grid benefit-grid--2col">
           {advantages.map((item) => {
             const Icon = item.icon;
             return (
