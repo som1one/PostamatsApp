@@ -5,7 +5,7 @@
     "excludedSlugPrefixes": [
       "test-"
     ],
-    "productCount": 17,
+    "productCount": 24,
     "lockerCount": 1,
     "inventoryUnitCount": 7
   },
@@ -44,6 +44,12 @@
       "slug": "photo",
       "name": "Фото",
       "sortOrder": 109,
+      "isActive": true
+    },
+    {
+      "slug": "leisure",
+      "name": "Отдых",
+      "sortOrder": 60,
       "isActive": true
     }
   ],
@@ -183,6 +189,102 @@
       "originalName": "puzzi-101-v4.webp",
       "kind": "PRODUCT_COVER",
       "repoAssetPath": "assets/uploads/items/puzzi-101-v4.webp"
+    },
+    {
+      "fileKey": "uploads/items/drill-cover.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 760540,
+      "originalName": "drill-cover.jpg",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/drill-cover.jpg"
+    },
+    {
+      "fileKey": "uploads/items/drill-gallery-1.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 351331,
+      "originalName": "drill-gallery-1.jpg",
+      "kind": "PRODUCT_GALLERY",
+      "repoAssetPath": "assets/uploads/items/drill-gallery-1.jpg"
+    },
+    {
+      "fileKey": "uploads/items/home-cover.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 210255,
+      "originalName": "home-cover.jpg",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/home-cover.jpg"
+    },
+    {
+      "fileKey": "uploads/items/home-gallery-1.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 210255,
+      "originalName": "home-gallery-1.jpg",
+      "kind": "PRODUCT_GALLERY",
+      "repoAssetPath": "assets/uploads/items/home-gallery-1.jpg"
+    },
+    {
+      "fileKey": "uploads/items/projector-cover.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 211516,
+      "originalName": "projector-cover.jpg",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/projector-cover.jpg"
+    },
+    {
+      "fileKey": "uploads/items/projector-gallery-1.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 173692,
+      "originalName": "projector-gallery-1.jpg",
+      "kind": "PRODUCT_GALLERY",
+      "repoAssetPath": "assets/uploads/items/projector-gallery-1.jpg"
+    },
+    {
+      "fileKey": "uploads/items/ps5-cover.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 84134,
+      "originalName": "ps5-cover.jpg",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/ps5-cover.jpg"
+    },
+    {
+      "fileKey": "uploads/items/ps5-gallery-1.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 247148,
+      "originalName": "ps5-gallery-1.jpg",
+      "kind": "PRODUCT_GALLERY",
+      "repoAssetPath": "assets/uploads/items/ps5-gallery-1.jpg"
+    },
+    {
+      "fileKey": "uploads/items/switch-cover.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 125141,
+      "originalName": "switch-cover.jpg",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/switch-cover.jpg"
+    },
+    {
+      "fileKey": "uploads/items/switch-gallery-1.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 1323761,
+      "originalName": "switch-gallery-1.jpg",
+      "kind": "PRODUCT_GALLERY",
+      "repoAssetPath": "assets/uploads/items/switch-gallery-1.jpg"
+    },
+    {
+      "fileKey": "uploads/items/vacuum-cover.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 1293886,
+      "originalName": "vacuum-cover.jpg",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/vacuum-cover.jpg"
+    },
+    {
+      "fileKey": "uploads/items/vacuum-gallery-1.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 1749213,
+      "originalName": "vacuum-gallery-1.jpg",
+      "kind": "PRODUCT_GALLERY",
+      "repoAssetPath": "assets/uploads/items/vacuum-gallery-1.jpg"
     }
   ],
   "products": [
@@ -769,6 +871,586 @@
       ],
       "filter": null,
       "isActive": true
+    },
+    {
+      "slug": "bosch-ixo-7",
+      "name": "Bosch IXO 7",
+      "brand": "Bosch",
+      "shortDescription": "Компактный шуруповерт для дома и быстрых задач.",
+      "fullDescription": "Идеален для полок, карнизов и сборки мебели, когда инструмент нужен на пару часов, а не навсегда.",
+      "rulesText": "Не используйте с неподходящими битами и не оставляйте инструмент под дождем. Верните все насадки в кейс.",
+      "kitDescription": "Шуруповерт, зарядка, набор бит, кейс.",
+      "specsJson": {
+        "Питание": "Аккумулятор",
+        "Крутящий момент": "5.5 Нм",
+        "Вес": "0.34 кг"
+      },
+      "categorySlug": "tools",
+      "coverFileKey": null,
+      "galleryFileKeys": [],
+      "pricePlans": [
+        {
+          "name": "6 часов",
+          "durationType": "hour",
+          "durationValue": 6,
+          "baseAmount": "290.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "12 часов",
+          "durationType": "hour",
+          "durationValue": 12,
+          "baseAmount": "450.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "690.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "1190.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 4
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1590.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 5
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "2990.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 6
+        }
+      ],
+      "filter": {
+        "name": null,
+        "shortDescription": null,
+        "fullDescription": null,
+        "rulesText": null,
+        "kitDescription": null,
+        "coverFileKey": "uploads/items/drill-cover.jpg",
+        "galleryFileKeys": [
+          "uploads/items/drill-gallery-1.jpg"
+        ],
+        "pricePlans": [],
+        "isActive": true
+      },
+      "isActive": false
+    },
+    {
+      "slug": "dyson-am09",
+      "name": "Dyson AM09",
+      "brand": "Dyson",
+      "shortDescription": "Тепловентилятор и вентилятор для дома на нужный сезон.",
+      "fullDescription": "Берете климатическую технику на прохладные или жаркие дни, когда покупать ее ради недели просто не хочется.",
+      "rulesText": "Не накрывайте прибор и не ставьте вплотную к тканям. Перед возвратом проверьте пульт и корпус.",
+      "kitDescription": "Прибор, пульт, кабель питания.",
+      "specsJson": {
+        "Режимы": "Обогрев / охлаждение",
+        "Управление": "Пульт",
+        "Шум": "Тихий режим"
+      },
+      "categorySlug": "home",
+      "coverFileKey": null,
+      "galleryFileKeys": [],
+      "pricePlans": [
+        {
+          "name": "6 часов",
+          "durationType": "hour",
+          "durationValue": 6,
+          "baseAmount": "390.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "12 часов",
+          "durationType": "hour",
+          "durationValue": 12,
+          "baseAmount": "590.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "890.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "1490.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 4
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1990.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 5
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "3890.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 6
+        }
+      ],
+      "filter": {
+        "name": null,
+        "shortDescription": null,
+        "fullDescription": null,
+        "rulesText": null,
+        "kitDescription": null,
+        "coverFileKey": "uploads/items/home-cover.jpg",
+        "galleryFileKeys": [
+          "uploads/items/home-gallery-1.jpg"
+        ],
+        "pricePlans": [],
+        "isActive": true
+      },
+      "isActive": false
+    },
+    {
+      "slug": "karcher-se-3-compact",
+      "name": "Karcher SE 3 Compact",
+      "brand": "Karcher",
+      "shortDescription": "Моющий пылесос для глубокой уборки мебели и салона.",
+      "fullDescription": "Подходит для дивана, ковра и локальной уборки после ремонта. Берете на день и не храните технику дома.",
+      "rulesText": "Используйте чистую воду и фирменную химию по инструкции. Перед возвратом слейте воду и протрите насадки.",
+      "kitDescription": "Пылесос, шланг, насадка для мебели, щелевая насадка, кабель питания.",
+      "specsJson": {
+        "Тип": "Моющий",
+        "Бак": "1.7 л",
+        "Кабель": "3.6 м"
+      },
+      "categorySlug": "cleaning",
+      "coverFileKey": null,
+      "galleryFileKeys": [],
+      "pricePlans": [
+        {
+          "name": "6 часов",
+          "durationType": "hour",
+          "durationValue": 6,
+          "baseAmount": "790.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "12 часов",
+          "durationType": "hour",
+          "durationValue": 12,
+          "baseAmount": "1190.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "1790.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "3090.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 4
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "4190.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 5
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "8390.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 6
+        }
+      ],
+      "filter": {
+        "name": null,
+        "shortDescription": null,
+        "fullDescription": null,
+        "rulesText": null,
+        "kitDescription": null,
+        "coverFileKey": "uploads/items/vacuum-cover.jpg",
+        "galleryFileKeys": [
+          "uploads/items/vacuum-gallery-1.jpg"
+        ],
+        "pricePlans": [],
+        "isActive": true
+      },
+      "isActive": false
+    },
+    {
+      "slug": "nintendo-switch-oled",
+      "name": "Nintendo Switch OLED",
+      "brand": "Nintendo",
+      "shortDescription": "Портативная консоль для поездки, дачи или вечеринки.",
+      "fullDescription": "Легкая консоль с OLED-экраном и быстрым стартом, чтобы взять ее на пару часов или на длинные выходные.",
+      "rulesText": "Возвращайте консоль заряженной и без привязанных аккаунтов. Джойконы и блок питания должны быть в комплекте.",
+      "kitDescription": "Консоль, пара Joy-Con, ремешки, док-станция, блок питания, HDMI.",
+      "specsJson": {
+        "Экран": "7\" OLED",
+        "Память": "64 ГБ",
+        "Режимы": "Портативный / ТВ"
+      },
+      "categorySlug": "consoles",
+      "coverFileKey": null,
+      "galleryFileKeys": [],
+      "pricePlans": [
+        {
+          "name": "6 часов",
+          "durationType": "hour",
+          "durationValue": 6,
+          "baseAmount": "490.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "12 часов",
+          "durationType": "hour",
+          "durationValue": 12,
+          "baseAmount": "790.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "1290.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "2190.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 4
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "2990.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 5
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "5890.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 6
+        }
+      ],
+      "filter": {
+        "name": null,
+        "shortDescription": null,
+        "fullDescription": null,
+        "rulesText": null,
+        "kitDescription": null,
+        "coverFileKey": "uploads/items/switch-cover.jpg",
+        "galleryFileKeys": [
+          "uploads/items/switch-gallery-1.jpg"
+        ],
+        "pricePlans": [],
+        "isActive": true
+      },
+      "isActive": false
+    },
+    {
+      "slug": "playstation-5-slim",
+      "name": "PlayStation 5 Slim",
+      "brand": "Sony",
+      "shortDescription": "Консоль для вечерних игр дома или в гостях.",
+      "fullDescription": "Аренда консоли с быстрым стартом: подключаете, входите в свой аккаунт и играете без лишних покупок.",
+      "rulesText": "Проверьте кабели и геймпад при получении. Не оставляйте консоль без вентиляции и возвращайте комплект полностью.",
+      "kitDescription": "Консоль, геймпад DualSense, HDMI, питание, кабель USB-C для зарядки.",
+      "specsJson": {
+        "Разрешение": "4K",
+        "Память": "1 ТБ",
+        "Геймпады": "1"
+      },
+      "categorySlug": "consoles",
+      "coverFileKey": null,
+      "galleryFileKeys": [],
+      "pricePlans": [
+        {
+          "name": "6 часов",
+          "durationType": "hour",
+          "durationValue": 6,
+          "baseAmount": "690.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "12 часов",
+          "durationType": "hour",
+          "durationValue": 12,
+          "baseAmount": "1090.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "1690.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "2890.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 4
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "3990.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 5
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "7990.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 6
+        }
+      ],
+      "filter": {
+        "name": null,
+        "shortDescription": null,
+        "fullDescription": null,
+        "rulesText": null,
+        "kitDescription": null,
+        "coverFileKey": "uploads/items/ps5-cover.jpg",
+        "galleryFileKeys": [
+          "uploads/items/ps5-gallery-1.jpg"
+        ],
+        "pricePlans": [],
+        "isActive": true
+      },
+      "isActive": false
+    },
+    {
+      "slug": "sup-board-funwater-koi-350",
+      "name": "SUP Board Funwater Koi 350",
+      "brand": "Funwater",
+      "shortDescription": "Двухслойная доска для плавания — SUP для прогулок по воде.",
+      "fullDescription": "Надувная SUP-доска Funwater Koi 350 — двухслойная конструкция для устойчивости и долговечности. Подходит для прогулок, фитнеса на воде и лёгких волн. Длина 350 см обеспечивает стабильность для райдеров любого уровня.",
+      "rulesText": "Накачивайте до рекомендованного давления (15 PSI). Не оставляйте на солнце надолго в накачанном виде. Промойте пресной водой после использования. Верните в сухом виде в сумке.",
+      "kitDescription": "Доска, насос, плавник, лиш, ремкомплект, сумка для переноски.",
+      "specsJson": {
+        "Длина": "350 см (11'5\")",
+        "Слои": "Двухслойная",
+        "Тип": "Надувная",
+        "Бренд": "Funwater"
+      },
+      "categorySlug": "leisure",
+      "coverFileKey": null,
+      "galleryFileKeys": [],
+      "pricePlans": [
+        {
+          "name": "1 сутки",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "1000.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        },
+        {
+          "name": "2 суток",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "1800.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 суток",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "2550.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 суток",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "5250.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
+        }
+      ],
+      "filter": null,
+      "isActive": false
+    },
+    {
+      "slug": "xgimi-mogo-2-pro",
+      "name": "Xgimi MoGo 2 Pro",
+      "brand": "Xgimi",
+      "shortDescription": "Компактный проектор для кино, презентаций и выездов.",
+      "fullDescription": "Проектор для вечера дома, дачи или быстрого показа в офисе. Удобно забрать в постамате по пути.",
+      "rulesText": "Используйте на устойчивой поверхности, не перекрывайте вентиляцию и возвращайте с пультом и блоком питания.",
+      "kitDescription": "Проектор, пульт, питание, мягкий чехол, краткая инструкция.",
+      "specsJson": {
+        "Яркость": "400 ISO lm",
+        "Разрешение": "Full HD",
+        "Вес": "1.1 кг"
+      },
+      "categorySlug": "projectors",
+      "coverFileKey": null,
+      "galleryFileKeys": [],
+      "pricePlans": [
+        {
+          "name": "6 часов",
+          "durationType": "hour",
+          "durationValue": 6,
+          "baseAmount": "590.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "12 часов",
+          "durationType": "hour",
+          "durationValue": 12,
+          "baseAmount": "950.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "1490.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "2590.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 4
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "3490.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 5
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "6890.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 6
+        }
+      ],
+      "filter": {
+        "name": null,
+        "shortDescription": null,
+        "fullDescription": null,
+        "rulesText": null,
+        "kitDescription": null,
+        "coverFileKey": "uploads/items/projector-cover.jpg",
+        "galleryFileKeys": [
+          "uploads/items/projector-gallery-1.jpg"
+        ],
+        "pricePlans": [],
+        "isActive": true
+      },
+      "isActive": false
     }
   ],
   "cities": [
@@ -1008,21 +1690,28 @@
   ],
   "managedProductSlugs": [
     "avtonomnyj-projektor",
+    "bosch-ixo-7",
     "bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0",
     "drel",
+    "dyson-am09",
     "jbl-partybox520-moschnaya-portativnaya-bluetooth-stereosistema",
     "karaoke-sistema-s-dvumya-besprovodnymi-mikrofonami",
+    "karcher-se-3-compact",
     "moyuschij-pylesos-puzzi-101-1-100-130-0",
     "moyushchij-pylesos",
+    "nintendo-switch-oled",
     "otparivatel",
     "paroochistitel-karcher",
     "perforator",
     "perforator-elitech",
     "playstation-5",
+    "playstation-5-slim",
     "polaroid",
     "projektor",
     "rashodniki-instax",
     "robot-mojshchik-okon",
-    "shurupovert"
+    "shurupovert",
+    "sup-board-funwater-koi-350",
+    "xgimi-mogo-2-pro"
   ]
 }
