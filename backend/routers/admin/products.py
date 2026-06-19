@@ -469,21 +469,61 @@ async def delete_admin_product(
     if product is None:
         raise HTTPException(status_code=404, detail="PRODUCT_NOT_FOUND")
 
-    # Deactivate instead of hard delete to preserve FK integrity
-    product.is_active = False
+    # Delete related records first (FK constraints)
+    from backend.models.product_image import ProductImage
+    from backend.models.price_plan import PricePlan
+    from backend.models.product_filter import ProductFilter
+
+    await db.execute(select(ProductImage).where(ProductImage.product_id == product_id).execution_options(synchronize_session="fetch"))
+    images = (await db.scalars(select(ProductImage).where(ProductImage.product_id == product_id))).all()
+    for img in images:
+        await db.delete(img)
+
+    plans = (await db.scalars(select(PricePlan).where(PricePlan.product_id == product_id))).all()
+    for plan in plans:
+        await db.delete(plan)
+
+    # Delete inventory units that aren't referenced by active rentals/reservations
+    units = (await db.scalars(select(InventoryUnit).where(InventoryUnit.product_id == product_id))).all()
+    for unit in units:
+        try:
+            await db.delete(unit)
+            await db.flush()
+        except Exception:
+            await db.rollback()
+            # Can't delete unit (has FK refs) — just retire it
+            unit.status = "RETIRED"
+            await db.flush()
+
+    # Try to delete product filters
     try:
+        from backend.models.product_filter import ProductFilter
+        filters = (await db.scalars(select(ProductFilter).where(ProductFilter.product_id == product_id))).all()
+        for f in filters:
+            await db.delete(f)
+    except Exception:
+        pass
+
+    product_name = product.name
+    product_slug = product.slug
+
+    try:
+        await db.delete(product)
         await db.commit()
     except Exception as exc:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="PRODUCT_DELETE_FAILED") from exc
+        # If can't delete (FK constraints from rentals/reservations), deactivate instead
+        product.is_active = False
+        await db.commit()
+        return {"data": {"deleted": False, "deactivated": True, "productId": str(product_id), "reason": "Has active references"}}
 
     record_admin_audit(
         db,
         admin_id=admin.id,
-        action="product_deactivated",
+        action="product_deleted",
         target_type="product",
-        target_id=product.id,
-        details={"name": product.name, "slug": product.slug},
+        target_id=product_id,
+        details={"name": product_name, "slug": product_slug},
     )
     try:
         await db.commit()
