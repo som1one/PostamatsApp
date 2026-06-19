@@ -225,8 +225,9 @@ async def get_products(
             ),
         )
 
-    # Показываем только товары, размещённые в постаматах выбранного города/постамата,
-    # а также товары с активным product_filter (каталожные без привязки к постамату).
+    # Показываем все активные товары. Товары, размещённые в выбранном
+    # городе/постамате, получают available=true. Остальные — available=false
+    # ("Недоступно"), но всё равно видны в каталоге.
     if locker_uuid is not None:
         placed_ids = await aggregate_placed_at_locker(db, locker_uuid)
     elif city_uuid is not None:
@@ -234,17 +235,19 @@ async def get_products(
     else:
         placed_ids = await aggregate_placed_globally(db)
 
+    # Глобальный список всех размещённых товаров (для видимости в каталоге).
+    all_placed_ids = await aggregate_placed_globally(db) if (city_uuid or locker_uuid) else placed_ids
+
     # Товары с активным product_filter видимы даже без размещения в постамате.
     filter_visible_ids = await _get_filter_only_product_ids(db)
 
-    all_visible_ids = placed_ids | filter_visible_ids
-    if all_visible_ids:
-        conditions.append(Product.id.in_(all_visible_ids))
-    else:
+    all_visible_ids = all_placed_ids | filter_visible_ids
+    if not all_visible_ids:
         return {
             "data": {"products": []},
             "meta": {"page": page, "limit": limit, "total": 0},
         }
+    conditions.append(Product.id.in_(all_visible_ids))
 
     where_clause = and_(*conditions) if conditions else true()
 
@@ -304,6 +307,9 @@ async def get_products(
             product_filter,
         )
         )
+
+    # Сортировка: доступные товары сверху, недоступные — внизу.
+    products_payload.sort(key=lambda item: (not item.get("available", False), item.get("name", "")))
 
     return {
         "data": {"products": products_payload},
