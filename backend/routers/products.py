@@ -235,20 +235,6 @@ async def get_products(
     else:
         placed_ids = await aggregate_placed_globally(db)
 
-    # Глобальный список всех размещённых товаров (для видимости в каталоге).
-    all_placed_ids = await aggregate_placed_globally(db) if (city_uuid or locker_uuid) else placed_ids
-
-    # Товары с активным product_filter видимы даже без размещения в постамате.
-    filter_visible_ids = await _get_filter_only_product_ids(db)
-
-    all_visible_ids = all_placed_ids | filter_visible_ids
-    if not all_visible_ids:
-        return {
-            "data": {"products": []},
-            "meta": {"page": page, "limit": limit, "total": 0},
-        }
-    conditions.append(Product.id.in_(all_visible_ids))
-
     where_clause = and_(*conditions) if conditions else true()
 
     try:
