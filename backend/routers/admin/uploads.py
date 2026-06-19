@@ -33,7 +33,7 @@ async def presign_admin_upload(
     db: AsyncSession = Depends(get_db),
     payload: PresignUploadRequest = Body(...),
 ):
-    admin = await get_current_admin(request, db)
+    admin, _ = await get_current_admin(request, db)
 
     if payload.kind not in PRESIGN_KIND_VALUES or payload.kind not in ADMIN_PRESIGN_KIND_VALUES:
         raise HTTPException(status_code=400, detail="INVALID_FILE_KIND")
