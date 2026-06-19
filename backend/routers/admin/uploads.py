@@ -108,7 +108,7 @@ async def presign_admin_upload(
         logger.exception("admin presign upload failed")
         raise HTTPException(
             status_code=500,
-            detail=f"STORAGE_PRESIGN_FAILED: {type(exc).__name__}: {exc}"[:200],
+            detail=f"STORAGE_PRESIGN_FAILED: {type(exc).__name__}: {exc}"[:500],
         ) from None
 
     return {
