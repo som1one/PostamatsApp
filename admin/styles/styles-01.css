@@ -40,7 +40,7 @@ select {
   position: relative;
   min-height: 100vh;
   padding: 24px;
-  overflow: hidden;
+  overflow-x: hidden;
 }.ambient {
   position: absolute;
   border-radius: 999px;
