@@ -241,11 +241,15 @@
 }.table-surface {
   padding: 12px;
   max-width: 100%;
-  overflow: hidden;
 }.table-scroll {
-  overflow: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   min-width: 0;
   max-width: 100%;
+}.data-table {
+  width: 100%;
+  table-layout: auto;
+}
 }.data-table-cities .data-table-col-actions {
   width: 1%;
   white-space: nowrap;
