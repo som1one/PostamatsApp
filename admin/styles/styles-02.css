@@ -240,9 +240,12 @@
   font-size: 0.92rem;
 }.table-surface {
   padding: 12px;
+  max-width: 100%;
+  overflow: hidden;
 }.table-scroll {
   overflow: auto;
   min-width: 0;
+  max-width: 100%;
 }.data-table-cities .data-table-col-actions {
   width: 1%;
   white-space: nowrap;
