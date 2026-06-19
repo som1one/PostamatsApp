@@ -238,7 +238,7 @@ export function FranchiseClient() {
         </div>
       </section>
 
-      <section className="section-band">
+      <section className="section-band" id="references">
         <div className="section-kicker">
           <p className="eyebrow">Референсы в мире</p>
           <h2 className="section-heading">Модель уже доказала себя за рубежом</h2>
@@ -298,14 +298,14 @@ export function FranchiseClient() {
           <article className="benefit-card">
             <strong>Пошаговый план открытия</strong>
             <p>Как запустить точку аренды без персонала — по шагам.</p>
-            <a className="button button-secondary" href="#consultation">
+            <a className="button button-secondary" href="#references">
               Запросить план
             </a>
           </article>
           <article className="benefit-card">
             <strong>Финансовая модель</strong>
             <p>Расчёт окупаемости точки аренды через постамат.</p>
-            <a className="button button-secondary" href="#consultation">
+            <a className="button button-secondary" href="#references">
               Запросить модель
             </a>
           </article>
