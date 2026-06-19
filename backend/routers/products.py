@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.database import get_db
 from backend.models.city import City
 from backend.models.enums import LockerStatus, ReservationStatus
+from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_location import LockerLocation
 from backend.models.product import Product
 from backend.models.product_category import ProductCategory
@@ -45,6 +46,28 @@ from backend.utils.product_filters import (
 )
 
 router = APIRouter(prefix="/products", tags=["products"])
+
+
+async def _get_filter_only_product_ids(db: AsyncSession) -> set[UUID]:
+    """Return product IDs that have an active product_filter and is_active=True,
+    but no inventory placed in any locker cell. These are 'catalog-only' items
+    shown as unavailable for rental."""
+    from backend.models.product_filter import ProductFilter
+
+    stmt = (
+        select(ProductFilter.product_id)
+        .join(Product, Product.id == ProductFilter.product_id)
+        .where(
+            ProductFilter.is_active.is_(True),
+            Product.is_active.is_(True),
+            ~Product.id.in_(
+                select(InventoryUnit.product_id)
+                .where(InventoryUnit.locker_cell_id.isnot(None))
+                .distinct()
+            ),
+        )
+    )
+    return {row for row in (await db.scalars(stmt)).all()}
 
 
 def _parse_uuid_param(raw: str | None, error_code: str) -> UUID | None:
@@ -202,7 +225,8 @@ async def get_products(
             ),
         )
 
-    # Показываем только товары, размещённые в постаматах выбранного города/постамата.
+    # Показываем только товары, размещённые в постаматах выбранного города/постамата,
+    # а также товары с активным product_filter (каталожные без привязки к постамату).
     if locker_uuid is not None:
         placed_ids = await aggregate_placed_at_locker(db, locker_uuid)
     elif city_uuid is not None:
@@ -210,8 +234,12 @@ async def get_products(
     else:
         placed_ids = await aggregate_placed_globally(db)
 
-    if placed_ids:
-        conditions.append(Product.id.in_(placed_ids))
+    # Товары с активным product_filter видимы даже без размещения в постамате.
+    filter_visible_ids = await _get_filter_only_product_ids(db)
+
+    all_visible_ids = placed_ids | filter_visible_ids
+    if all_visible_ids:
+        conditions.append(Product.id.in_(all_visible_ids))
     else:
         return {
             "data": {"products": []},

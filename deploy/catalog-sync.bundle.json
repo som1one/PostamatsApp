@@ -957,7 +957,7 @@
         "pricePlans": [],
         "isActive": true
       },
-      "isActive": false
+      "isActive": true
     },
     {
       "slug": "dyson-am09",
@@ -1044,7 +1044,7 @@
         "pricePlans": [],
         "isActive": true
       },
-      "isActive": false
+      "isActive": true
     },
     {
       "slug": "karcher-se-3-compact",
@@ -1131,7 +1131,7 @@
         "pricePlans": [],
         "isActive": true
       },
-      "isActive": false
+      "isActive": true
     },
     {
       "slug": "nintendo-switch-oled",
@@ -1218,7 +1218,7 @@
         "pricePlans": [],
         "isActive": true
       },
-      "isActive": false
+      "isActive": true
     },
     {
       "slug": "playstation-5-slim",
@@ -1305,7 +1305,7 @@
         "pricePlans": [],
         "isActive": true
       },
-      "isActive": false
+      "isActive": true
     },
     {
       "slug": "sup-board-funwater-koi-350",
@@ -1363,7 +1363,7 @@
         }
       ],
       "filter": null,
-      "isActive": false
+      "isActive": true
     },
     {
       "slug": "xgimi-mogo-2-pro",
@@ -1450,7 +1450,7 @@
         "pricePlans": [],
         "isActive": true
       },
-      "isActive": false
+      "isActive": true
     }
   ],
   "cities": [
