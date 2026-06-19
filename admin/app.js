@@ -3342,8 +3342,8 @@ function handleProductsTableClick(event) {
   const deleteBtn = root.closest("[data-delete-product]");
   if (deleteBtn) {
     const id = deleteBtn.getAttribute("data-delete-product");
-    if (id && confirm("Удалить товар? Он будет деактивирован.")) {
-      apiFetch(`/api/admin/products/${id}`, { method: "DELETE" })
+    if (id && confirm("Удалить товар из базы? Это действие необратимо.")) {
+      authorizedRequest(`/api/admin/products/${id}`, { method: "DELETE" })
         .then(() => {
           showToast("success", "Товар удалён");
           loadProducts();
