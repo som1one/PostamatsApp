@@ -2865,6 +2865,7 @@ function renderProducts() {
         <td>${renderStatusPill(p.isActive ? "online" : "offline")}</td>
         <td class="data-table-col-actions">
           <button type="button" class="ghost-button table-inline-button" data-open-product="${escapeHtml(p.id)}">Открыть</button>
+          <button type="button" class="table-danger-button table-inline-button" data-delete-product="${escapeHtml(p.id)}">Удалить</button>
         </td>
       </tr>`,
       )
@@ -3336,6 +3337,19 @@ function renderAudit() {
 function handleProductsTableClick(event) {
   const root = clickTargetElement(event);
   if (!root) {
+    return;
+  }
+  const deleteBtn = root.closest("[data-delete-product]");
+  if (deleteBtn) {
+    const id = deleteBtn.getAttribute("data-delete-product");
+    if (id && confirm("Удалить товар? Он будет деактивирован.")) {
+      apiFetch(`/api/admin/products/${id}`, { method: "DELETE" })
+        .then(() => {
+          showToast("success", "Товар удалён");
+          loadProducts();
+        })
+        .catch((err) => showToast("error", err.message || "Ошибка удаления"));
+    }
     return;
   }
   const btn = root.closest("[data-open-product]");

@@ -456,3 +456,38 @@ async def update_admin_product(
             ),
         }
     }
+
+
+@router.delete("/{product_id}")
+async def delete_admin_product(
+    product_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    admin = await get_current_admin(request, db)
+    product = await db.get(Product, product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="PRODUCT_NOT_FOUND")
+
+    # Deactivate instead of hard delete to preserve FK integrity
+    product.is_active = False
+    try:
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="PRODUCT_DELETE_FAILED") from exc
+
+    record_admin_audit(
+        db,
+        admin_id=admin.id,
+        action="product_deactivated",
+        target_type="product",
+        target_id=product.id,
+        details={"name": product.name, "slug": product.slug},
+    )
+    try:
+        await db.commit()
+    except Exception:
+        pass
+
+    return {"data": {"deleted": True, "productId": str(product_id)}}
