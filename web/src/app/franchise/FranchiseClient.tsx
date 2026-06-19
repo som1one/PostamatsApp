@@ -298,14 +298,14 @@ export function FranchiseClient() {
           <article className="benefit-card">
             <strong>Пошаговый план открытия</strong>
             <p>Как запустить точку аренды без персонала — по шагам.</p>
-            <a className="button button-secondary" href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Запрос: план открытия точки")}`}>
+            <a className="button button-secondary" href="#consultation">
               Запросить план
             </a>
           </article>
           <article className="benefit-card">
             <strong>Финансовая модель</strong>
             <p>Расчёт окупаемости точки аренды через постамат.</p>
-            <a className="button button-secondary" href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Запрос: финансовая модель")}`}>
+            <a className="button button-secondary" href="#consultation">
               Запросить модель
             </a>
           </article>
