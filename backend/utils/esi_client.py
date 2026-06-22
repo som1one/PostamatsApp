@@ -41,7 +41,7 @@ class EsiDiscoveryError(Exception):
 def _get_esi_headers() -> dict[str, str]:
     headers: dict[str, str] = {}
     if settings.ESI_API_KEY:
-        headers["X-Api-Key"] = settings.ESI_API_KEY
+        headers["Authorization"] = f"Bearer {settings.ESI_API_KEY}"
     return headers
 
 
