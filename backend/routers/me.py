@@ -712,7 +712,10 @@ async def cancel_rental_before_pickup(
     provider_payment_id: str | None = None
     final_payment_status: PaymentStatus | None = None
 
-    if reservation is not None:
+    # Если PIN уже выдан — возврат денег не производится.
+    pin_issued = bool(rental.pickup_pin)
+
+    if reservation is not None and not pin_issued:
         payment_row = (
             await db.execute(
                 select(
@@ -805,6 +808,7 @@ async def cancel_rental_before_pickup(
                 source=RentalEventSource.USER,
                 payload_json={
                     "reservationId": str(reservation.id) if reservation is not None else None,
+                    "refundSkipped": pin_issued,
                 },
             )
         )
