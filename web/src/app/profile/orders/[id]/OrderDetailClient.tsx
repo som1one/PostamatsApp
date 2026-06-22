@@ -173,6 +173,8 @@ function OrderDetailContent({ id }: { id: string }) {
   const [showRefundDialog, setShowRefundDialog] = useState(false);
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null);
   const [pinCopied, setPinCopied] = useState(false);
+  // Confirmation dialog before issuing PIN ("Get PIN" flow)
+  const [showGetPinDialog, setShowGetPinDialog] = useState(false);
   const [returnPin, setReturnPin] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -358,15 +360,15 @@ function OrderDetailContent({ id }: { id: string }) {
     setError("");
     try {
       await confirmRentalPickup(rentalId);
-      setMessage("Спасибо! Аренда началась.");
+      setMessage("Аренда началась. PIN-код ниже — введите его на постамате.");
       await load();
     } catch (err) {
       if (err instanceof ApiError && err.code === "PICKUP_NOT_YET_AVAILABLE") {
-        setError("Подтвердить получение можно только в назначенное время. Обновите страницу через минуту.");
+        setError("Получить PIN можно только в назначенное время. Обновите страницу через минуту.");
       } else if (err instanceof ApiError && err.code === "RENTAL_NOT_PICKUP_READY") {
-        setError("Сначала нажмите «Открыть ячейку».");
+        setError("Не удалось получить PIN. Обновите страницу.");
       } else {
-        setError(err instanceof Error ? err.message : "Не удалось подтвердить получение");
+        setError(err instanceof Error ? err.message : "Не удалось получить PIN");
       }
     } finally {
       setBusy(false);
@@ -664,60 +666,66 @@ function OrderDetailContent({ id }: { id: string }) {
 
           {/* Action buttons — inline in main panel */}
           <div className="detail-actions">
-            {/* Open pickup cell */}
+            {/* Get PIN button before pickup — confirms the user is at the locker */}
+            {!isReservation && order.data.status === "pickup_ready" ? (() => {
+              const startsAtStr = order.detail?.startsAt;
+              const startsAtMs = startsAtStr ? new Date(startsAtStr).getTime() : 0;
+              // Окно доступа открывается за 1 час до starts_at — то же
+              // условие, что и на бэке.
+              const PICKUP_LEAD_GRACE_MS = 60 * 60 * 1000;
+              const tooEarly = startsAtMs > 0 && Date.now() < startsAtMs - PICKUP_LEAD_GRACE_MS;
+              const dateLabel = startsAtStr
+                ? new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(startsAtStr))
+                : "";
+              return (
+                <>
+                  <p className="muted detail-actions-hint">
+                    {tooEarly
+                      ? `Получение запланировано на ${dateLabel}. Получить PIN-код можно за час до этого времени.`
+                      : "Когда подойдёте к постамату, нажмите «Получить PIN». После этого начнётся аренда."}
+                  </p>
+                  <button
+                    className="button button-primary"
+                    type="button"
+                    disabled={busy || tooEarly}
+                    onClick={() => setShowGetPinDialog(true)}
+                  >
+                    <PackageCheck size={18} />
+                    Получить PIN
+                  </button>
+                </>
+              );
+            })() : null}
+
+            {/* PIN shown after pickup confirmation (rental is active) */}
             {!isReservation &&
-              ["pickup_ready", "pickup_opened"].includes(order.data.status) ? (() => {
-                const startsAtStr = order.detail?.startsAt;
-                const startsAtMs = startsAtStr ? new Date(startsAtStr).getTime() : 0;
-                // Окно доступа открывается за 1 час до starts_at — то же
-                // условие, что и на бэке.
-                const PICKUP_LEAD_GRACE_MS = 60 * 60 * 1000;
-                const tooEarly = startsAtMs > 0 && Date.now() < startsAtMs - PICKUP_LEAD_GRACE_MS;
-                const dateLabel = startsAtStr
-                  ? new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(startsAtStr))
-                  : "";
-                return (
-                  <>
-                    <p className="muted detail-actions-hint">
-                      {tooEarly
-                        ? `Получение запланировано на ${dateLabel}. PIN-код появится за час до этого времени.`
-                        : "Подойдите к постамату и введите этот PIN-код на клавиатуре для открытия ячейки. Когда заберёте товар, нажмите «Я забрал»."}
-                    </p>
-                    {!tooEarly && order.detail?.pickupPin ? (
-                      <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px" }}>
-                        <div style={{ fontSize: "13px", color: "#166534", marginBottom: "4px" }}>{pinCopied ? "Скопировано ✓" : "Ваш PIN-код:"}</div>
-                        <div style={{ fontSize: "32px", fontWeight: "bold", fontFamily: "monospace", color: "#15803d", display: "inline-flex", alignItems: "center", gap: "12px" }}>
-                          {order.detail.pickupPin}
-                          <button
-                            type="button"
-                            className="button button-ghost button-sm"
-                            style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
-                            onClick={() => {
-                              navigator.clipboard.writeText(order.detail!.pickupPin!);
-                              setPinCopied(true);
-                              setTimeout(() => setPinCopied(false), 2000);
-                            }}
-                            title="Скопировать PIN-код"
-                          >
-                            <Copy size={20} />
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
-                    {order.data.status === "pickup_opened" || (!tooEarly && order.detail?.pickupPin) ? (
-                      <button
-                        className="button button-secondary"
-                        type="button"
-                        disabled={busy || tooEarly}
-                        onClick={() => handleConfirmPickup(order.data.id)}
-                      >
-                        <PackageCheck size={18} />
-                        Я забрал
-                      </button>
-                    ) : null}
-                  </>
-                );
-              })() : null}
+              ["pickup_opened", "active", "overdue"].includes(order.data.status) &&
+              order.detail?.pickupPin ? (
+              <>
+                <p className="muted detail-actions-hint">
+                  Введите PIN-код на клавиатуре постамата, чтобы открыть ячейку.
+                </p>
+                <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px" }}>
+                  <div style={{ fontSize: "13px", color: "#166534", marginBottom: "4px" }}>{pinCopied ? "Скопировано ✓" : "Ваш PIN-код:"}</div>
+                  <div style={{ fontSize: "32px", fontWeight: "bold", fontFamily: "monospace", color: "#15803d", display: "inline-flex", alignItems: "center", gap: "12px" }}>
+                    {order.detail.pickupPin}
+                    <button
+                      type="button"
+                      className="button button-ghost button-sm"
+                      style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(order.detail!.pickupPin!);
+                        setPinCopied(true);
+                        setTimeout(() => setPinCopied(false), 2000);
+                      }}
+                      title="Скопировать PIN-код"
+                    >
+                      <Copy size={20} />
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : null}
 
             {/* Reschedule button for paid reservation */}
             {isReservation && order.data.status === "payment_authorized" ? (
@@ -819,6 +827,47 @@ function OrderDetailContent({ id }: { id: string }) {
           </div>
         </Surface>
       </div>
+
+      {/* Get PIN confirmation modal — confirms the user is at the locker */}
+      {showGetPinDialog ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-box">
+            <div className="modal-icon">
+              <PackageCheck size={28} />
+            </div>
+            <h2 className="modal-title">Вы у постамата?</h2>
+            <p className="modal-text">
+              Нажмите «Да, я у постамата», чтобы получить PIN-код. После этого начнётся аренда.
+            </p>
+            <div className="modal-actions">
+              <div className="modal-actions-row">
+                <button
+                  className="button button-primary"
+                  type="button"
+                  style={{ width: "100%" }}
+                  disabled={busy}
+                  onClick={async () => {
+                    setShowGetPinDialog(false);
+                    if (order?.data?.id) {
+                      await handleConfirmPickup(order.data.id);
+                    }
+                  }}
+                >
+                  {busy ? "Получаем PIN" : "Да, я у постамата"}
+                </button>
+              </div>
+              <div className="modal-back">
+                <button
+                  type="button"
+                  onClick={() => setShowGetPinDialog(false)}
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Refund confirmation modal (for payment_authorized reservations) */}
       {showRefundDialog ? (

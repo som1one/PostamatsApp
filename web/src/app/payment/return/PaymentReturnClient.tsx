@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeftRight, CreditCard, PackageCheck, RotateCcw, ShoppingBag, Copy } from "lucide-react";
+import { ArrowLeftRight, CreditCard, PackageCheck, RotateCcw, ShoppingBag } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { PageChrome } from "@/components/PageChrome";
 import { PageHeader } from "@/components/PageHeader";
@@ -56,7 +56,6 @@ function PaymentReturnContent() {
   const [cancelled, setCancelled] = useState(false);
   const [pending, setPending] = useState<PendingCheckout | null | undefined>(undefined);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [pinCopied, setPinCopied] = useState(false);
 
   useEffect(() => {
     if (!isReady) return;
@@ -318,34 +317,13 @@ function PaymentReturnContent() {
               const tooEarly = pickupAtMs > 0 && Date.now() < pickupAtMs - PICKUP_LEAD_GRACE_MS;
               return (
                 <>
-                  {!tooEarly && rental.pickupPin ? (
-                    <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px" }}>
-                      <div style={{ fontSize: "14px", color: "#166534", marginBottom: "4px" }}>{pinCopied ? "Скопировано ✓" : "Ваш PIN-код:"}</div>
-                      <div style={{ fontSize: "32px", fontWeight: "bold", fontFamily: "monospace", color: "#15803d", display: "inline-flex", alignItems: "center", gap: "12px" }}>
-                        {rental.pickupPin}
-                        <button
-                          type="button"
-                          className="button button-ghost button-sm"
-                          style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
-                          onClick={() => {
-                            navigator.clipboard.writeText(rental.pickupPin);
-                            setPinCopied(true);
-                            setTimeout(() => setPinCopied(false), 2000);
-                          }}
-                          title="Скопировать PIN-код"
-                        >
-                          <Copy size={20} />
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
                   <div className="alert alert-success">
                     {tooEarly
-                      ? `Оплата подтверждена. PIN-код появится ближе к дате получения.`
-                      : "Оплата прошла успешно. Подойдите к постамату и введите PIN-код для открытия ячейки."}
+                      ? `Оплата подтверждена. PIN-код можно будет получить ближе к дате выдачи.`
+                      : "Оплата прошла успешно. Перейдите к заказу, чтобы получить PIN-код у постамата."}
                   </div>
                   <Link className="button button-primary" href={`/profile/orders/${rental.id}`}>
-                    Открыть заказ
+                    Перейти к получению PIN-кода
                   </Link>
                 </>
               );
