@@ -217,7 +217,7 @@ LOCKER_SEEDS = (
     {
         "city_slug": "velikiy-novgorod",
         "external_provider": "esi",
-        "external_locker_id": "PST_1234",
+        "external_locker_id": "PST_0980",
         "name": "Великий Новгород Центр",
         "address": "Великий Новгород, Большая Санкт-Петербургская ул., 39",
         "lat": 58.533147,

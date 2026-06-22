@@ -184,13 +184,15 @@ def _cell_status_from_esi_state(state: str | None) -> LockerCellStatus | None:
 def _esi_state_payload(state: str | None) -> str:
     """Переводит наш внутренний state в значение, ожидаемое ESI API.
 
-    Провайдер принимает `vacant | occupied | blocked`.
+    Провайдер принимает `unassigned | assigned | blocked`.
+    (Демо-документация показывает `vacant | occupied | blocked`, но
+    боевой вариант API для нашего аккаунта использует другой enum.)
     """
     normalized = (state or "").strip().lower()
     if normalized in ("vacant", "unassigned", ""):
-        return "vacant"
+        return "unassigned"
     if normalized in ("occupied", "assigned"):
-        return "occupied"
+        return "assigned"
     if normalized == "blocked":
         return "blocked"
     return normalized
@@ -308,9 +310,9 @@ async def sync_cell_state(
 
     esi_state = _esi_state_payload(state)
     # ESI отвергает запрос с непустым `pin`, если ячейка переводится
-    # в `vacant` (свободную). Поэтому при освобождении принудительно
-    # стираем pin, что бы ни пришло сверху.
-    esi_pin = "" if esi_state == "vacant" else (pin or "0000")
+    # в свободную (unassigned/vacant). Поэтому при освобождении
+    # принудительно стираем pin, что бы ни пришло сверху.
+    esi_pin = "" if esi_state in ("vacant", "unassigned") else (pin or "0000")
     await _esi_post(
         f"/set-cell/{serial}/{external_cell_id}",
         payload={"state": esi_state, "pin": esi_pin},
