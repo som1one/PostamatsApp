@@ -115,14 +115,14 @@ async def start_rental_return(
         if pickup_locker is not None and pickup_locker.city_id != locker.city_id:
             raise ReturnRequestError("RETURN_LOCKER_DIFFERENT_CITY")
 
-    # Берём VACANT-ячейку для возврата. Предпочитаем пустую (без юнитов).
-    # Если таких нет — берём ячейку с AVAILABLE-юнитом (он будет вытеснен).
+    # Берём только реально пустую ячейку: статус VACANT и в ней не висит
+    # никакой `InventoryUnit`. Иначе при `complete_return_request` мы
+    # упрёмся в UNIQUE(locker_cell_id) и завалим транзакцию.
     occupied_cell_ids_subq = (
         select(InventoryUnit.locker_cell_id)
         .where(InventoryUnit.locker_cell_id.is_not(None))
         .subquery()
     )
-    # Сначала пробуем полностью пустую ячейку
     stmt = (
         select(LockerCell)
         .where(
@@ -135,30 +135,6 @@ async def start_rental_return(
         .limit(1)
     )
     cell = (await db.scalars(stmt)).first()
-
-    # Если пустых нет — берём VACANT-ячейку, в которой есть только AVAILABLE-юнит
-    if cell is None:
-        available_only_cells_subq = (
-            select(InventoryUnit.locker_cell_id)
-            .where(
-                InventoryUnit.locker_cell_id.is_not(None),
-                InventoryUnit.status != InventoryStatus.AVAILABLE,
-            )
-            .subquery()
-        )
-        stmt_available = (
-            select(LockerCell)
-            .where(
-                LockerCell.locker_id == return_locker_id,
-                LockerCell.supports_return.is_(True),
-                LockerCell.status == LockerCellStatus.VACANT,
-                LockerCell.id.not_in(select(available_only_cells_subq)),
-            )
-            .order_by(LockerCell.label.asc().nulls_last(), LockerCell.created_at.asc())
-            .limit(1)
-        )
-        cell = (await db.scalars(stmt_available)).first()
-
     if cell is None:
         legacy_cell = await _find_legacy_return_cell(
             db,
@@ -169,18 +145,6 @@ async def start_rental_return(
             cell = legacy_cell
         else:
             raise ReturnRequestError("RETURN_CELL_NOT_AVAILABLE")
-
-    # Если в выбранной ячейке есть AVAILABLE-юнит — вытесняем его (отвязываем от ячейки).
-    existing_unit_in_cell = (
-        await db.scalars(
-            select(InventoryUnit).where(
-                InventoryUnit.locker_cell_id == cell.id,
-                InventoryUnit.status == InventoryStatus.AVAILABLE,
-            )
-        )
-    ).first()
-    if existing_unit_in_cell is not None:
-        existing_unit_in_cell.locker_cell_id = None
 
     now = datetime.now(timezone.utc)
     return_pin = generate_pickup_pin()
