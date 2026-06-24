@@ -425,7 +425,10 @@ def _upsert_product(
     product.rules_text = payload["rulesText"]
     product.kit_description = payload["kitDescription"]
     product.brand = payload["brand"]
-    product.cover_file_id = cover_media.id if cover_media else None
+    # Не затираем обложку, если в бандле она не задана (null) —
+    # фото могло быть загружено вручную через админку.
+    if cover_media is not None:
+        product.cover_file_id = cover_media.id
     product.is_active = bool(payload["isActive"])
     stats.products_updated += 1
     return product
@@ -537,8 +540,11 @@ def _sync_product_filter(
     existing.full_description = payload["fullDescription"]
     existing.rules_text = payload["rulesText"]
     existing.kit_description = payload["kitDescription"]
-    existing.cover_url = cover_url
-    existing.gallery_urls_json = gallery_urls
+    # Не затираем обложку/галерею фильтра, если в бандле они не заданы.
+    if cover_url is not None:
+        existing.cover_url = cover_url
+    if gallery_urls:
+        existing.gallery_urls_json = gallery_urls
     existing.price_plans_json = payload["pricePlans"] or []
     existing.is_active = bool(payload["isActive"])
     stats.filters_updated += 1
@@ -690,7 +696,10 @@ def apply_bundle(
                 for file_key in payload.get("galleryFileKeys") or []
                 if file_key in media_by_file_key
             ]
-            _replace_product_gallery(session, product, gallery_media, stats)
+            # Не затираем галерею, если в бандле она пустая — фото могли
+            # быть загружены вручную через админку.
+            if gallery_media:
+                _replace_product_gallery(session, product, gallery_media, stats)
             _sync_product_filter(session, product, payload.get("filter"), stats)
 
         _sync_inventory_units(session, bundle["inventoryUnits"], products_by_slug, cells_by_key, stats)
