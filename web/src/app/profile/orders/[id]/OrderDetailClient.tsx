@@ -27,6 +27,7 @@ import { Surface } from "@/components/Surface";
 import { YandexMap } from "@/components/YandexMap";
 import { ApiError } from "@/shared/api/client";
 import {
+  cancelRentalBeforePickup,
   cancelReservation,
   confirmRentalPickup,
   confirmRentalReturn,
@@ -175,6 +176,8 @@ function OrderDetailContent({ id }: { id: string }) {
   const [pinCopied, setPinCopied] = useState(false);
   // Confirmation dialog before issuing PIN ("Get PIN" flow)
   const [showGetPinDialog, setShowGetPinDialog] = useState(false);
+  // Cancel rental before pickup (starts tomorrow+)
+  const [showCancelRentalDialog, setShowCancelRentalDialog] = useState(false);
   const [returnPin, setReturnPin] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -369,6 +372,27 @@ function OrderDetailContent({ id }: { id: string }) {
         setError("Не удалось получить PIN. Обновите страницу.");
       } else {
         setError(err instanceof Error ? err.message : "Не удалось получить PIN");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCancelRentalBeforePickup(rentalId: string) {
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      await cancelRentalBeforePickup(rentalId);
+      setMessage("Аренда отменена. Средства вернутся тем же способом оплаты.");
+      await load();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "RENTAL_NOT_CANCELLABLE") {
+        setError("Отмена доступна только если аренда начинается завтра или позже.");
+      } else if (err instanceof ApiError && err.code === "YOOKASSA_REFUND_FAILED") {
+        setError("Не удалось оформить возврат. Попробуйте позже или обратитесь в поддержку.");
+      } else {
+        setError(err instanceof Error ? err.message : "Не удалось отменить аренду");
       }
     } finally {
       setBusy(false);
@@ -693,6 +717,18 @@ function OrderDetailContent({ id }: { id: string }) {
                     <PackageCheck size={18} />
                     Получить PIN
                   </button>
+                  {/* Cancel allowed only if starts_at is tomorrow or later */}
+                  {startsAtMs > 0 && new Date(startsAtMs).toDateString() !== new Date().toDateString() ? (
+                    <button
+                      className="button button-ghost"
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setShowCancelRentalDialog(true)}
+                    >
+                      <XCircle size={18} />
+                      Отменить
+                    </button>
+                  ) : null}
                 </>
               );
             })() : null}
@@ -862,6 +898,47 @@ function OrderDetailContent({ id }: { id: string }) {
                   onClick={() => setShowGetPinDialog(false)}
                 >
                   Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Cancel rental before pickup modal (starts tomorrow+) */}
+      {showCancelRentalDialog ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-box">
+            <div className="modal-icon">
+              <XCircle size={28} />
+            </div>
+            <h2 className="modal-title">Отменить аренду?</h2>
+            <p className="modal-text">
+              Вы точно хотите отменить? Средства вернутся на карту тем же способом оплаты.
+            </p>
+            <div className="modal-actions">
+              <div className="modal-actions-row">
+                <button
+                  className="button button-primary"
+                  type="button"
+                  style={{ width: "100%" }}
+                  disabled={busy}
+                  onClick={async () => {
+                    setShowCancelRentalDialog(false);
+                    if (order?.data?.id) {
+                      await handleCancelRentalBeforePickup(order.data.id);
+                    }
+                  }}
+                >
+                  {busy ? "Отменяем…" : "Да, отменить"}
+                </button>
+              </div>
+              <div className="modal-back">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelRentalDialog(false)}
+                >
+                  Назад
                 </button>
               </div>
             </div>

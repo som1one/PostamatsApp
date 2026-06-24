@@ -708,14 +708,24 @@ async def cancel_rental_before_pickup(
         else None
     )
     now = datetime.now(timezone.utc)
+
+    # Отмена разрешена только если starts_at — завтра или позже.
+    # Если аренда начинается сегодня (или starts_at не задан) — отмена запрещена.
+    if rental.starts_at is not None:
+        starts_at = ensure_utc(rental.starts_at)
+        starts_date = starts_at.date()
+        today = now.date()
+        if starts_date <= today:
+            raise HTTPException(status_code=409, detail="RENTAL_NOT_CANCELLABLE")
+    else:
+        # Нет starts_at — считаем, что аренда на сегодня, отмена запрещена.
+        raise HTTPException(status_code=409, detail="RENTAL_NOT_CANCELLABLE")
+
     payment_id: UUID | None = None
     provider_payment_id: str | None = None
     final_payment_status: PaymentStatus | None = None
 
-    # Если PIN уже выдан — возврат денег не производится.
-    pin_issued = bool(rental.pickup_pin)
-
-    if reservation is not None and not pin_issued:
+    if reservation is not None:
         payment_row = (
             await db.execute(
                 select(
@@ -808,7 +818,6 @@ async def cancel_rental_before_pickup(
                 source=RentalEventSource.USER,
                 payload_json={
                     "reservationId": str(reservation.id) if reservation is not None else None,
-                    "refundSkipped": pin_issued,
                 },
             )
         )
