@@ -99,16 +99,14 @@ export function FranchiseClient() {
         <div className="franchise-hero-copy">
           <p className="eyebrow">Франшиза</p>
           <h1 className="page-title">Постаматы с вещами в аренду — готовый бизнес без персонала</h1>
-          <div className="franchise-about">
-            <p className="franchise-about-lead">
-              <strong>НаПрокатБеру</strong> — сеть автоматических точек аренды техники и бытовых вещей.
-            </p>
-            <ul className="franchise-checklist">
-              <li>Вы ставите постамат в проходном месте</li>
-              <li>Сервис, каталог, оплата и поддержка клиентов работают автоматически</li>
-              <li>Доход идёт круглосуточно, штат держать не нужно</li>
-            </ul>
-          </div>
+          <p className="page-subtitle">
+            <strong>НаПрокатБеру</strong> — сеть автоматических точек аренды техники и бытовых вещей.
+          </p>
+          <ul className="franchise-checklist">
+            <li>Ставите постамат в проходном месте</li>
+            <li>Каталог, оплата и поддержка работают сами</li>
+            <li>Доход круглосуточно, без штата</li>
+          </ul>
           <div className="franchise-hero-banner">
             <img src="/franchise-hero.jpg" alt="Постамат naprokatberu с вещами в аренду" />
           </div>
