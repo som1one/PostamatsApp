@@ -573,7 +573,7 @@ function RentalsContent() {
                         {itemErr ? (
                           <p className="muted small" style={{ color: "var(--danger, #dd362d)" }}>{itemErr}</p>
                         ) : null}
-                        {rental.pickupPin && ["pickup_ready", "pickup_opened"].includes(rental.status) ? (
+                        {rental.pickupPin && ["active", "overdue", "pickup_opened"].includes(rental.status) ? (
                           <div className="pickup-pin-display" style={{ padding: "12px", backgroundColor: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0", display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "12px", marginBottom: "12px" }}>
                             <div>
                               <div style={{ fontSize: "12px", color: "#166534", marginBottom: "2px" }}>Ваш PIN-код:</div>
