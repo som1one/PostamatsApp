@@ -280,7 +280,20 @@ async def process_esi_webhook_payload(
         cell.last_opened_at = now
         cell.last_event_at = now
     elif cell is not None and event_type in OCCUPIED_EVENTS:
-        cell.status = LockerCellStatus.OCCUPIED
+        # Ставим OCCUPIED только если в ячейке реально есть InventoryUnit
+        # или есть связанный rental (возврат). Иначе — "фантомное" занятие,
+        # которое блокирует возвраты для клиентов.
+        has_unit = (
+            await db.execute(
+                select(InventoryUnit.id)
+                .where(InventoryUnit.locker_cell_id == cell.id)
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if has_unit is not None or rental is not None:
+            cell.status = LockerCellStatus.OCCUPIED
+        else:
+            cell.status = LockerCellStatus.VACANT
         cell.last_closed_at = now
         cell.last_event_at = now
     elif cell is not None and event_type in VACANT_EVENTS:

@@ -43,11 +43,20 @@ async def _find_legacy_return_cell(
     unit: InventoryUnit,
     locker_id: UUID,
 ) -> LockerCell | None:
+    _PHYSICALLY_PRESENT_STATUSES = (
+        InventoryStatus.AVAILABLE,
+        InventoryStatus.RESERVED,
+        InventoryStatus.RETURN_PENDING,
+        InventoryStatus.AWAITING_CONFIRMATION,
+        InventoryStatus.MAINTENANCE,
+        InventoryStatus.DAMAGED,
+    )
     occupied_cell_ids_subq = (
         select(InventoryUnit.locker_cell_id)
         .where(
             InventoryUnit.locker_cell_id.is_not(None),
             InventoryUnit.id != unit.id,
+            InventoryUnit.status.in_(_PHYSICALLY_PRESENT_STATUSES),
         )
         .subquery()
     )
@@ -116,11 +125,23 @@ async def start_rental_return(
             raise ReturnRequestError("RETURN_LOCKER_DIFFERENT_CITY")
 
     # Берём только реально пустую ячейку: статус VACANT и в ней не висит
-    # никакой `InventoryUnit`. Иначе при `complete_return_request` мы
-    # упрёмся в UNIQUE(locker_cell_id) и завалим транзакцию.
+    # никакой `InventoryUnit` с "физически присутствующим" статусом.
+    # Юниты со статусом RENTED/LOST/RETIRED не занимают ячейку физически,
+    # даже если locker_cell_id ещё не обнулён (stale reference).
+    _PHYSICALLY_PRESENT_STATUSES = (
+        InventoryStatus.AVAILABLE,
+        InventoryStatus.RESERVED,
+        InventoryStatus.RETURN_PENDING,
+        InventoryStatus.AWAITING_CONFIRMATION,
+        InventoryStatus.MAINTENANCE,
+        InventoryStatus.DAMAGED,
+    )
     occupied_cell_ids_subq = (
         select(InventoryUnit.locker_cell_id)
-        .where(InventoryUnit.locker_cell_id.is_not(None))
+        .where(
+            InventoryUnit.locker_cell_id.is_not(None),
+            InventoryUnit.status.in_(_PHYSICALLY_PRESENT_STATUSES),
+        )
         .subquery()
     )
     stmt = (
