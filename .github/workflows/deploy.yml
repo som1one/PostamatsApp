@@ -163,7 +163,9 @@ jobs:
           echo "[deploy] git fetch origin main"
           # Тянем ветку main явно — на сервере мог быть клон другой ветки,
           # тогда `git fetch origin` без аргументов не подтянет origin/main.
-          git fetch origin main:refs/remotes/origin/main
+          # Префикс '+' разрешает non-fast-forward обновление ref-а
+          # (необходимо если на VPS был ручной reset или force-push).
+          git fetch origin +main:refs/remotes/origin/main
           echo "[deploy] git reset --hard origin/main"
           git reset --hard origin/main
 
