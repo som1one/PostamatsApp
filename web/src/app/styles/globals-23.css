@@ -498,6 +498,20 @@
 }
 @media (max-width: 480px) {
   .franchise-handled {
-    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .handled-tile {
+    padding: 12px;
+    gap: 9px;
+  }
+  .handled-tile .icon-badge {
+    width: 36px;
+    height: 36px;
+  }
+  .handled-tile span {
+    font-size: 12.5px;
+    font-weight: 800;
+    line-height: 1.2;
+    overflow-wrap: break-word;
   }
 }
