@@ -24,7 +24,7 @@ const CITIES = [
 
 const SCENARIOS = [
   { id: "low", label: "Осторожный", mult: 0.85 },
-  { id: "real", label: "Реалистичный", mult: 1 },
+  { id: "real", label: "Базовый", mult: 1 },
   { id: "high", label: "Активный", mult: 1.3 },
 ] as const;
 
@@ -36,6 +36,15 @@ function formatRub(value: number) {
   return `${Math.round(value)
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ₽`;
+}
+
+// Крупные суммы коротко («2,75 млн ₽»), чтобы не переносились в узких плитках.
+function formatRubCompact(value: number) {
+  if (value >= 1_000_000) {
+    const mln = Math.round((value / 1_000_000) * 100) / 100;
+    return `${mln.toString().replace(".", ",")} млн ₽`;
+  }
+  return formatRub(value);
 }
 
 export function FranchiseCalculator() {
@@ -81,7 +90,6 @@ export function FranchiseCalculator() {
         <div className="calc-field">
           <div className="calc-field-head">
             <span className="calc-field-label">Население города</span>
-            <span className="calc-field-value">{city.label}</span>
           </div>
           <div className="calc-segments calc-segments--4" role="group" aria-label="Население города">
             {CITIES.map((c) => (
@@ -102,26 +110,23 @@ export function FranchiseCalculator() {
         <div className="calc-field">
           <div className="calc-field-head">
             <span className="calc-field-label">Сценарий выручки</span>
-            <span className="calc-field-value">{scenario.label}</span>
           </div>
-          <div className="calc-segments" role="group" aria-label="Сценарий выручки">
+          <div className="calc-switch" role="group" aria-label="Сценарий выручки">
             {SCENARIOS.map((s) => (
               <button
                 key={s.id}
                 type="button"
-                className={`calc-segment ${scenarioId === s.id ? "is-active" : ""}`}
+                className={scenarioId === s.id ? "is-active" : ""}
                 aria-pressed={scenarioId === s.id}
                 onClick={() => setScenarioId(s.id)}
               >
-                <strong>{s.label}</strong>
+                {s.label}
               </button>
             ))}
           </div>
-          <p className="calc-hint">
-            Вилка построена на реальных точках: средний чек ~1490 ₽, спрос растёт по мере
-            раскрутки. Доходность — после расходов, без затрат на персонал.
-          </p>
         </div>
+
+        <p className="calc-hint">Расчёт основан на данных работающих точек: средний чек ~1490 ₽.</p>
       </div>
 
       <div className="franchise-calc-result">
@@ -133,18 +138,18 @@ export function FranchiseCalculator() {
         <div className="calc-result-tiles">
           <div className="calc-tile">
             <CalendarClock size={18} />
-            <strong>{result.payback} мес</strong>
             <span>окупаемость</span>
+            <strong>{result.payback} мес</strong>
           </div>
           <div className="calc-tile">
             <Wallet size={18} />
-            <strong>{formatRub(result.investment)}</strong>
-            <span>стартовые вложения</span>
+            <span>инвестиции</span>
+            <strong>{formatRubCompact(result.investment)}</strong>
           </div>
           <div className="calc-tile">
             <TrendingUp size={18} />
-            <strong>{formatRub(result.revenueYear)}</strong>
             <span>выручка в год</span>
+            <strong>{formatRubCompact(result.revenueYear)}</strong>
           </div>
         </div>
         <a className="button button-primary calc-result-cta" href="#consultation">
