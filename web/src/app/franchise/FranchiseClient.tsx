@@ -10,11 +10,16 @@ import {
   Factory,
   GraduationCap,
   Hotel,
+  LifeBuoy,
   MapPinned,
+  Megaphone,
   PackageCheck,
   RefreshCw,
+  Rocket,
+  Share2,
   ShieldCheck,
   ShoppingCart,
+  Smartphone,
   Store,
   Timer,
   TrendingUp,
@@ -23,6 +28,8 @@ import {
   Wallet,
 } from "lucide-react";
 import { PageChrome } from "@/components/PageChrome";
+import { FranchiseCalculator } from "@/components/FranchiseCalculator";
+import { FAQAccordion } from "@/components/FAQAccordion";
 
 const CONTACT_EMAIL = "info@naprokatberu.ru";
 
@@ -73,6 +80,62 @@ const placements = [
   { icon: Hotel, title: "Гостиницы и апарт-отели", text: "Дополнительный сервис для гостей без расходов на штат." },
   { icon: Truck, title: "ПВЗ и коворкинги", text: "Точки выдачи маркетплейсов и рабочие пространства." },
   { icon: ShoppingCart, title: "Торговые центры и гипермаркеты", text: "Высокий пеший трафик и готовая аудитория покупателей рядом с точкой." },
+];
+
+const handledByUs = [
+  { icon: ShieldCheck, title: "Верификация клиентов" },
+  { icon: Smartphone, title: "IT-платформа и заказы" },
+  { icon: LifeBuoy, title: "Поддержка пользователей" },
+  { icon: Rocket, title: "Помощь с запуском точек" },
+  { icon: Megaphone, title: "Маркетинговые материалы" },
+  { icon: MapPinned, title: "Размещение на картах" },
+  { icon: GraduationCap, title: "Обучение партнёра" },
+  { icon: Share2, title: "Запуск соцсетей города" },
+];
+
+const franchiseFaq = [
+  {
+    category: "Франшиза",
+    question: "Нужно ли своё помещение?",
+    answer:
+      "Нет. Постамат компактный, ему хватает проходного места 1–2 м². Поможем подобрать локацию и договориться о размещении с нашими партнёрами.",
+  },
+  {
+    category: "Франшиза",
+    question: "Кто закупает технику и входит ли она в стоимость?",
+    answer:
+      "Стартовое наполнение каталога входит в запуск точки. Дальше вы пополняете ассортимент под спрос своего города, а под запрос курьер привозит расширенный набор товаров.",
+  },
+  {
+    category: "Франшиза",
+    question: "Как быстро окупается точка?",
+    answer:
+      "В среднем 7–12 месяцев в зависимости от локации и загрузки. Прозрачную финансовую модель с расчётом под ваш город пришлём после заявки.",
+  },
+  {
+    category: "Франшиза",
+    question: "Нужен ли персонал?",
+    answer:
+      "Нет. Постамат работает 24/7 автоматически: выдача по коду, оплата и скоринг проходят без сотрудников — затрат на штат нет.",
+  },
+  {
+    category: "Франшиза",
+    question: "Можно ли начать с одного постамата?",
+    answer:
+      "Да, можно стартовать с одной точки и масштабировать сеть по мере роста спроса. Многие партнёры так и начинают.",
+  },
+  {
+    category: "Франшиза",
+    question: "Какая поддержка у партнёра?",
+    answer:
+      "IT-платформа, верификация клиентов, поддержка пользователей, маркетинговые материалы, размещение на картах и помощь с запуском — берём на себя. Вы занимаетесь точками.",
+  },
+  {
+    category: "Франшиза",
+    question: "Что с оборудованием и санкциями?",
+    answer:
+      "Постаматы российского производства и не зависят от импорта. Запчасти и обслуживание доступны без долгого ожидания поставок из-за рубежа.",
+  },
 ];
 
 export function FranchiseClient() {
@@ -241,6 +304,34 @@ export function FranchiseClient() {
         </div>
       </section>
 
+      <section className="section-band">
+        <div className="section-kicker">
+          <p className="eyebrow">Калькулятор дохода</p>
+          <h2 className="section-heading">Посчитайте прибыль вашей сети постаматов</h2>
+        </div>
+        <FranchiseCalculator />
+      </section>
+
+      <section className="section-band">
+        <div className="section-kicker">
+          <p className="eyebrow">Всё берём на себя</p>
+          <h2 className="section-heading">Вы занимаетесь точками — остальное делаем мы</h2>
+        </div>
+        <div className="franchise-handled">
+          {handledByUs.map((item) => {
+            const Icon = item.icon;
+            return (
+              <article className="handled-tile" key={item.title}>
+                <span className="icon-badge">
+                  <Icon size={20} />
+                </span>
+                <span>{item.title}</span>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
       <section className="section-band" id="references">
         <div className="section-kicker">
           <p className="eyebrow">Референсы в мире</p>
@@ -313,6 +404,14 @@ export function FranchiseClient() {
             </a>
           </article>
         </div>
+      </section>
+
+      <section className="section-band">
+        <div className="section-kicker">
+          <p className="eyebrow">Вопросы и ответы</p>
+          <h2 className="section-heading">Частые вопросы о франшизе</h2>
+        </div>
+        <FAQAccordion items={franchiseFaq} />
       </section>
 
       <section className="surface support-wide">
