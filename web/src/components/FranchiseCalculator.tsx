@@ -4,48 +4,56 @@ import { useMemo, useState } from "react";
 import { ArrowRight, CalendarClock, TrendingUp, Wallet } from "lucide-react";
 
 /**
- * Ориентировочный калькулятор доходности сети постаматов.
- * Модель привязана к опубликованным цифрам франшизы НаПрокатБеру:
- * старт от 550 000 ₽ за постамат, прибыль от 55 000 ₽/мес с точки,
- * окупаемость 7–12 мес, средний чек 1490 ₽.
+ * Ориентировочный калькулятор доходности сети постаматов НаПрокатБеру.
+ * Привязан к опубликованным цифрам: старт от 550 000 ₽ за постамат,
+ * прибыль от 55 000 ₽/мес с точки, окупаемость 7–12 мес, средний чек 1490 ₽.
+ * `base` — прибыль с одной точки в месяц при реалистичном сценарии, по размеру города.
  */
 const INVESTMENT_PER_POSTAMAT = 550_000;
-// Доля прибыли после логистики и обслуживания (модель без штата).
+// Для оценки годовой выручки из прибыли (модель без затрат на персонал).
 const PROFIT_MARGIN = 0.82;
 
-const COUNTS = [1, 2, 3, 5, 10];
+const COUNTS = [1, 3, 5, 10, 15];
 
-const TRAFFIC = [
-  { id: "calm", label: "Спокойная", orders: 32, hint: "двор, небольшой ЖК" },
-  { id: "good", label: "Хорошая", orders: 45, hint: "супермаркет, ТЦ у дома" },
-  { id: "high", label: "Высокая", orders: 60, hint: "крупный ТЦ, узел трафика" },
+const CITIES = [
+  { id: "s", label: "До 300 тыс.", base: 55_000, hint: "спрос ниже среднего" },
+  { id: "m", label: "300 тыс.–1 млн", base: 62_000, hint: "стабильный спрос" },
+  { id: "l", label: "Более 1 млн", base: 72_000, hint: "высокий спрос" },
+  { id: "x", label: "Москва / СПб", base: 85_000, hint: "максимальный спрос" },
 ] as const;
 
-const CHECK_MIN = 900;
-const CHECK_MAX = 2500;
+const SCENARIOS = [
+  { id: "low", label: "Осторожный", mult: 0.85 },
+  { id: "real", label: "Реалистичный", mult: 1 },
+  { id: "high", label: "Активный", mult: 1.3 },
+] as const;
+
+function roundTo(value: number, step: number) {
+  return Math.round(value / step) * step;
+}
 
 function formatRub(value: number) {
   return `${Math.round(value)
     .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ₽`;
+    .replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ₽`;
 }
 
 export function FranchiseCalculator() {
-  const [count, setCount] = useState(3);
-  const [trafficId, setTrafficId] = useState<(typeof TRAFFIC)[number]["id"]>("good");
-  const [check, setCheck] = useState(1490);
+  const [count, setCount] = useState(5);
+  const [cityId, setCityId] = useState<(typeof CITIES)[number]["id"]>("m");
+  const [scenarioId, setScenarioId] = useState<(typeof SCENARIOS)[number]["id"]>("real");
 
-  const traffic = TRAFFIC.find((t) => t.id === trafficId) ?? TRAFFIC[1];
+  const city = CITIES.find((c) => c.id === cityId) ?? CITIES[1];
+  const scenario = SCENARIOS.find((s) => s.id === scenarioId) ?? SCENARIOS[1];
 
   const result = useMemo(() => {
-    const revenueMonth = count * traffic.orders * check;
-    const profitMonth = revenueMonth * PROFIT_MARGIN;
+    const profitPerPostamat = city.base * scenario.mult;
+    const profitMonth = roundTo(count * profitPerPostamat, 1_000);
     const investment = count * INVESTMENT_PER_POSTAMAT;
-    const payback = Math.max(1, Math.round(profitMonth > 0 ? investment / profitMonth : 0));
-    return { profitMonth, revenueYear: revenueMonth * 12, investment, payback };
-  }, [count, traffic, check]);
-
-  const checkPercent = ((check - CHECK_MIN) / (CHECK_MAX - CHECK_MIN)) * 100;
+    const payback = Math.max(1, Math.round(investment / (count * profitPerPostamat)));
+    const revenueYear = roundTo((count * profitPerPostamat * 12) / PROFIT_MARGIN, 100_000);
+    return { profitMonth, investment, payback, revenueYear };
+  }, [count, city, scenario]);
 
   return (
     <div className="franchise-calc">
@@ -72,20 +80,19 @@ export function FranchiseCalculator() {
 
         <div className="calc-field">
           <div className="calc-field-head">
-            <span className="calc-field-label">Проходимость места</span>
-            <span className="calc-field-value">≈ {traffic.orders} аренд/мес</span>
+            <span className="calc-field-label">Население города</span>
           </div>
-          <div className="calc-segments" role="group" aria-label="Проходимость места">
-            {TRAFFIC.map((t) => (
+          <div className="calc-segments calc-segments--4" role="group" aria-label="Население города">
+            {CITIES.map((c) => (
               <button
-                key={t.id}
+                key={c.id}
                 type="button"
-                className={`calc-segment ${trafficId === t.id ? "is-active" : ""}`}
-                aria-pressed={trafficId === t.id}
-                onClick={() => setTrafficId(t.id)}
+                className={`calc-segment ${cityId === c.id ? "is-active" : ""}`}
+                aria-pressed={cityId === c.id}
+                onClick={() => setCityId(c.id)}
               >
-                <strong>{t.label}</strong>
-                <small>{t.hint}</small>
+                <strong>{c.label}</strong>
+                <small>{c.hint}</small>
               </button>
             ))}
           </div>
@@ -93,24 +100,25 @@ export function FranchiseCalculator() {
 
         <div className="calc-field">
           <div className="calc-field-head">
-            <span className="calc-field-label">Средний чек аренды</span>
-            <span className="calc-field-value">{formatRub(check)}</span>
+            <span className="calc-field-label">Сценарий выручки</span>
           </div>
-          <input
-            className="calc-slider"
-            type="range"
-            min={CHECK_MIN}
-            max={CHECK_MAX}
-            step={10}
-            value={check}
-            onChange={(event) => setCheck(Number(event.target.value))}
-            style={{ "--calc-fill": `${checkPercent}%` } as React.CSSProperties}
-            aria-label="Средний чек аренды, рублей"
-          />
-          <div className="calc-slider-scale">
-            <span>{formatRub(CHECK_MIN)}</span>
-            <span>{formatRub(CHECK_MAX)}</span>
+          <div className="calc-segments" role="group" aria-label="Сценарий выручки">
+            {SCENARIOS.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className={`calc-segment calc-segment--center ${scenarioId === s.id ? "is-active" : ""}`}
+                aria-pressed={scenarioId === s.id}
+                onClick={() => setScenarioId(s.id)}
+              >
+                <strong>{s.label}</strong>
+              </button>
+            ))}
           </div>
+          <p className="calc-hint">
+            Вилка построена на реальных точках: средний чек ~1490 ₽, спрос растёт по мере
+            раскрутки. Доходность — после расходов, без затрат на персонал.
+          </p>
         </div>
       </div>
 
