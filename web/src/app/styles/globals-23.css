@@ -265,16 +265,20 @@
 .calc-segments {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
   gap: 8px;
 }
 .calc-segment {
   display: grid;
-  gap: 3px;
-  padding: 12px;
+  gap: 2px;
+  align-content: center;
+  justify-items: center;
+  min-height: 56px;
+  padding: 9px 8px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--surface-muted);
-  text-align: left;
+  text-align: center;
   transition:
     background 0.16s ease,
     border-color 0.16s ease,
@@ -304,12 +308,6 @@
 }
 .calc-segments--4 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-.calc-segment--center {
-  align-content: center;
-  justify-items: center;
-  text-align: center;
-  min-height: 48px;
 }
 .calc-hint {
   margin: 4px 0 0;
@@ -438,24 +436,64 @@
 @media (max-width: 560px) {
   .franchise-calc-controls,
   .franchise-calc-result {
-    padding: 20px;
+    padding: 18px;
+  }
+  .franchise-calc-controls {
+    gap: 18px;
+  }
+  .franchise-calc-result {
+    gap: 14px;
   }
   .calc-result-value {
     font-size: 34px;
   }
+  .calc-field-value {
+    font-size: 13px;
+  }
+  .calc-segments {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
   .calc-segments--4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .calc-segment {
+    min-height: 44px;
+    padding: 8px 6px;
+  }
+  .calc-segment strong {
+    font-size: 13px;
+  }
+  .calc-segment small {
+    font-size: 10.5px;
+  }
+  .calc-hint {
+    font-size: 11.5px;
+  }
   .calc-result-tiles {
     grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
   }
   .calc-tile {
-    display: flex;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: 10px;
+    column-gap: 12px;
+    row-gap: 1px;
+    padding: 10px 14px;
   }
   .calc-tile svg {
+    grid-row: 1 / 3;
     margin-bottom: 0;
+  }
+  .calc-tile span {
+    grid-column: 2;
+    grid-row: 1;
+    font-size: 11px;
+  }
+  .calc-tile strong {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 16px;
   }
 }
 @media (max-width: 480px) {

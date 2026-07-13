@@ -81,6 +81,7 @@ export function FranchiseCalculator() {
         <div className="calc-field">
           <div className="calc-field-head">
             <span className="calc-field-label">Население города</span>
+            <span className="calc-field-value">{city.label}</span>
           </div>
           <div className="calc-segments calc-segments--4" role="group" aria-label="Население города">
             {CITIES.map((c) => (
@@ -101,13 +102,14 @@ export function FranchiseCalculator() {
         <div className="calc-field">
           <div className="calc-field-head">
             <span className="calc-field-label">Сценарий выручки</span>
+            <span className="calc-field-value">{scenario.label}</span>
           </div>
           <div className="calc-segments" role="group" aria-label="Сценарий выручки">
             {SCENARIOS.map((s) => (
               <button
                 key={s.id}
                 type="button"
-                className={`calc-segment calc-segment--center ${scenarioId === s.id ? "is-active" : ""}`}
+                className={`calc-segment ${scenarioId === s.id ? "is-active" : ""}`}
                 aria-pressed={scenarioId === s.id}
                 onClick={() => setScenarioId(s.id)}
               >
