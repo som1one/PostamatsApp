@@ -5,23 +5,23 @@ import { ArrowRight, CalendarClock, TrendingUp, Wallet } from "lucide-react";
 
 /**
  * Ориентировочный калькулятор доходности сети постаматов НаПрокатБеру.
- * Привязан к опубликованным цифрам: старт от 550 000 ₽ за постамат,
- * прибыль от 55 000 ₽/мес с точки, окупаемость 7–12 мес, средний чек 1490 ₽.
- * `base` — прибыль с одной точки в месяц при реалистичном сценарии, по размеру города.
+ * Якорь модели — данные франшизы: сеть из 3 постаматов в городе 500 тыс.–1 млн
+ * (базовый сценарий) = 2 млн ₽ инвестиций, 176 000 ₽ прибыли в месяц
+ * (после роялти 20% от оборота), окупаемость ~12 мес.
+ * `base` — прибыль с одной точки в месяц при базовом сценарии.
  */
-const INVESTMENT_PER_POSTAMAT = 550_000;
-// Для оценки годовой выручки из прибыли (модель без затрат на персонал).
-const PROFIT_MARGIN = 0.82;
+const INVESTMENT_PER_POSTAMAT = 2_000_000 / 3;
+const FRANCHISE_FEE = 250_000;
 
-const COUNT_MIN = 2;
+const COUNT_MIN = 3;
 const COUNT_MAX = 20;
-const COUNT_TICKS = [2, 5, 10, 15, 20];
+const COUNT_TICKS = [3, 5, 10, 15, 20];
 
 const CITIES = [
   { id: "s", label: "До 500 тыс.", base: 55_000, hint: "спрос ниже среднего" },
-  { id: "m", label: "500 тыс.–1 млн", base: 62_000, hint: "стабильный спрос" },
-  { id: "l", label: "Более 1 млн", base: 72_000, hint: "высокий спрос" },
-  { id: "x", label: "Москва / СПб", base: 85_000, hint: "максимальный спрос" },
+  { id: "m", label: "500 тыс.–1 млн", base: 176_000 / 3, hint: "стабильный спрос" },
+  { id: "l", label: "Более 1 млн", base: 68_000, hint: "высокий спрос" },
+  { id: "x", label: "Москва / СПб", base: 80_000, hint: "максимальный спрос" },
 ] as const;
 
 const SCENARIOS = [
@@ -50,7 +50,7 @@ function formatRubCompact(value: number) {
 }
 
 export function FranchiseCalculator() {
-  const [count, setCount] = useState(5);
+  const [count, setCount] = useState(3);
   const [cityId, setCityId] = useState<(typeof CITIES)[number]["id"]>("m");
   const [scenarioId, setScenarioId] = useState<(typeof SCENARIOS)[number]["id"]>("real");
 
@@ -61,9 +61,9 @@ export function FranchiseCalculator() {
     const profitPerPostamat = city.base * scenario.mult;
     const profitMonth = roundTo(count * profitPerPostamat, 1_000);
     const investment = count * INVESTMENT_PER_POSTAMAT;
-    const payback = Math.max(1, Math.round(investment / (count * profitPerPostamat)));
-    const revenueYear = roundTo((count * profitPerPostamat * 12) / PROFIT_MARGIN, 100_000);
-    return { profitMonth, investment, payback, revenueYear };
+    const payback = Math.max(1, Math.ceil(INVESTMENT_PER_POSTAMAT / profitPerPostamat));
+    const profitYear = roundTo(profitMonth * 12, 100_000);
+    return { profitMonth, investment, payback, profitYear };
   }, [count, city, scenario]);
 
   return (
@@ -122,6 +122,14 @@ export function FranchiseCalculator() {
           </div>
         </div>
 
+        <div className="calc-fee">
+          <span>
+            Паушальный взнос
+            <small>единоразовый платёж</small>
+          </span>
+          <strong>{formatRub(FRANCHISE_FEE)}</strong>
+        </div>
+
         <div className="calc-field">
           <div className="calc-field-head">
             <span className="calc-field-label">Сценарий выручки</span>
@@ -141,14 +149,17 @@ export function FranchiseCalculator() {
           </div>
         </div>
 
-        <p className="calc-hint">Расчёт основан на данных работающих точек: средний чек ~1490 ₽.</p>
+        <p className="calc-hint">
+          Расчёт основан на данных работающих точек: средний чек ~1490 ₽. Роялти 20% от
+          оборота уже учтено в прибыли.
+        </p>
       </div>
 
       <div className="franchise-calc-result">
         <div className="calc-result-hero">
           <span className="calc-result-kicker">Прибыль в месяц со всей сети</span>
           <strong className="calc-result-value">{formatRub(result.profitMonth)}</strong>
-          <span className="calc-result-note">после расходов, без затрат на персонал</span>
+          <span className="calc-result-note">после роялти 20% от оборота и расходов</span>
         </div>
         <div className="calc-result-tiles">
           <div className="calc-tile">
@@ -163,8 +174,8 @@ export function FranchiseCalculator() {
           </div>
           <div className="calc-tile">
             <TrendingUp size={18} />
-            <span>выручка в год</span>
-            <strong>{formatRubCompact(result.revenueYear)}</strong>
+            <span>прибыль в год</span>
+            <strong>{formatRubCompact(result.profitYear)}</strong>
           </div>
         </div>
         <a className="button button-primary calc-result-cta" href="#consultation">

@@ -363,6 +363,34 @@
   font-size: 12px;
   line-height: 1.45;
 }
+.calc-fee {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+.calc-fee span {
+  display: grid;
+  gap: 1px;
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 800;
+}
+.calc-fee small {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.calc-fee strong {
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 930;
+  white-space: nowrap;
+}
 .calc-switch {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -550,6 +578,12 @@
   .calc-switch button {
     min-height: 38px;
     font-size: 12.5px;
+  }
+  .calc-fee {
+    padding: 10px 12px;
+  }
+  .calc-fee span {
+    font-size: 12px;
   }
   .calc-hint {
     font-size: 11.5px;
