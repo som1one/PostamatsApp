@@ -13,9 +13,9 @@ import { ArrowRight, CalendarClock, TrendingUp, Wallet } from "lucide-react";
 const INVESTMENT_PER_POSTAMAT = 2_000_000 / 3;
 const FRANCHISE_FEE = 250_000;
 
-const COUNT_MIN = 3;
+const COUNT_MIN = 2;
 const COUNT_MAX = 20;
-const COUNT_TICKS = [3, 5, 10, 15, 20];
+const COUNT_TICKS = [2, 5, 10, 15, 20];
 
 const CITIES = [
   { id: "s", label: "До 500 тыс.", base: 55_000, hint: "спрос ниже среднего" },
