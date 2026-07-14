@@ -13,11 +13,12 @@ const INVESTMENT_PER_POSTAMAT = 550_000;
 // Для оценки годовой выручки из прибыли (модель без затрат на персонал).
 const PROFIT_MARGIN = 0.82;
 
-const COUNTS = [1, 3, 5, 10, 15];
+const COUNT_MIN = 2;
+const COUNT_MAX = 20;
 
 const CITIES = [
-  { id: "s", label: "До 300 тыс.", base: 55_000, hint: "спрос ниже среднего" },
-  { id: "m", label: "300 тыс.–1 млн", base: 62_000, hint: "стабильный спрос" },
+  { id: "s", label: "До 500 тыс.", base: 55_000, hint: "спрос ниже среднего" },
+  { id: "m", label: "500 тыс.–1 млн", base: 62_000, hint: "стабильный спрос" },
   { id: "l", label: "Более 1 млн", base: 72_000, hint: "высокий спрос" },
   { id: "x", label: "Москва / СПб", base: 85_000, hint: "максимальный спрос" },
 ] as const;
@@ -72,18 +73,24 @@ export function FranchiseCalculator() {
             <span className="calc-field-label">Количество постаматов</span>
             <span className="calc-field-value">{count} шт.</span>
           </div>
-          <div className="calc-pills" role="group" aria-label="Количество постаматов">
-            {COUNTS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                className={`calc-pill ${count === c ? "is-active" : ""}`}
-                aria-pressed={count === c}
-                onClick={() => setCount(c)}
-              >
-                {c}
-              </button>
-            ))}
+          <input
+            className="calc-slider"
+            type="range"
+            min={COUNT_MIN}
+            max={COUNT_MAX}
+            step={1}
+            value={count}
+            onChange={(event) => setCount(Number(event.target.value))}
+            style={
+              {
+                "--calc-fill": `${((count - COUNT_MIN) / (COUNT_MAX - COUNT_MIN)) * 100}%`,
+              } as React.CSSProperties
+            }
+            aria-label="Количество постаматов"
+          />
+          <div className="calc-slider-scale">
+            <span>{COUNT_MIN}</span>
+            <span>{COUNT_MAX}</span>
           </div>
         </div>
 
