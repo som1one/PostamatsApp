@@ -15,6 +15,7 @@ const PROFIT_MARGIN = 0.82;
 
 const COUNT_MIN = 2;
 const COUNT_MAX = 20;
+const COUNT_TICKS = [2, 5, 10, 15, 20];
 
 const CITIES = [
   { id: "s", label: "До 500 тыс.", base: 55_000, hint: "спрос ниже среднего" },
@@ -88,9 +89,16 @@ export function FranchiseCalculator() {
             }
             aria-label="Количество постаматов"
           />
-          <div className="calc-slider-scale">
-            <span>{COUNT_MIN}</span>
-            <span>{COUNT_MAX}</span>
+          <div className="calc-slider-scale" aria-hidden="true">
+            {COUNT_TICKS.map((t) => (
+              <span
+                key={t}
+                className={`calc-slider-tick ${count >= t ? "is-passed" : ""}`}
+                style={{ left: `${((t - COUNT_MIN) / (COUNT_MAX - COUNT_MIN)) * 100}%` }}
+              >
+                {t}
+              </span>
+            ))}
           </div>
         </div>
 

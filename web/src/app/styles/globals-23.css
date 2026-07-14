@@ -276,11 +276,38 @@
   box-shadow: 0 0 0 3px rgba(196, 4, 4, 0.18);
 }
 .calc-slider-scale {
-  display: flex;
-  justify-content: space-between;
+  /* метки позиционируются по центрам бегунка: трек «усечён» на его полуширину */
+  position: relative;
+  height: 22px;
+  margin: 0 12px;
+}
+.calc-slider-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  padding-top: 8px;
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
+  line-height: 1;
+}
+.calc-slider-tick::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 5px;
+  border-radius: 1px;
+  background: var(--line-strong);
+}
+.calc-slider-tick.is-passed {
+  color: var(--primary);
+}
+.calc-slider-tick.is-passed::before {
+  background: var(--primary);
+  opacity: 0.55;
 }
 .calc-segments {
   display: grid;
