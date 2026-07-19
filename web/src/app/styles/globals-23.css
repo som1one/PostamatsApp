@@ -599,6 +599,26 @@
     font-size: 12px;
   }
 }
+/* ── Franchise world-trend statement ──────────────────────── */
+.franchise-trend {
+  margin: 0;
+  max-width: 760px;
+  color: var(--text-soft);
+  font-size: 17px;
+  line-height: 1.55;
+  font-weight: 600;
+}
+.franchise-trend strong {
+  font-weight: 800;
+  color: var(--text);
+}
+
+@media (max-width: 560px) {
+  .franchise-trend {
+    font-size: 15.5px;
+  }
+}
+
 @media (max-width: 480px) {
   .franchise-handled {
     gap: 10px;

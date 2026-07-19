@@ -198,7 +198,7 @@ export function FranchiseClient() {
       <section className="section-band">
         <div className="section-kicker">
           <p className="eyebrow">Новый формат шеринга</p>
-          <h2 className="section-heading">Аренда через постаматы — следующий шаг рынка совместного потребления</h2>
+          <h2 className="section-heading">Аренда через постаматы — прорыв на рынке шеринга, проката и совместного потребления</h2>
         </div>
         <div className="benefit-grid benefit-grid--2col">
           {advantages.map((item) => {
@@ -343,11 +343,10 @@ export function FranchiseClient() {
           <p className="eyebrow">Референсы в мире</p>
           <h2 className="section-heading">Модель уже доказала себя за рубежом</h2>
         </div>
-        <div className="surface detail-panel">
-          <p className="muted">
-            Спрос на доступ вместо владения растёт во всём мире, и в России ниша только формируется.
-          </p>
-        </div>
+        <p className="franchise-trend">
+          Спрос на <strong>доступ вместо владения</strong> растёт во всём мире, и в России ниша{" "}
+          <strong>только формируется</strong>.
+        </p>
       </section>
 
       <section className="surface franchise-cta" id="consultation">
