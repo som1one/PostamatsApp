@@ -55,6 +55,9 @@
 }
 .franchise-metric {
   display: grid;
+  /* Плитки в строке тянутся по самой высокой: без align-content строки
+     внутри карточки разъезжаются и короткая плитка выглядит раздутой. */
+  align-content: start;
   gap: 2px;
   padding: 16px 18px;
   border: 1px solid var(--line);
@@ -63,7 +66,9 @@
   box-shadow: var(--shadow-sm);
 }
 .franchise-metric strong {
-  font-size: 22px;
+  /* На узких экранах колонка ~132px: при 22px значения вроде «9–13 месяцев»
+     ломались на две строки и вытягивали всю строку плиток. */
+  font-size: clamp(19px, 5vw, 22px);
   line-height: 1.1;
   color: var(--primary);
 }
