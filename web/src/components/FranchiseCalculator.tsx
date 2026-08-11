@@ -5,9 +5,11 @@ import { ArrowRight, CalendarClock, TrendingUp, Wallet } from "lucide-react";
 
 /**
  * Ориентировочный калькулятор доходности сети постаматов НаПрокатБеру.
- * Якорь модели — данные франшизы: сеть из 3 постаматов в городе 500 тыс.–1 млн
- * (базовый сценарий) = 2 млн ₽ инвестиций, 176 000 ₽ прибыли в месяц
- * (после роялти 20% от оборота), окупаемость ~12 мес.
+ * Якорь модели — данные франшизы: точка стоит 2 млн ₽ / 3 = ~667 тыс. ₽, в
+ * городе 500 тыс.–1 млн приносит ~58,7 тыс. ₽ прибыли в месяц (после роялти
+ * 20% от оборота), окупаемость ~12 мес.
+ * Стартовая конфигурация — 2 постамата: ~1,33 млн ₽ инвестиций и 117 000 ₽
+ * прибыли в месяц по базовому сценарию.
  * `base` — прибыль с одной точки в месяц при базовом сценарии.
  */
 const INVESTMENT_PER_POSTAMAT = 2_000_000 / 3;
@@ -50,7 +52,7 @@ function formatRubCompact(value: number) {
 }
 
 export function FranchiseCalculator() {
-  const [count, setCount] = useState(3);
+  const [count, setCount] = useState(COUNT_MIN);
   const [cityId, setCityId] = useState<(typeof CITIES)[number]["id"]>("m");
   const [scenarioId, setScenarioId] = useState<(typeof SCENARIOS)[number]["id"]>("real");
 
