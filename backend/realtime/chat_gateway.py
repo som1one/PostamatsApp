@@ -267,6 +267,7 @@ async def _handle_client_message_send(
             posted_was_created = posted.conversation_was_created
             posted_was_reopened = posted.conversation_was_reopened
             posted_message = posted.message
+            posted_previous_client_message_at = posted.previous_client_message_at
     except EmptyMessageError as exc:
         await _send_event(
             websocket, make_error("EMPTY_MESSAGE", str(exc), client_msg_id)
@@ -300,6 +301,7 @@ async def _handle_client_message_send(
         posted_message,
         conversation_was_created=posted_was_created,
         conversation_was_reopened=posted_was_reopened,
+        previous_client_message_at=posted_previous_client_message_at,
     )
 
 

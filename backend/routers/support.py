@@ -197,6 +197,7 @@ async def send_conversation_message(
         posted.message,
         conversation_was_created=posted.conversation_was_created,
         conversation_was_reopened=posted.conversation_was_reopened,
+        previous_client_message_at=posted.previous_client_message_at,
     )
 
     return {"data": {"message": _serialize_message(posted.message)}}

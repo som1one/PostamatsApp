@@ -412,12 +412,17 @@ class PostedClientMessage:
       conversation row (i.e. the client's first ever support message).
     * ``conversation_was_reopened`` — ``True`` iff the conversation existed in
       ``CLOSED`` status before this message and was reopened to ``OPEN`` by it.
+
+    ``previous_client_message_at`` — ``created_at`` последнего КЛИЕНТСКОГО
+    сообщения в диалоге до этого (``None`` для первого). Нужен уведомлениям,
+    чтобы не пинговать админов на каждое сообщение «пачки».
     """
 
     message: SupportMessage
     conversation: SupportConversation
     conversation_was_created: bool
     conversation_was_reopened: bool
+    previous_client_message_at: datetime | None = None
 
 
 async def post_client_message_with_meta(
@@ -436,6 +441,21 @@ async def post_client_message_with_meta(
     was_reopened = (
         not was_created and conversation.status == ConversationStatus.CLOSED
     )
+
+    # Момент предыдущего клиентского сообщения — считываем ДО вставки нового.
+    previous_client_message_at: datetime | None = None
+    if not was_created:
+        previous_client_message_at = (
+            await db.execute(
+                select(SupportMessage.created_at)
+                .where(
+                    SupportMessage.conversation_id == conversation.id,
+                    SupportMessage.author_type == MessageAuthorType.CLIENT,
+                )
+                .order_by(SupportMessage.seq.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
 
     seq = await _next_message_seq(db)
     message = SupportMessage(
@@ -463,6 +483,7 @@ async def post_client_message_with_meta(
         conversation=conversation,
         conversation_was_created=was_created,
         conversation_was_reopened=was_reopened,
+        previous_client_message_at=previous_client_message_at,
     )
 
 
