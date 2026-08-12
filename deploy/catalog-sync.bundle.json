@@ -285,6 +285,14 @@
       "originalName": "vacuum-gallery-1.jpg",
       "kind": "PRODUCT_GALLERY",
       "repoAssetPath": "assets/uploads/items/vacuum-gallery-1.jpg"
+    },
+    {
+      "fileKey": "uploads/items/beri-bery-perforator-makita.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 41231,
+      "originalName": "beri-bery-perforator-makita.jpg",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/beri-bery-perforator-makita.jpg"
     }
   ],
   "products": [
@@ -651,16 +659,16 @@
     {
       "slug": "perforator",
       "name": "Перфоратор",
-      "brand": "Bosch",
-      "shortDescription": "Перфоратор BOSCH 1200Вт с бурами Мощный сетевой перфоратор для дома и ремонта.",
-      "fullDescription": "Перфоратор BOSCH 1200Вт с бурами\n\nМощный сетевой перфоратор для дома и ремонта. Сверлит бетон, кирпич, камень, дерево и металл. 1200 Вт мощности, 3 режима работы (сверление, ударное сверление, долбление).\n\nВ комплекте кейс, буры (3 шт.), пика, лопатка и ограничитель глубины.",
+      "brand": "Makita",
+      "shortDescription": "Перфоратор Makita с бурами. Мощный сетевой перфоратор для дома и ремонта.",
+      "fullDescription": "Перфоратор Makita с бурами\n\nМощный сетевой перфоратор для дома и ремонта. Сверлит бетон, кирпич, камень, дерево и металл. 3 режима работы (сверление, ударное сверление, долбление).\n\nВ комплекте кейс, буры (3 шт.), пика, лопатка и ограничитель глубины.",
       "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
       "kitDescription": "Перфоратор; кейс; 3 бура; пика; лопатка; ограничитель глубины",
       "specsJson": null,
       "categorySlug": "tools",
-      "coverFileKey": "uploads/items/beri-bery-perforator.png",
+      "coverFileKey": "uploads/items/beri-bery-perforator-makita.jpg",
       "galleryFileKeys": [
-        "uploads/items/beri-bery-perforator.png"
+        "uploads/items/beri-bery-perforator-makita.jpg"
       ],
       "pricePlans": [
         {
