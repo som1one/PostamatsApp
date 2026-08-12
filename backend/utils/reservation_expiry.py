@@ -17,6 +17,7 @@ from backend.models.enums import InventoryStatus, PaymentStatus, ReservationStat
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.payment import Payment
 from backend.models.reservation import Reservation
+from backend.utils.reservation_auto_confirm import auto_confirm_paid_reservations
 from backend.utils.yookassa_service import cancel_yookassa_payment
 
 logger = logging.getLogger(__name__)
@@ -90,14 +91,25 @@ async def expire_stale_reservations() -> None:
             logger.exception("Failed to commit reservation expiry batch")
 
 
+async def _reservation_maintenance_tick() -> None:
+    # Сначала спасаем оплаченные брони (продление expires_at + авто-confirm
+    # в аренду), и только потом экспирация — иначе зависшая оплаченная
+    # бронь могла бы быть отменена раньше, чем мы её продлим.
+    try:
+        await auto_confirm_paid_reservations()
+    except Exception:
+        logger.exception("Paid reservation auto-confirm sweep failed")
+    await expire_stale_reservations()
+
+
 def reservation_expiry_worker(
     loop: asyncio.AbstractEventLoop,
     stop_event: threading.Event,
 ) -> None:
     try:
-        asyncio.run_coroutine_threadsafe(expire_stale_reservations(), loop).result()
+        asyncio.run_coroutine_threadsafe(_reservation_maintenance_tick(), loop).result()
         while not stop_event.wait(RESERVATION_EXPIRY_INTERVAL_SECONDS):
-            asyncio.run_coroutine_threadsafe(expire_stale_reservations(), loop).result()
+            asyncio.run_coroutine_threadsafe(_reservation_maintenance_tick(), loop).result()
     except Exception:
         logger.exception("Reservation expiry scheduler stopped unexpectedly")
 

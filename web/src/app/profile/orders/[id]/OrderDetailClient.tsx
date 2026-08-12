@@ -31,6 +31,7 @@ import {
   cancelReservation,
   confirmRentalPickup,
   confirmRentalReturn,
+  confirmReservation,
   fetchAllLockers,
   fetchMyReservations,
   fetchReservation,
@@ -73,6 +74,31 @@ function formatDurationLabel(diffMs: number) {
   }
 
   return parts.join(" ");
+}
+
+// Дата выдачи хранится как полночь выбранного дня (время пользователь не
+// выбирает), поэтому показываем только день — без «00:00».
+function formatPickupDayLabel(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const now = new Date();
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  if (sameDay) {
+    return "сегодня";
+  }
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
 }
 
 export type DeadlineMeta = {
@@ -378,6 +404,29 @@ function OrderDetailContent({ id }: { id: string }) {
     }
   }
 
+  // Оплаченная бронь ещё не превращена в аренду (возврат с оплаты не
+  // отработал). Дожимаем confirm вручную и уходим на страницу аренды.
+  async function handleContinueAfterPayment(reservationId: string) {
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const rental = await confirmReservation(reservationId);
+      router.replace(`/profile/orders/${rental.id}`);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "LOCKER_OFFLINE") {
+        setError("Постамат сейчас офлайн. Попробуйте чуть позже — бронь сохранится.");
+      } else if (err instanceof ApiError && err.code === "RESERVATION_EXPIRED") {
+        setError("Срок брони истёк. Оформите аренду заново.");
+      } else if (err instanceof ApiError && err.code === "LOCKER_NOT_CONFIGURED") {
+        setError("Постамат пока не привязан к серверу. Обратитесь в поддержку.");
+      } else {
+        setError(err instanceof Error ? err.message : "Не удалось продолжить оформление");
+      }
+      setBusy(false);
+    }
+  }
+
   async function handleCancelRentalBeforePickup(rentalId: string) {
     setBusy(true);
     setMessage("");
@@ -569,7 +618,12 @@ function OrderDetailContent({ id }: { id: string }) {
                 {order.data.pickupAt ? (
                   <div className="meta-line">
                     <span>Получение</span>
-                    <strong>{formatDateTime(order.data.pickupAt)}</strong>
+                    <strong>
+                      {(() => {
+                        const label = formatPickupDayLabel(order.data.pickupAt);
+                        return label === "сегодня" ? "Сегодня" : label || "—";
+                      })()}
+                    </strong>
                   </div>
                 ) : null}
                 <div className="meta-line">
@@ -608,12 +662,19 @@ function OrderDetailContent({ id }: { id: string }) {
                     );
                   }
                   if (order.data.status === "payment_authorized") {
+                    const pickupLabel = formatPickupDayLabel(order.data.pickupAt);
                     return (
                       <div className="rental-deadline rental-deadline-success">
                         <CheckCircle2 size={16} />
                         <div>
                           <strong>Оплата подтверждена</strong>
-                          <span>{order.data.pickupAt ? `Получение запланировано на ${formatDateTime(order.data.pickupAt)}.` : `Бронь активна до ${formatDateTime(order.data.expiresAt)}.`}</span>
+                          <span>
+                            {pickupLabel === "сегодня"
+                              ? "Получение сегодня — нажмите «Перейти к получению» ниже."
+                              : pickupLabel
+                                ? `Получение запланировано на ${pickupLabel}.`
+                                : `Бронь активна до ${formatDateTime(order.data.expiresAt)}.`}
+                          </span>
                         </div>
                       </div>
                     );
@@ -699,13 +760,13 @@ function OrderDetailContent({ id }: { id: string }) {
               const PICKUP_LEAD_GRACE_MS = 60 * 60 * 1000;
               const tooEarly = startsAtMs > 0 && Date.now() < startsAtMs - PICKUP_LEAD_GRACE_MS;
               const dateLabel = startsAtStr
-                ? new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(startsAtStr))
+                ? new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(new Date(startsAtStr))
                 : "";
               return (
                 <>
                   <p className="muted detail-actions-hint">
                     {tooEarly
-                      ? `Получение запланировано на ${dateLabel}. Получить PIN-код можно за час до этого времени.`
+                      ? `Получение запланировано на ${dateLabel}. Получить PIN-код можно будет в этот день.`
                       : "Когда подойдёте к постамату, нажмите «Получить PIN». После этого начнётся аренда."}
                   </p>
                   <button
@@ -760,6 +821,25 @@ function OrderDetailContent({ id }: { id: string }) {
                     </button>
                   </div>
                 </div>
+              </>
+            ) : null}
+
+            {/* Continue to pickup: paid reservation not yet converted into a rental */}
+            {isReservation && order.data.status === "payment_authorized" ? (
+              <>
+                <p className="muted detail-actions-hint">
+                  Оплата прошла. Нажмите «Перейти к получению» — заказ откроется с
+                  кнопкой получения PIN-кода.
+                </p>
+                <button
+                  className="button button-primary"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => handleContinueAfterPayment(order.data.id)}
+                >
+                  <PackageCheck size={18} />
+                  {busy ? "Оформляем…" : "Перейти к получению"}
+                </button>
               </>
             ) : null}
 

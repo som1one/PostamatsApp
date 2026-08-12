@@ -15,6 +15,7 @@ from backend.utils.payment_flow import (
     process_yookassa_webhook,
     serialize_payment_for_user,
 )
+from backend.utils.reservation_utils import calculate_paid_reservation_expires_at
 from backend.models.payment import Payment
 
 router = APIRouter(prefix="/payments", tags=["payments"])
@@ -78,6 +79,7 @@ async def get_payment(
                         res = await db.get(Reservation, payment.reservation_id)
                         if res is not None and res.status == ReservationStatus.AWAITING_PAYMENT:
                             res.status = ReservationStatus.PAYMENT_AUTHORIZED
+                            res.expires_at = calculate_paid_reservation_expires_at(res)
                     await db.commit()
                     await db.refresh(payment)
 
@@ -115,6 +117,7 @@ async def authorize_payment_dev_stub(
         reservation = await db.get(Reservation, payment.reservation_id)
         if reservation is not None and reservation.status == ReservationStatus.AWAITING_PAYMENT:
             reservation.status = ReservationStatus.PAYMENT_AUTHORIZED
+            reservation.expires_at = calculate_paid_reservation_expires_at(reservation)
 
     try:
         await db.commit()

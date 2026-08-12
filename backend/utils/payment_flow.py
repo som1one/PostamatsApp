@@ -14,7 +14,10 @@ from backend.models.payment_event import PaymentEvent
 from backend.models.reservation import Reservation
 from backend.models.user import User
 from backend.utils.lockers_utils import price_plan_to_minor_units
-from backend.utils.reservation_utils import ensure_utc
+from backend.utils.reservation_utils import (
+    calculate_paid_reservation_expires_at,
+    ensure_utc,
+)
 from backend.utils.yookassa_service import create_yookassa_preauth_payment
 
 logger = logging.getLogger(__name__)
@@ -214,6 +217,9 @@ async def process_yookassa_webhook(
             # бронь. Двухстадийная (waiting_for_capture → AUTHORIZED) тоже
             # поддержана для совместимости.
             res.status = ReservationStatus.PAYMENT_AUTHORIZED
+            # Оплаченная бронь живёт до конца дня выдачи, а не 2 часа
+            # окна оплаты — иначе шедулер отменит её с возвратом денег.
+            res.expires_at = calculate_paid_reservation_expires_at(res)
 
     try:
         await db.commit()

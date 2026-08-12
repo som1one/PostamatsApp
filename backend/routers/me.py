@@ -58,7 +58,11 @@ from backend.utils.inventory_confirmation_notifications import (
 from backend.utils.products_utils import load_media_files_by_ids, public_media_url
 from backend.utils.rental_return_flow import ReturnRequestError, start_rental_return
 from backend.utils.rental_serialization import serialize_rental_detail, serialize_rental_list_item
-from backend.utils.reservation_utils import calculate_planned_end_at, ensure_utc
+from backend.utils.reservation_utils import (
+    calculate_paid_reservation_expires_at,
+    calculate_planned_end_at,
+    ensure_utc,
+)
 from backend.utils.telegram_bot import escape_html, fire_and_forget_notify
 from backend.core.settings import settings
 
@@ -391,6 +395,7 @@ async def list_my_reservations(
             for r in reservations:
                 if r.id in confirmed_reservation_ids and r.status == ReservationStatus.AWAITING_PAYMENT:
                     r.status = ReservationStatus.PAYMENT_AUTHORIZED
+                    r.expires_at = calculate_paid_reservation_expires_at(r)
             await db.commit()
 
     product_ids = list({reservation.product_id for reservation in reservations})

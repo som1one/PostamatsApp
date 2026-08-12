@@ -32,6 +32,20 @@ def calculate_expires_at(now: datetime, pickup_window_minutes: int) -> datetime:
     return now + timedelta(minutes=pickup_window_minutes)
 
 
+def calculate_paid_reservation_expires_at(reservation) -> datetime:
+    """Дедлайн жизни ОПЛАЧЕННОЙ брони (PAYMENT_AUTHORIZED).
+
+    Исходный expires_at — это окно оплаты (создание + 2 часа). После оплаты
+    бронь должна жить до конца дня выдачи: pickup_at хранится как полночь
+    локального дня выдачи, поэтому pickup_at + 24 часа = конец этого дня.
+    Если pickup_at не задан («забрать сразу») — сутки от создания брони.
+    Никогда не укорачивает уже установленный expires_at.
+    """
+    anchor = reservation.pickup_at or reservation.created_at
+    candidate = ensure_utc(anchor) + timedelta(hours=24)
+    return max(ensure_utc(reservation.expires_at), candidate)
+
+
 def _end_of_local_day_after(starts_at: datetime, days: int) -> datetime:
     """Возвращает момент ровно через `days * 24` часов после `starts_at`.
 
