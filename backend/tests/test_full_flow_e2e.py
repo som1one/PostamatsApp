@@ -354,7 +354,9 @@ class FullFlowE2ETests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(r.status_code, 200, r.text)
         return_payload = _envelope(r)["return"]
-        self.assertEqual(return_payload["status"], "locker_opened")
+        # PIN-флоу возврата: заявка создаётся в created, ячейка резервируется
+        # с PIN-кодом; дверь откроется после ввода PIN на постамате.
+        self.assertEqual(return_payload["status"], "created")
 
         # 15) Клиент подтверждает, что положил товар обратно (confirm-return)
         with patch("backend.routers.me.notify_inventory_awaiting_confirmation") as notify_mock:
