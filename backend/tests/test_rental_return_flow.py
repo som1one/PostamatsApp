@@ -417,6 +417,75 @@ class SameCellReturnTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result["cellId"], str(seeded["vacant_cell"].id))
             self.assertEqual(foreign_request.pin, "4321")
 
+    async def test_home_cell_reserved_stale_after_pickup_is_chosen(self) -> None:
+        """Прод-кейс: возврат через минуту после забора — reconcile успел
+        перезаписать родной ячейке VACANT на RESERVED по снапшоту ESI.
+        Ячейка физически пуста (наш товар на руках) → возврат в неё же."""
+        async with self.SessionLocal() as db:
+            seeded = await self._seed(db)
+            seeded["home_cell"].status = LockerCellStatus.RESERVED
+            await db.commit()
+
+            result = await start_rental_return(
+                db, rental=seeded["rental"], return_locker_id=seeded["locker"].id
+            )
+
+            self.assertEqual(result["cellId"], str(seeded["home_cell"].id))
+
+    async def test_home_cell_opened_stale_after_pickup_is_chosen(self) -> None:
+        """То же, но reconcile зафиксировал OPENED (дверь была открыта в момент
+        снапшота — клиент как раз забирал товар)."""
+        async with self.SessionLocal() as db:
+            seeded = await self._seed(db)
+            seeded["home_cell"].status = LockerCellStatus.OPENED
+            await db.commit()
+
+            result = await start_rental_return(
+                db, rental=seeded["rental"], return_locker_id=seeded["locker"].id
+            )
+
+            self.assertEqual(result["cellId"], str(seeded["home_cell"].id))
+
+    async def test_home_cell_reserved_after_failed_foreign_return_falls_back(self) -> None:
+        """RESERVED + проваленный чужой возврат после нашей выдачи: товар могли
+        физически положить (потерянный вебхук) — ячейку не трогаем."""
+        async with self.SessionLocal() as db:
+            seeded = await self._seed(db)
+            seeded["home_cell"].status = LockerCellStatus.RESERVED
+            other_unit = InventoryUnit(
+                id=uuid4(),
+                product_id=seeded["product"].id,
+                locker_cell_id=None,
+                status=InventoryStatus.RETURN_PENDING,
+                serial_number="SN-OTHER-5",
+            )
+            other_rental = Rental(
+                id=uuid4(),
+                user_id=seeded["user"].id,
+                inventory_unit_id=other_unit.id,
+                pickup_locker_id=seeded["locker"].id,
+                status=RentalStatus.INCIDENT,
+                starts_at=datetime.now(timezone.utc) - timedelta(days=3),
+                planned_end_at=datetime.now(timezone.utc) - timedelta(days=1),
+            )
+            failed_request = ReturnRequest(
+                rental_id=other_rental.id,
+                locker_id=seeded["locker"].id,
+                cell_id=seeded["home_cell"].id,
+                pin="9999",
+                status=ReturnRequestStatus.FAILED,
+                requested_at=datetime.now(timezone.utc) + timedelta(minutes=1),
+                deadline_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            )
+            db.add_all([other_unit, other_rental, failed_request])
+            await db.commit()
+
+            result = await start_rental_return(
+                db, rental=seeded["rental"], return_locker_id=seeded["locker"].id
+            )
+
+            self.assertEqual(result["cellId"], str(seeded["vacant_cell"].id))
+
     async def test_home_cell_occupied_after_failed_foreign_return_falls_back(self) -> None:
         """После нашей выдачи в родную ячейку оформляли (проваленный) возврат —
         товар мог быть физически внутри, ячейку не трогаем."""
