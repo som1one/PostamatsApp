@@ -50,11 +50,15 @@ def _as_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
-def _build_support_admin_link(conversation_id: UUID) -> str | None:
-    base = settings.ADMIN_PANEL_URL
+def _build_support_panel_link(conversation_id: UUID) -> str | None:
+    """Диалоги поддержки живут в хелпер-панели на сайте, не в админке.
+
+    Секции «support» в админке нет — ссылка туда открывала пустую страницу.
+    """
+    base = settings.WEB_APP_ORIGIN
     if not base:
         return None
-    return f"{base.rstrip('/')}/?section=support&conversation={conversation_id}"
+    return f"{base.rstrip('/')}/helperpanel?conversation={conversation_id}"
 
 
 def _display_name(user: User) -> str:
@@ -72,9 +76,9 @@ def _truncate(text: str, limit: int = _MESSAGE_PREVIEW_LIMIT) -> str:
 
 def _build_buttons(conversation_id: UUID) -> list[tuple[str, str]]:
     buttons: list[tuple[str, str]] = []
-    link = _build_support_admin_link(conversation_id)
+    link = _build_support_panel_link(conversation_id)
     if link:
-        buttons.append(("Открыть в админке", link))
+        buttons.append(("Открыть диалог", link))
     return buttons
 
 

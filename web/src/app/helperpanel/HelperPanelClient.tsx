@@ -171,6 +171,16 @@ function OperatorWorkspace() {
   const [socket, setSocket] = useState<OperatorChatSocket | null>(null);
   const socketRef = useRef<OperatorChatSocket | null>(null);
 
+  // Deep-link из телеграм-уведомления: /helperpanel?conversation=<uuid>
+  // сразу открывает нужный диалог. Читаем window.location в эффекте, чтобы
+  // не тянуть useSearchParams (ему нужен Suspense при пререндере).
+  useEffect(() => {
+    const param = new URLSearchParams(window.location.search).get("conversation");
+    if (param && /^[0-9a-f-]{36}$/i.test(param)) {
+      setSelectedId(param);
+    }
+  }, []);
+
   const list = useConversationList(socket);
   // The view hook always runs (hooks can't be conditional); it no-ops with an
   // empty conversation id until a conversation is selected.

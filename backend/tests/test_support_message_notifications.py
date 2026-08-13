@@ -22,6 +22,7 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from backend.core.database import Base
+from backend.core.settings import settings
 from backend.models.admin_account import AdminAccount
 from backend.models.city import City
 from backend.models.enums import ConversationStatus, VerificationStatus
@@ -73,9 +74,12 @@ class SupportMessageNotificationTests(unittest.IsolatedAsyncioTestCase):
 
     def _notify(self, user: User, posted) -> MagicMock:
         """Вызывает notify_support_client_message с подменённой отправкой."""
-        with patch(
-            "backend.utils.support_notifications.fire_and_forget_notify"
-        ) as sender:
+        with (
+            patch.object(settings, "WEB_APP_ORIGIN", "https://naprokatberu.ru"),
+            patch(
+                "backend.utils.support_notifications.fire_and_forget_notify"
+            ) as sender,
+        ):
             notify_support_client_message(
                 user,
                 posted.conversation,
@@ -148,6 +152,14 @@ class SupportMessageNotificationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Новое сообщение в поддержку", text)
         self.assertIn("Ячейка так и не открылась", text)
         self.assertIn("Тестов Иван", text)
+        # Кнопка ведёт в хелпер-панель на сайте: секции support в админке
+        # нет, старая ссылка открывала пустую страницу.
+        buttons = sender.call_args.kwargs.get("buttons") or []
+        self.assertTrue(buttons, "у уведомления должна быть кнопка на диалог")
+        label, url = buttons[0]
+        self.assertEqual(label, "Открыть диалог")
+        self.assertIn("/helperpanel?conversation=", url)
+        self.assertIn(str(posted.conversation.id), url)
 
     async def test_widget_created_conversation_first_message_pings_once(self) -> None:
         """Виджет создал диалог при открытии (это уже пингует «Новое обращение»),
