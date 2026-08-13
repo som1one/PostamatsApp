@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { TermsRentalClient } from "./TermsRentalClient";
 
 export const metadata: Metadata = {
-  title: "Условия аренды товаров — naprokatberu",
+  title: "Условия аренды товаров",
   description:
-    "Условия аренды техники и вещей через постаматы naprokatberu. Договор публичной оферты.",
+    "Договор публичной оферты naprokatberu: правила получения, использования и возврата оборудования, цена, ответственность сторон и оценка оборудования.",
   alternates: { canonical: "/terms-rental" },
   openGraph: {
     url: "/terms-rental",

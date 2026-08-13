@@ -25,7 +25,7 @@ export function Footer() {
         </nav>
         <nav className="footer-section" aria-label="Документы">
           <Link href="/terms-rental">Условия аренды товаров</Link>
-          <Link href="/about">Политика данных</Link>
+          <Link href="/privacy">Политика конфиденциальности</Link>
           <Link href="/profile">Личный кабинет</Link>
           <a href="https://vk.ru/naprokatberu" target="_blank" rel="noreferrer" className="footer-social-item">
             <span className="footer-social-icon">
