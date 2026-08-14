@@ -7,13 +7,19 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
+from backend.utils.admin_scope import require_full_access_admin
 from backend.models.media_file import MediaFile
 from backend.models.rental_idea import RentalIdea
 from backend.routers.admin.auth import get_current_admin
 from backend.utils.products_utils import public_media_url
 
 
-router = APIRouter(prefix="/api/admin/ideas", tags=["admin-rental-ideas"])
+router = APIRouter(
+    prefix="/api/admin/ideas",
+    tags=["admin-rental-ideas"],
+    # Идеи приходят с публичной формы по всей стране — не для франшизы.
+    dependencies=[Depends(require_full_access_admin)],
+)
 
 
 def _serialize(idea: RentalIdea, media: MediaFile | None) -> dict:

@@ -24,6 +24,7 @@ from backend.models.rental_event import RentalEvent
 from backend.models.user import User
 from backend.routers.admin.auth import get_current_admin
 from backend.utils.admin_audit import record_admin_audit
+from backend.utils.admin_scope import ensure_rental_in_scope, franchise_city_id
 from backend.utils.rental_serialization import serialize_rental_detail
 
 router = APIRouter(prefix="/api/admin/rentals", tags=["admin-rentals"])
@@ -89,7 +90,8 @@ async def list_rentals(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
 ):
-    await get_current_admin(request, db)
+    admin, _ = await get_current_admin(request, db)
+    scope_city_id = franchise_city_id(admin)
 
     filters: list = []
     if status:
@@ -99,7 +101,10 @@ async def list_rentals(
             raise HTTPException(status_code=400, detail="INVALID_STATUS_FILTER") from None
         filters.append(Rental.status == st)
 
-    if city_id is not None:
+    if scope_city_id is not None:
+        # Город франшизы жёстче любого фильтра из запроса.
+        filters.append(LockerLocation.city_id == scope_city_id)
+    elif city_id is not None:
         filters.append(LockerLocation.city_id == city_id)
 
     if locker_id is not None:
@@ -183,11 +188,12 @@ async def get_rental(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await get_current_admin(request, db)
+    admin, _ = await get_current_admin(request, db)
     rid = _parse_rental_id(rental_id)
     rental = await db.get(Rental, rid)
     if rental is None:
         raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
+    await ensure_rental_in_scope(db, franchise_city_id(admin), rental)
 
     user = await db.get(User, rental.user_id)
     unit = await db.get(InventoryUnit, rental.inventory_unit_id)
@@ -229,6 +235,7 @@ async def cancel_rental(
     rental = await db.get(Rental, rid)
     if rental is None:
         raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
+    await ensure_rental_in_scope(db, franchise_city_id(admin), rental)
     if rental.status in _NO_CANCEL_RENTAL:
         raise HTTPException(status_code=409, detail="RENTAL_NOT_CANCELLABLE")
 
@@ -289,6 +296,7 @@ async def force_complete_rental(
     rental = await db.get(Rental, rid)
     if rental is None:
         raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
+    await ensure_rental_in_scope(db, franchise_city_id(admin), rental)
     if rental.status in (RentalStatus.COMPLETED, RentalStatus.CANCELLED):
         raise HTTPException(status_code=409, detail="RENTAL_NOT_FORCE_COMPLETABLE")
 
@@ -349,6 +357,7 @@ async def delete_rental(
     rental = await db.get(Rental, rid)
     if rental is None:
         raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
+    await ensure_rental_in_scope(db, franchise_city_id(admin), rental)
     if rental.status not in _TERMINAL_RENTAL:
         raise HTTPException(status_code=409, detail="RENTAL_NOT_DELETABLE")
 

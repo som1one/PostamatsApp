@@ -6,6 +6,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
+from backend.utils.admin_scope import require_full_access_admin
 from backend.core.exceptions import ClientError
 from backend.core.settings import settings
 from backend.models.media_file import MediaFile
@@ -23,7 +24,12 @@ from backend.utils.uploads_utils import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/admin/uploads", tags=["admin-uploads"])
+router = APIRouter(
+    prefix="/api/admin/uploads",
+    tags=["admin-uploads"],
+    # Загрузка картинок нужна только редактору каталога.
+    dependencies=[Depends(require_full_access_admin)],
+)
 ADMIN_PRESIGN_KIND_VALUES = frozenset({"product_cover", "product_gallery"})
 
 

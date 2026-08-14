@@ -8,6 +8,7 @@ from backend.core.database import get_db
 from backend.core.settings import settings
 from backend.models.admin_account import AdminAccount
 from backend.models.admin_auth_session import AdminAuthSession
+from backend.models.city import City
 from backend.schemas.admin_auth_schemas import AdminLoginPayload
 from backend.utils.admin_auth_utils import (
     create_admin_access_token,
@@ -22,14 +23,29 @@ from backend.utils.auth_utils import extract_bearer_token
 
 router = APIRouter(prefix="/api/admin/auth", tags=["admin-auth"])
 
+# Фронт ловит этот detail и разлогинивает панель, не показывая
+# бесполезную попытку refresh-а.
+ACCESS_DISABLED_DETAIL = "ACCESS_DISABLED"
 
-def serialize_admin(admin: AdminAccount) -> dict[str, str]:
+
+def serialize_admin(admin: AdminAccount) -> dict:
     return {
         "id": str(admin.id),
         "name": admin.name,
         "login": admin.login,
         "role": admin.role.value,
+        "isActive": bool(admin.is_active),
+        "cityId": str(admin.city_id) if admin.city_id else None,
+        "cityName": None,
     }
+
+
+async def serialize_admin_with_city(db: AsyncSession, admin: AdminAccount) -> dict:
+    payload = serialize_admin(admin)
+    if admin.city_id is not None:
+        city = await db.get(City, admin.city_id)
+        payload["cityName"] = city.name if city else None
+    return payload
 
 
 async def get_current_admin(
@@ -41,6 +57,8 @@ async def get_current_admin(
     admin = await db.get(AdminAccount, session.admin_account_id)
     if not admin:
         raise HTTPException(status_code=401, detail="Администратор не найден")
+    if not admin.is_active:
+        raise HTTPException(status_code=403, detail=ACCESS_DISABLED_DETAIL)
     return admin, session
 
 
@@ -63,7 +81,11 @@ async def login(
     if not admin or not verify_password(password, admin.password_hash):
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
 
+    if not admin.is_active:
+        raise HTTPException(status_code=403, detail="Доступ отключён администратором")
+
     now = datetime.now(timezone.utc)
+    admin.last_login_at = now
     session = AdminAuthSession(
         admin_account_id=admin.id,
         refresh_token_hash="pending",
@@ -85,7 +107,7 @@ async def login(
         "data": {
             "accessToken": access_token,
             "refreshToken": refresh_token,
-            "admin": serialize_admin(admin),
+            "admin": await serialize_admin_with_city(db, admin),
         }
     }
 
@@ -101,6 +123,8 @@ async def refresh(
     admin = await db.get(AdminAccount, session.admin_account_id)
     if not admin:
         raise HTTPException(status_code=401, detail="Администратор не найден")
+    if not admin.is_active:
+        raise HTTPException(status_code=403, detail=ACCESS_DISABLED_DETAIL)
 
     session.last_used_at = datetime.now(timezone.utc)
     await db.commit()
@@ -110,7 +134,7 @@ async def refresh(
         "data": {
             "accessToken": access_token,
             "refreshToken": refresh_token,
-            "admin": serialize_admin(admin),
+            "admin": await serialize_admin_with_city(db, admin),
         }
     }
 
@@ -121,7 +145,7 @@ async def me(
     db: AsyncSession = Depends(get_db),
 ):
     admin, _ = await get_current_admin(request, db)
-    return {"data": {"admin": serialize_admin(admin)}}
+    return {"data": {"admin": await serialize_admin_with_city(db, admin)}}
 
 
 @router.post("/logout")

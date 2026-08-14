@@ -310,6 +310,12 @@ select {
   letter-spacing: 0.14em;
 }.admin-badge strong {
   font-size: 0.95rem;
+}.admin-badge-scope {
+  display: block;
+  margin-top: 2px;
+  color: var(--accent-strong);
+  font-size: 0.78rem;
+  font-weight: 600;
 }.app-main {
   display: grid;
   gap: 24px;

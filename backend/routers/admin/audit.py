@@ -3,11 +3,17 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
+from backend.utils.admin_scope import require_full_access_admin
 from backend.models.admin_account import AdminAccount
 from backend.models.admin_audit_event import AdminAuditEvent
 from backend.routers.admin.auth import get_current_admin
 
-router = APIRouter(prefix="/api/admin/audit", tags=["admin-audit"])
+router = APIRouter(
+    prefix="/api/admin/audit",
+    tags=["admin-audit"],
+    # Журнал действий администраторов сети франшизе не виден.
+    dependencies=[Depends(require_full_access_admin)],
+)
 
 
 def _serialize_event(ev: AdminAuditEvent, admin: AdminAccount | None) -> dict:

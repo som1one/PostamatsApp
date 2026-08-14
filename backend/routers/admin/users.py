@@ -16,6 +16,11 @@ from backend.models.user import User
 from backend.models.verification_request import VerificationRequest
 from backend.routers.admin.auth import get_current_admin
 from backend.utils.admin_audit import record_admin_audit
+from backend.utils.admin_scope import (
+    ensure_user_in_scope,
+    franchise_city_id,
+    user_in_city_clause,
+)
 from backend.utils.document_numbers import normalize_document_number
 from backend.schemas.admin_panel_schemas import AdminBlockUserPayload, AdminRejectVerificationPayload
 from backend.utils.phone_utils import normalize_phone_for_storage
@@ -238,12 +243,17 @@ async def list_admin_users(
         description="Только заблокированные (true) или незаблокированные (false)",
     ),
 ):
-    await get_current_admin(request, db)
+    admin, _ = await get_current_admin(request, db)
+    scope_city_id = franchise_city_id(admin)
 
     search = _user_search_clause(q) if q else None
     count_stmt = select(func.count(User.id))
     stmt = select(User).order_by(User.created_at.desc())
 
+    if scope_city_id is not None:
+        scope_clause = user_in_city_clause(scope_city_id)
+        count_stmt = count_stmt.where(scope_clause)
+        stmt = stmt.where(scope_clause)
     if search is not None:
         count_stmt = count_stmt.where(search)
         stmt = stmt.where(search)
@@ -281,7 +291,7 @@ async def get_admin_user(
     user_id: str,
     db: AsyncSession = Depends(get_db),
 ):
-    await get_current_admin(request, db)
+    admin, _ = await get_current_admin(request, db)
 
     uid = _parse_user_id_param(user_id)
     user = (
@@ -289,6 +299,7 @@ async def get_admin_user(
     ).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
+    await ensure_user_in_scope(db, franchise_city_id(admin), uid)
 
     city_name = None
     if user.preferred_city_id:
@@ -342,6 +353,7 @@ async def approve_verification(
     ).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
+    await ensure_user_in_scope(db, franchise_city_id(admin), uid)
 
     vr = await _get_pending_verification(db, uid)
     if not vr:
@@ -388,6 +400,7 @@ async def reject_verification(
     ).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
+    await ensure_user_in_scope(db, franchise_city_id(admin), uid)
 
     vr = await _get_pending_verification(db, uid)
     if not vr:
@@ -432,6 +445,7 @@ async def block_user(
     ).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
+    await ensure_user_in_scope(db, franchise_city_id(admin), uid)
 
     user.is_blocked = True
     reason = payload.reason.strip() if payload and payload.reason else ""

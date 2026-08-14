@@ -28,6 +28,7 @@ import asyncio
 import logging
 from html import escape as escape_html
 from typing import Iterable, Sequence
+from uuid import UUID
 
 import httpx
 
@@ -92,13 +93,16 @@ async def _send_one(
     return True
 
 
-async def _resolve_chat_ids() -> list[str]:
+async def _resolve_chat_ids(city_id: "UUID | None" = None) -> list[str]:
     """Определяет получателей для текущей рассылки.
 
     Сначала пытаемся взять активных (включённых и привязанных)
     подписчиков из БД. Если в БД ни одного активного — fallback на
     CSV из настроек, чтобы старый деплой без миграции продолжал
     работать.
+
+    ``city_id`` — город события: к подписчикам сети добавятся подписчики
+    этого города (франшизы). Без него уведомление идёт только сети.
     """
 
     try:
@@ -108,7 +112,7 @@ async def _resolve_chat_ids() -> list[str]:
         from backend.utils.telegram_admin_subscribers import get_active_chat_ids
 
         async with SessionLocal() as db:
-            ids = await get_active_chat_ids(db)
+            ids = await get_active_chat_ids(db, city_id=city_id)
         if ids:
             return ids
     except Exception:
@@ -122,6 +126,7 @@ async def notify_admins(
     *,
     buttons: Iterable[InlineButton] = (),
     chat_ids: Sequence[str] | None = None,
+    city_id: "UUID | None" = None,
 ) -> int:
     """Шлёт ``text`` всем активным подписчикам.
 
@@ -129,6 +134,8 @@ async def notify_admins(
         Каждая кнопка занимает свой ряд.
     :param chat_ids: переопределение получателей. Если ``None``,
         берутся из БД (или CSV-fallback из настроек).
+    :param city_id: город события. Уведомление получат подписчики сети и
+        подписчики этого города; без него — только подписчики сети.
     :return: сколько чатов реально приняли сообщение. ``0`` означает, что
         уведомление никуда не ушло (нет токена, нет подписчиков или
         Telegram ответил ошибкой) — вызывающий код может это залогировать.
@@ -141,7 +148,7 @@ async def notify_admins(
     if chat_ids is not None:
         targets = list(chat_ids)
     else:
-        targets = await _resolve_chat_ids()
+        targets = await _resolve_chat_ids(city_id)
 
     if not targets:
         logger.debug("Telegram admin notifications skipped: no recipients")
@@ -163,6 +170,7 @@ def fire_and_forget_notify(
     text: str,
     *,
     buttons: Iterable[InlineButton] = (),
+    city_id: "UUID | None" = None,
 ) -> None:
     """Удобная обёртка для использования из синхронного контекста или
     после ``await db.commit()``: запускает задачу в текущем event loop и
@@ -178,7 +186,7 @@ def fire_and_forget_notify(
         logger.debug("No running event loop, skipping telegram notification")
         return
 
-    loop.create_task(notify_admins(text, buttons=tuple(buttons)))
+    loop.create_task(notify_admins(text, buttons=tuple(buttons), city_id=city_id))
 
 
 __all__ = [

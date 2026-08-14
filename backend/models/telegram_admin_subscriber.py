@@ -6,6 +6,10 @@
 сохраняется найденный chat_id. С этого момента уведомления приходят
 только тем подписчикам, у которых ``is_enabled = True`` и есть
 ``chat_id``.
+
+``city_id`` разделяет рассылку: ``NULL`` — глобальный подписчик (получает
+всё), заполненный город — подписчик франшизы (получает только события
+своего города).
 """
 
 from __future__ import annotations
@@ -13,7 +17,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import BigInteger, Boolean, DateTime, String, Uuid, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.core.database import Base
@@ -31,6 +35,13 @@ class TelegramAdminSubscriber(Base):
     # Заполняется автоматически после первого `/start` пользователя.
     chat_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # NULL — уведомления по всей сети; город — только события этого города.
+    city_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("cities.id"),
+        index=True,
+        nullable=True,
+    )
     note: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

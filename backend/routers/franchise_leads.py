@@ -25,7 +25,7 @@ from fastapi import APIRouter, Body, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from backend.utils.phone_utils import normalize_phone_for_storage
-from backend.utils.telegram_bot import escape_html, notify_admins
+from backend.utils.admin_notifications import escape_html, notify_admins
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +177,6 @@ async def create_franchise_lead(
         # драмы: приложение не настраивает logging, INFO-строки в вывод
         # контейнера не попадают, и это единственный шанс сохранить лид,
         # который не доехал до телеги.
-        logger.error("Franchise lead NOT delivered to Telegram: %s", lead_log)
+        logger.error("Franchise lead NOT delivered to admins: %s", lead_log)
 
     return {"data": {"delivered": delivered}}

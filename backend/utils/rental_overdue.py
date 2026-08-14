@@ -14,7 +14,7 @@ from backend.models.product import Product
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
 from backend.models.user import User
-from backend.utils.telegram_bot import escape_html, notify_admins
+from backend.utils.admin_notifications import escape_html, notify_admins
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ async def notify_support_about_long_overdue_rentals() -> None:
                 now=now,
             )
             try:
-                await notify_admins(text, buttons=buttons)
+                await notify_admins(text, buttons=buttons, city_id=locker.city_id)
             except Exception:
                 logger.exception("Failed to notify support about overdue rental %s", rental.id)
                 continue

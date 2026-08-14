@@ -12,6 +12,11 @@ from backend.models.locker_location import LockerLocation
 from backend.models.user import User
 from backend.routers.admin.auth import get_current_admin
 from backend.utils.admin_audit import record_admin_audit
+from backend.utils.admin_scope import (
+    ensure_city_in_scope,
+    franchise_city_id,
+    require_not_franchise,
+)
 from backend.schemas.admin_panel_schemas import AdminCreateCityPayload, AdminUpdateCityPayload
 from backend.utils.cities_utils import serialize_admin_city_list_item, serialize_city
 
@@ -43,13 +48,15 @@ async def list_admin_cities(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await get_current_admin(request, db)
+    admin, _ = await get_current_admin(request, db)
+    scope_city_id = franchise_city_id(admin)
 
-    cities = (
-        await db.scalars(
-            select(City).order_by(City.sort_order.asc(), City.name.asc())
-        )
-    ).all()
+    # Раздел «Города» франшизе не показываем, но список нужен самой панели
+    # (подписи городов, форма постамата) — отдаём только её город.
+    stmt = select(City).order_by(City.sort_order.asc(), City.name.asc())
+    if scope_city_id is not None:
+        stmt = stmt.where(City.id == scope_city_id)
+    cities = (await db.scalars(stmt)).all()
     counts = await _locker_counts_by_city(db, [c.id for c in cities])
 
     return {
@@ -69,7 +76,8 @@ async def get_admin_city(
     city_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    await get_current_admin(request, db)
+    admin, _ = await get_current_admin(request, db)
+    ensure_city_in_scope(franchise_city_id(admin), city_id)
 
     city = (
         await db.execute(select(City).where(City.id == city_id))
@@ -120,6 +128,7 @@ async def create_admin_city(
     db: AsyncSession = Depends(get_db),
 ):
     admin, _ = await get_current_admin(request, db)
+    require_not_franchise(admin)
 
     normalized_name = payload.name.strip()
     normalized_timezone = payload.timezone.strip()
@@ -173,6 +182,7 @@ async def update_admin_city(
     db: AsyncSession = Depends(get_db),
 ):
     admin, _ = await get_current_admin(request, db)
+    require_not_franchise(admin)
 
     city = (
         await db.execute(select(City).where(City.id == city_id))
@@ -236,6 +246,7 @@ async def _perform_admin_city_delete(
     db: AsyncSession,
 ) -> dict:
     admin, _ = await get_current_admin(request, db)
+    require_not_franchise(admin)
 
     outcome = await delete_city_by_id(db, city_id)
     if outcome == "not_found":

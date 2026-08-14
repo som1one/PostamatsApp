@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from backend.core.database import Base
 from backend.core.settings import settings
+from backend.models.city import City  # noqa: F401
 from backend.models.telegram_admin_subscriber import TelegramAdminSubscriber  # noqa: F401
 from backend.utils.telegram_admin_subscribers import (
     SubscriberError,
@@ -42,7 +43,8 @@ from backend.utils.telegram_admin_subscribers import (
 # Создаём только таблицу подписчиков, чтобы при совместном прогоне с
 # другими тестами не тянуть весь граф моделей (у media_files есть FK на
 # admin_users, которую мы здесь не регистрируем).
-SUBSCRIBER_TABLES = [TelegramAdminSubscriber.__table__]
+# Города нужны из-за FK city_id (адресация уведомлений по городу).
+SUBSCRIBER_TABLES = [City.__table__, TelegramAdminSubscriber.__table__]
 
 
 async def _create_subscriber_tables(engine) -> None:

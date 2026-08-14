@@ -114,6 +114,10 @@ jobs:
           TELEGRAM_ADMIN_BOT_TOKEN: ${{ secrets.TELEGRAM_ADMIN_BOT_TOKEN }}
           TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
           TELEGRAM_API_TIMEOUT_SECONDS: ${{ vars.TELEGRAM_API_TIMEOUT_SECONDS }}
+          MAX_ADMIN_BOT_TOKEN: ${{ secrets.MAX_ADMIN_BOT_TOKEN }}
+          MAX_WEBHOOK_SECRET: ${{ secrets.MAX_WEBHOOK_SECRET }}
+          MAX_API_TIMEOUT_SECONDS: ${{ vars.MAX_API_TIMEOUT_SECONDS }}
+          MAX_API_BASE_URL: ${{ vars.MAX_API_BASE_URL }}
           ADMIN_PANEL_URL: ${{ vars.ADMIN_PANEL_URL }}
         run: |
           set -euo pipefail
@@ -125,7 +129,7 @@ jobs:
           # переменная DEPLOY_PATH явно пробрасывается в окружение
           # удалённой сессии, чтобы внутри heredoc не было подстановки
           # на стороне runner-а.
-          # Опциональные секреты (TELEGRAM_*, ADMIN_PANEL_URL) тоже
+          # Опциональные секреты (TELEGRAM_*, MAX_*, ADMIN_PANEL_URL) тоже
           # пробрасываются, чтобы deploy.sh мог апсёртнуть их в
           # backend/.env.production. Если секрет не задан — пробрасываем
           # пустую строку, deploy.sh такие пропускает.
@@ -142,6 +146,10 @@ jobs:
              TELEGRAM_ADMIN_BOT_TOKEN='${TELEGRAM_ADMIN_BOT_TOKEN}' \
              TELEGRAM_WEBHOOK_SECRET='${TELEGRAM_WEBHOOK_SECRET}' \
              TELEGRAM_API_TIMEOUT_SECONDS='${TELEGRAM_API_TIMEOUT_SECONDS}' \
+             MAX_ADMIN_BOT_TOKEN='${MAX_ADMIN_BOT_TOKEN}' \
+             MAX_WEBHOOK_SECRET='${MAX_WEBHOOK_SECRET}' \
+             MAX_API_TIMEOUT_SECONDS='${MAX_API_TIMEOUT_SECONDS}' \
+             MAX_API_BASE_URL='${MAX_API_BASE_URL}' \
              ADMIN_PANEL_URL='${ADMIN_PANEL_URL}' \
              bash -s" <<'REMOTE_EOF' || ssh_status=$?
           set -euo pipefail

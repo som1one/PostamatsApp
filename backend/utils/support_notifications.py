@@ -1,10 +1,11 @@
-"""Telegram admin notifications for support-chat lifecycle events.
+"""Admin notifications for support-chat lifecycle events.
 
 Mirrors the verification-request notification pattern from ``routers/me.py``:
 builds an HTML-safe message text plus an optional ``Открыть в админке`` inline
-button, then hands it to :func:`backend.utils.telegram_bot.fire_and_forget_notify`
-so it is delivered to the same Telegram admin subscribers that already receive
-verification notifications.
+button, then hands it to
+:func:`backend.utils.admin_notifications.fire_and_forget_notify` so it is
+delivered — в Telegram и в MAX — тем же админ-подписчикам, что уже получают
+уведомления о верификации.
 
 Three events are notified:
 
@@ -30,7 +31,7 @@ from backend.core.settings import settings
 from backend.models.support_conversation import SupportConversation
 from backend.models.support_message import SupportMessage
 from backend.models.user import User
-from backend.utils.telegram_bot import escape_html, fire_and_forget_notify
+from backend.utils.admin_notifications import escape_html, fire_and_forget_notify
 
 # Hard cap on how much of the client message body we include in the Telegram
 # notification. Telegram caps a single message at ~4096 chars; we want plenty

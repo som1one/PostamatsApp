@@ -8,7 +8,7 @@ from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
 from backend.models.product import Product
 from backend.models.rental import Rental
-from backend.utils.telegram_bot import escape_html, fire_and_forget_notify
+from backend.utils.admin_notifications import escape_html, fire_and_forget_notify
 
 
 def _build_inventory_admin_link(locker_id, cell_id) -> str | None:
@@ -47,4 +47,4 @@ def notify_inventory_awaiting_confirmation(
     if admin_link:
         buttons.append(("Открыть в админке", admin_link))
 
-    fire_and_forget_notify("\n".join(lines), buttons=buttons)
+    fire_and_forget_notify("\n".join(lines), buttons=buttons, city_id=locker.city_id)

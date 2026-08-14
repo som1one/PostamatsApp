@@ -31,6 +31,10 @@ inject_env_var() {
 inject_env_var "TELEGRAM_ADMIN_BOT_TOKEN" "${TELEGRAM_ADMIN_BOT_TOKEN-}"
 inject_env_var "TELEGRAM_API_TIMEOUT_SECONDS" "${TELEGRAM_API_TIMEOUT_SECONDS-}"
 inject_env_var "TELEGRAM_WEBHOOK_SECRET" "${TELEGRAM_WEBHOOK_SECRET-}"
+inject_env_var "MAX_ADMIN_BOT_TOKEN" "${MAX_ADMIN_BOT_TOKEN-}"
+inject_env_var "MAX_API_TIMEOUT_SECONDS" "${MAX_API_TIMEOUT_SECONDS-}"
+inject_env_var "MAX_WEBHOOK_SECRET" "${MAX_WEBHOOK_SECRET-}"
+inject_env_var "MAX_API_BASE_URL" "${MAX_API_BASE_URL-}"
 inject_env_var "ADMIN_PANEL_URL" "${ADMIN_PANEL_URL-}"
 
 COMPOSE_ARGS=(--env-file deploy/.env -f deploy/docker-compose.beget.yml)

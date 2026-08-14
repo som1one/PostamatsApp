@@ -1,7 +1,8 @@
-"""CRUD по админским Telegram-подписчикам.
+"""CRUD по админским подписчикам MAX.
 
-Под капотом — :mod:`backend.utils.telegram_admin_subscribers`. Здесь
-только трансляция HTTP ↔ сервис и единая обработка ошибок.
+Зеркало :mod:`backend.routers.admin.telegram_subscribers`: под капотом —
+:mod:`backend.utils.max_admin_subscribers`, здесь только трансляция
+HTTP ↔ сервис и единая обработка ошибок.
 """
 
 from __future__ import annotations
@@ -17,22 +18,22 @@ from backend.core.database import get_db
 from backend.models.city import City
 from backend.routers.admin.auth import get_current_admin
 from backend.utils.admin_scope import franchise_city_id, require_not_franchise
-from backend.utils.telegram_admin_subscribers import (
+from backend.utils.max_admin_subscribers import (
     SubscriberError,
     create_subscriber,
+    delete_max_webhook,
     delete_subscriber,
-    delete_telegram_webhook,
-    get_telegram_webhook_info,
+    get_max_webhook_info,
     list_subscribers,
     resync_chat_ids,
     serialize_subscriber,
-    set_telegram_webhook,
+    set_max_webhook,
     update_subscriber,
 )
 
 router = APIRouter(
-    prefix="/api/admin/telegram-subscribers",
-    tags=["admin-telegram-subscribers"],
+    prefix="/api/admin/max-subscribers",
+    tags=["admin-max-subscribers"],
 )
 
 
@@ -65,7 +66,7 @@ async def _serialize_rows(db: AsyncSession, rows) -> list[dict]:
 
 
 @router.get("")
-async def list_telegram_subscribers(
+async def list_max_subscribers(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
@@ -75,7 +76,7 @@ async def list_telegram_subscribers(
 
 
 @router.post("")
-async def create_telegram_subscriber(
+async def create_max_subscriber(
     request: Request,
     db: AsyncSession = Depends(get_db),
     payload: CreateSubscriberPayload = Body(...),
@@ -104,21 +105,20 @@ async def create_telegram_subscriber(
 
 
 @router.patch("/{subscriber_id}")
-async def patch_telegram_subscriber(
+async def patch_max_subscriber(
     request: Request,
     subscriber_id: UUID = Path(...),
     db: AsyncSession = Depends(get_db),
     payload: UpdateSubscriberPayload = Body(...),
 ):
     admin, _ = await get_current_admin(request, db)
-    scope_city_id = franchise_city_id(admin)
     try:
         subscriber = await update_subscriber(
             db,
             subscriber_id,
             is_enabled=payload.isEnabled,
             note=payload.note,
-            require_city_id=scope_city_id,
+            require_city_id=franchise_city_id(admin),
         )
     except SubscriberError as exc:
         raise _to_http(exc) from exc
@@ -132,7 +132,7 @@ async def patch_telegram_subscriber(
 
 
 @router.delete("/{subscriber_id}")
-async def delete_telegram_subscriber(
+async def delete_max_subscriber(
     request: Request,
     subscriber_id: UUID = Path(...),
     db: AsyncSession = Depends(get_db),
@@ -149,11 +149,11 @@ async def delete_telegram_subscriber(
 
 
 @router.post("/resync")
-async def resync_telegram_subscribers(
+async def resync_max_subscribers(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """Сматчить username-ы с chat_id из последних апдейтов бота."""
+    """Сматчить username-ы с идентификаторами диалогов из свежих апдейтов."""
 
     admin, _ = await get_current_admin(request, db)
     scope_city_id = franchise_city_id(admin)
@@ -179,11 +179,11 @@ async def resync_telegram_subscribers(
 
 
 @router.post("/webhook")
-async def setup_telegram_webhook(
+async def setup_max_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """Регистрирует webhook-URL у Telegram.
+    """Регистрирует webhook-подписку у MAX.
 
     База берётся из ADMIN_PANEL_URL, а если он не задан — из публичного
     origin текущего запроса (на проде это домен админки за Caddy).
@@ -194,35 +194,36 @@ async def setup_telegram_webhook(
     # request.base_url учитывает X-Forwarded-* за обратным прокси Caddy.
     origin = str(request.base_url).rstrip("/") if request.base_url else None
     try:
-        result = await set_telegram_webhook(public_origin=origin)
+        result = await set_max_webhook(public_origin=origin)
     except SubscriberError as exc:
         raise _to_http(exc) from exc
     return {"data": result}
 
 
 @router.get("/webhook")
-async def get_webhook_info(
+async def get_max_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     admin, _ = await get_current_admin(request, db)
     require_not_franchise(admin)
     try:
-        result = await get_telegram_webhook_info()
+        result = await get_max_webhook_info()
     except SubscriberError as exc:
         raise _to_http(exc) from exc
     return {"data": result}
 
 
 @router.delete("/webhook")
-async def remove_telegram_webhook(
+async def remove_max_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     admin, _ = await get_current_admin(request, db)
     require_not_franchise(admin)
+    origin = str(request.base_url).rstrip("/") if request.base_url else None
     try:
-        result = await delete_telegram_webhook()
+        result = await delete_max_webhook(public_origin=origin)
     except SubscriberError as exc:
         raise _to_http(exc) from exc
     return {"data": result}

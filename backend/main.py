@@ -19,8 +19,10 @@ from backend.routers.admin.audit import router as admin_audit_router
 from backend.routers.admin.auth import router as admin_auth_router
 from backend.routers.admin.cities import router as admin_cities_router
 from backend.routers.admin.dashboard import router as admin_dashboard_router
+from backend.routers.admin.franchises import router as admin_franchises_router
 from backend.routers.admin.inventory import router as admin_inventory_router
 from backend.routers.admin.lockers import router as admin_lockers_router
+from backend.routers.admin.max_subscribers import router as admin_max_subscribers_router
 from backend.routers.admin.product_categories import router as admin_product_categories_router
 from backend.routers.admin.product_filters import router as admin_product_filters_router
 from backend.routers.admin.products import router as admin_products_router
@@ -46,6 +48,7 @@ from backend.routers.reservation import router as reservation_router
 from backend.routers.payments import router as payments_router, yookassa_webhook_router
 from backend.routers.public_stats import router as public_stats_router
 from backend.routers.rental_ideas import router as rental_ideas_router
+from backend.routers.max_webhook import router as max_webhook_router
 from backend.routers.telegram_webhook import router as telegram_webhook_router
 from backend.routers.webhooks_esi import router as webhooks_esi_router
 from backend.utils.featured_product import (
@@ -110,9 +113,11 @@ app.include_router(rental_ideas_router)
 app.include_router(franchise_leads_router)
 app.include_router(geo_router)
 app.include_router(telegram_webhook_router)
+app.include_router(max_webhook_router)
 app.include_router(webhooks_esi_router)
 app.include_router(admin_auth_router)
 app.include_router(admin_dashboard_router)
+app.include_router(admin_franchises_router)
 app.include_router(admin_users_router)
 app.include_router(admin_verification_queue_router)
 app.include_router(admin_cities_router)
@@ -121,6 +126,7 @@ app.include_router(admin_inventory_router)
 app.include_router(admin_rentals_router)
 app.include_router(admin_rental_ideas_router)
 app.include_router(admin_telegram_subscribers_router)
+app.include_router(admin_max_subscribers_router)
 app.include_router(admin_audit_router)
 app.include_router(admin_product_categories_router)
 app.include_router(admin_product_filters_router)
@@ -149,9 +155,12 @@ async def startup_event():
     global esi_reconcile_worker, esi_reconcile_stop_event
     await init_db()
     await init_redis()
-    # Сидируем дефолтных Telegram-подписчиков (пока что один som1ones).
+    # Сидируем дефолтных подписчиков обоих каналов (пока что один som1ones).
     try:
         from backend.core.database import SessionLocal
+        from backend.utils.max_admin_subscribers import (
+            ensure_default_subscribers as ensure_default_max_subscribers,
+        )
         from backend.utils.telegram_admin_subscribers import (
             ensure_default_subscribers,
         )
@@ -159,12 +168,13 @@ async def startup_event():
 
         async with SessionLocal() as db:
             await ensure_default_subscribers(db)
+            await ensure_default_max_subscribers(db)
             await ensure_support_operator(db)
     except Exception:
         import logging
 
         logging.getLogger(__name__).exception(
-            "failed to seed default telegram subscribers"
+            "failed to seed default notification subscribers"
         )
     loop = asyncio.get_running_loop()
     featured_product_worker, featured_product_stop_event = start_featured_product_scheduler(loop)

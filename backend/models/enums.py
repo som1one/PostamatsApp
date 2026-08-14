@@ -12,6 +12,8 @@ class VerificationStatus(str, Enum):
 class AdminRole(str, Enum):
     SUPER_ADMIN = "super_admin"
     OPERATOR = "operator"
+    # Партнёр-франчайзи: доступ ограничен одним городом (admin_accounts.city_id).
+    FRANCHISE = "franchise"
 
 
 class PushPlatform(str, Enum):

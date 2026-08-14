@@ -33,6 +33,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
+from backend.utils.admin_scope import require_full_access_admin
 from backend.models.admin_account import AdminAccount
 from backend.models.admin_auth_session import AdminAuthSession
 from backend.models.enums import ConversationStatus
@@ -72,7 +73,12 @@ from backend.utils.support_auth import get_current_operator
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/admin/support", tags=["admin-support"])
+router = APIRouter(
+    prefix="/api/admin/support",
+    tags=["admin-support"],
+    # Поддержка централизованная, по городам не делится.
+    dependencies=[Depends(require_full_access_admin)],
+)
 
 
 # ---------------------------------------------------------------------------

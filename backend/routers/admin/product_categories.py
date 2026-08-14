@@ -3,13 +3,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
+from backend.utils.admin_scope import require_full_access_admin
 from backend.models.product_category import ProductCategory
 from backend.routers.admin.auth import get_current_admin
 from backend.routers.admin.cities import normalize_slug
 from backend.schemas.admin_panel_schemas import AdminCreateProductCategoryPayload
 from backend.utils.admin_audit import record_admin_audit
 
-router = APIRouter(prefix="/api/admin/product-categories", tags=["admin-product-categories"])
+router = APIRouter(
+    prefix="/api/admin/product-categories",
+    tags=["admin-product-categories"],
+    dependencies=[Depends(require_full_access_admin)],
+)
 
 
 @router.get("")

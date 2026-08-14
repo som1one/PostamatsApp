@@ -125,6 +125,57 @@ async def _ensure_inventory_last_check_column(conn) -> None:
         )
 
 
+# Колонки, добавленные миграцией `n0i1j2k3l4m5` (франшизы). Дублируем их
+# здесь, потому что `create_all` не достраивает существующие таблицы:
+# без этого dev-база (sqlite, без alembic) ломается на первом же запросе.
+# (таблица, колонка, DDL для postgres, DDL для sqlite)
+_FRANCHISE_COLUMNS: tuple[tuple[str, str, str, str], ...] = (
+    ("admin_accounts", "city_id", "UUID", "CHAR(32)"),
+    (
+        "admin_accounts",
+        "is_active",
+        "BOOLEAN NOT NULL DEFAULT true",
+        "BOOLEAN NOT NULL DEFAULT 1",
+    ),
+    ("admin_accounts", "last_login_at", "TIMESTAMP WITH TIME ZONE", "DATETIME"),
+    ("admin_accounts", "created_at", "TIMESTAMP WITH TIME ZONE", "DATETIME"),
+    ("telegram_admin_subscribers", "city_id", "UUID", "CHAR(32)"),
+    ("max_admin_subscribers", "city_id", "UUID", "CHAR(32)"),
+)
+
+
+async def _ensure_franchise_columns(conn) -> None:
+    from sqlalchemy import text
+
+    dialect = conn.dialect.name
+    if dialect not in ("postgresql", "sqlite"):
+        return
+
+    for table_name, column_name, pg_ddl, sqlite_ddl in _FRANCHISE_COLUMNS:
+        try:
+            has_column = await _table_has_column(
+                conn,
+                table_name=table_name,
+                column_name=column_name,
+            )
+        except Exception:
+            # Таблицы ещё нет — её создаст create_all уже с колонкой.
+            continue
+        if has_column:
+            continue
+        if dialect == "postgresql":
+            await conn.execute(
+                text(
+                    f"ALTER TABLE {table_name} "
+                    f"ADD COLUMN IF NOT EXISTS {column_name} {pg_ddl}"
+                )
+            )
+        else:
+            await conn.execute(
+                text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {sqlite_ddl}")
+            )
+
+
 async def init_db():
     for module_name in (
         "backend.models.admin_account",
@@ -142,6 +193,7 @@ async def init_db():
         "backend.models.inventory_unit",
         "backend.models.locker_cell",
         "backend.models.locker_location",
+        "backend.models.max_admin_subscriber",
         "backend.models.media_file",
         "backend.models.payment",
         "backend.models.payment_event",
@@ -170,10 +222,15 @@ async def init_db():
         except Exception:
             import logging
             logging.getLogger(__name__).exception("failed to sync inventory_units.last_check_at")
+        try:
+            await _ensure_franchise_columns(conn)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("failed to sync franchise columns")
     if engine.dialect.name == "postgresql":
         async with engine.begin() as conn:
             try:
-                from backend.models.enums import InventoryStatus, MediaFileKind
+                from backend.models.enums import AdminRole, InventoryStatus, MediaFileKind
 
                 await _ensure_postgres_enum_values(
                     conn,
@@ -185,6 +242,13 @@ async def init_db():
                     type_name="inventory_status",
                     enum_cls=InventoryStatus,
                 )
+                # Роль `franchise` появилась позже обоих enum-типов роли.
+                for role_type_name in ("admin_account_role", "admin_role"):
+                    await _ensure_postgres_enum_values(
+                        conn,
+                        type_name=role_type_name,
+                        enum_cls=AdminRole,
+                    )
             except Exception:
                 import logging
                 logging.getLogger(__name__).exception("failed to sync postgres enum values")

@@ -5,6 +5,7 @@ from sqlalchemy import distinct, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
+from backend.utils.admin_scope import require_full_access_admin
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.product import Product
 from backend.models.product_filter import ProductFilter
@@ -16,7 +17,11 @@ from backend.schemas.product_filter_schemas import (
 from backend.utils.admin_audit import record_admin_audit
 from backend.utils.product_filters import serialize_product_filter
 
-router = APIRouter(prefix="/api/admin/product-filters", tags=["admin-product-filters"])
+router = APIRouter(
+    prefix="/api/admin/product-filters",
+    tags=["admin-product-filters"],
+    dependencies=[Depends(require_full_access_admin)],
+)
 
 
 async def _require_admin_or_403(

@@ -201,6 +201,32 @@ class Settings:
         self.TELEGRAM_WEBHOOK_SECRET = (
             (ENV_VALUES.get("TELEGRAM_WEBHOOK_SECRET") or "").strip() or None
         )
+
+        # MAX (max.ru) — второй канал тех же админских уведомлений; каждое
+        # сообщение дублируется туда через backend/utils/admin_notifications.
+        # Токен бота выдаёт @MasterBot в MAX, получатели живут в таблице
+        # max_admin_subscribers, CSV ниже — фолбэк для деплоя без миграции
+        # (значения вида "12345" — chat_id, "user:12345" — user_id).
+        # Без токена канал молча пропускается, как и Telegram.
+        self.MAX_ADMIN_BOT_TOKEN = (
+            (ENV_VALUES.get("MAX_ADMIN_BOT_TOKEN") or "").strip() or None
+        )
+        self.MAX_ADMIN_CHAT_IDS = _split_csv(ENV_VALUES.get("MAX_ADMIN_CHAT_IDS"))
+        self.MAX_API_TIMEOUT_SECONDS = float(
+            ENV_VALUES.get("MAX_API_TIMEOUT_SECONDS", "10")
+        )
+        # Хост Bot API вынесен в конфиг: MAX уже переезжал с botapi.max.ru,
+        # и следующий переезд не должен требовать релиза.
+        self.MAX_API_BASE_URL = (
+            (ENV_VALUES.get("MAX_API_BASE_URL") or "").strip().rstrip("/")
+            or "https://platform-api2.max.ru"
+        )
+        # Секрет webhook-подписки MAX: он же path-сегмент /max/webhook/{secret}
+        # и заголовок X-Max-Bot-Api-Secret. Разрешены только латиница,
+        # цифры и дефис (ограничение MAX), длина 5-256.
+        self.MAX_WEBHOOK_SECRET = (
+            (ENV_VALUES.get("MAX_WEBHOOK_SECRET") or "").strip() or None
+        )
         # Базовый URL админки для deep-link'ов из уведомлений. Если не
         # задан — берём из WEB_APP_ORIGIN + "/admin", чтобы dev и прод
         # работали без отдельного значения.

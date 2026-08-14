@@ -7,6 +7,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
+from backend.utils.admin_scope import require_full_access_admin
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.media_file import MediaFile
 from backend.models.price_plan import PricePlan
@@ -18,7 +19,12 @@ from backend.schemas.admin_panel_schemas import AdminCreateProductPayload, Admin
 from backend.utils.admin_audit import record_admin_audit
 from backend.utils.products_utils import load_media_files_by_ids, load_product_images_with_urls, public_media_url
 
-router = APIRouter(prefix="/api/admin/products", tags=["admin-products"])
+router = APIRouter(
+    prefix="/api/admin/products",
+    tags=["admin-products"],
+    # Каталог общий для всей сети — франшизе раздел не показываем.
+    dependencies=[Depends(require_full_access_admin)],
+)
 
 SLUG_PATTERN = re.compile(r"[^a-z0-9-]+")
 

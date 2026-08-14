@@ -741,13 +741,28 @@ async function authorizedRequest(url, options = {}, allowRetry = true) {
   });
 
   if (response.status === 401 && allowRetry && state.refreshToken) {
-    await refreshSession();
+    try {
+      await refreshSession();
+    } catch (error) {
+      // Сессию отозвали (сменили пароль или выключили доступ) — панель
+      // должна сразу вернуться на экран входа, а не сыпать ошибками.
+      console.error(error);
+      handleAccessRevoked();
+      throw new Error("Сессия закрыта, войдите заново");
+    }
     return authorizedRequest(url, options, false);
   }
 
   if (!response.ok) {
+    const detail = await parseError(response);
+    if (response.status === 403 && detail === "ACCESS_DISABLED") {
+      // Доступ выключили из раздела «Франшизы» — сразу на экран входа,
+      // иначе панель осталась бы висеть с бесполезными ошибками.
+      handleAccessRevoked();
+      throw new Error("Доступ отключён администратором");
+    }
     throw new Error(
-      humanizeApiErrorMessage(await parseError(response), resourcePathFromResolvedUrl(resolvedUrl)),
+      humanizeApiErrorMessage(detail, resourcePathFromResolvedUrl(resolvedUrl)),
     );
   }
 
@@ -764,13 +779,79 @@ function showAuthScreen() {
   closeModal();
 }
 
+function handleAccessRevoked() {
+  clearSession();
+  showAuthScreen();
+  setActiveSection("home");
+}
+
 function showAppShell() {
   authScreen.classList.add("hidden");
   appShell.classList.remove("hidden");
   adminBadgeName.textContent = state.admin ? state.admin.name : "Admin";
+  applyRoleVisibility();
+}
+
+const FRANCHISE_HIDDEN_SECTIONS = ["cities", "catalog", "ideas", "audit", "franchises"];
+const SUPER_ADMIN_ONLY_SECTIONS = ["franchises"];
+
+function adminRole() {
+  return (state.admin && state.admin.role) || "";
+}
+
+function isFranchiseAdmin() {
+  return adminRole() === "franchise";
+}
+
+function franchiseCityId() {
+  return isFranchiseAdmin() ? String(state.admin.cityId || "") : "";
+}
+
+/** Прячет разделы и кнопки, недоступные текущей роли. */
+function applyRoleVisibility() {
+  const franchise = isFranchiseAdmin();
+  const superAdmin = adminRole() === "super_admin";
+
+  navLinks.forEach((link) => {
+    const section = link.dataset.section;
+    let hidden = false;
+    if (franchise && FRANCHISE_HIDDEN_SECTIONS.includes(section)) {
+      hidden = true;
+    }
+    if (!superAdmin && SUPER_ADMIN_ONLY_SECTIONS.includes(section)) {
+      hidden = true;
+    }
+    link.classList.toggle("hidden", hidden);
+  });
+
+  document.querySelectorAll("[data-franchise-hidden]").forEach((el) => {
+    el.classList.toggle("hidden", franchise);
+  });
+  document.querySelectorAll("[data-franchise-only]").forEach((el) => {
+    el.classList.toggle("hidden", !franchise);
+  });
+
+  const badgeScope = document.getElementById("admin-badge-scope");
+  if (badgeScope) {
+    const cityName = state.admin && state.admin.cityName;
+    badgeScope.textContent = franchise && cityName ? `Франшиза · ${cityName}` : "";
+    badgeScope.classList.toggle("hidden", !franchise || !cityName);
+  }
+
+  // Если активный раздел стал недоступен (например, после смены аккаунта),
+  // возвращаемся на главную.
+  const activeLink = navLinks.find((link) => link.dataset.section === state.activeSection);
+  if (activeLink && activeLink.classList.contains("hidden")) {
+    setActiveSection("home");
+  }
 }
 
 function setActiveSection(sectionName) {
+  // Скрытый для роли раздел не открываем даже по прямой ссылке (?section=).
+  const requestedLink = navLinks.find((link) => link.dataset.section === sectionName);
+  if (requestedLink && requestedLink.classList.contains("hidden")) {
+    sectionName = "home";
+  }
   state.activeSection = sectionName;
   navLinks.forEach((link) => {
     link.classList.toggle("is-active", link.dataset.section === sectionName);
@@ -820,10 +901,19 @@ function openModal(modalType) {
   if (modalType === "product-category" && productCategoryModal) {
     productCategoryModal.classList.remove("hidden");
   }
+
+  if (modalType === "franchise") {
+    // Раздел франшиз живёт отдельным модулем внизу файла.
+    window.openFranchiseCreateModal?.();
+  }
 }
 
 function closeModal() {
   modalBackdrop.classList.add("hidden");
+  // Модалки, добавленные отдельными модулями (франшизы), закрываем скопом.
+  modalBackdrop
+    .querySelectorAll(".modal-card")
+    .forEach((card) => card.classList.add("hidden"));
   cityModal.classList.add("hidden");
   lockerModal.classList.add("hidden");
   if (userDetailModal) {
@@ -3994,7 +4084,11 @@ navLinks.forEach((link) => {
       loadAuditPage();
     }
     if (link.dataset.section === "notifications") {
-      loadTelegramSubscribers();
+      window.loadTelegramSubscribers?.();
+      window.loadMaxSubscribers?.();
+    }
+    if (link.dataset.section === "franchises") {
+      window.loadFranchises?.();
     }
     if (link.dataset.section === "inventory") {
       bootstrapInventorySection();
@@ -4724,21 +4818,9 @@ if (inventoryServiceSubmit) {
 
 
 // =====================================================================
-// Раздел "Уведомления" — управление Telegram-подписчиками
+// Раздел "Уведомления" — подписчики Telegram и MAX
 // =====================================================================
-(function initTelegramSubscribersSection() {
-  const tableBody = document.getElementById("telegram-subscribers-table-body");
-  const emptyEl = document.getElementById("telegram-subscribers-empty");
-  const countEl = document.getElementById("telegram-subscribers-count");
-  const form = document.getElementById("telegram-subscribers-form");
-  const usernameInput = document.getElementById("telegram-subscribers-username");
-  const noteInput = document.getElementById("telegram-subscribers-note");
-  const resyncButton = document.getElementById("telegram-subscribers-resync");
-
-  if (!tableBody || !form) {
-    return;
-  }
-
+(function initSubscribersSections() {
   const ERROR_MESSAGES = {
     USERNAME_REQUIRED: "Юзернейм обязателен.",
     USERNAME_INVALID: "Юзернейм должен быть 5–32 символа: латиница, цифры, _.",
@@ -4748,6 +4830,20 @@ if (inventoryServiceSubmit) {
       "Не задан TELEGRAM_ADMIN_BOT_TOKEN на бэкенде.",
     TELEGRAM_API_ERROR: "Telegram API вернул ошибку. Попробуйте позже.",
     TELEGRAM_API_NETWORK_ERROR: "Не удалось связаться с Telegram API.",
+    TELEGRAM_WEBHOOK_SECRET_NOT_CONFIGURED:
+      "Не задан TELEGRAM_WEBHOOK_SECRET на бэкенде.",
+    TELEGRAM_WEBHOOK_BASE_URL_REQUIRED:
+      "Не задан ADMIN_PANEL_URL — некуда вешать webhook.",
+    MAX_BOT_TOKEN_NOT_CONFIGURED: "Не задан MAX_ADMIN_BOT_TOKEN на бэкенде.",
+    MAX_API_ERROR: "MAX API вернул ошибку. Попробуйте позже.",
+    MAX_API_NETWORK_ERROR: "Не удалось связаться с MAX API.",
+    MAX_API_BASE_URL_NOT_CONFIGURED: "Не задан MAX_API_BASE_URL на бэкенде.",
+    MAX_WEBHOOK_SECRET_NOT_CONFIGURED:
+      "Не задан MAX_WEBHOOK_SECRET на бэкенде.",
+    MAX_WEBHOOK_SECRET_INVALID:
+      "MAX_WEBHOOK_SECRET: только латиница, цифры и дефис, 5–256 символов.",
+    MAX_WEBHOOK_BASE_URL_REQUIRED:
+      "Не задан ADMIN_PANEL_URL — некуда вешать webhook.",
   };
 
   function describeError(error) {
@@ -4759,181 +4855,670 @@ if (inventoryServiceSubmit) {
     return detail || "Неизвестная ошибка";
   }
 
-  function renderRows(items) {
-    if (!Array.isArray(items) || items.length === 0) {
-      tableBody.innerHTML = "";
-      if (emptyEl) emptyEl.classList.remove("hidden");
-      if (countEl) countEl.textContent = "0 подписчиков";
-      return;
-    }
-    if (emptyEl) emptyEl.classList.add("hidden");
-    if (countEl) {
-      countEl.textContent = `${items.length} подписчик${
-        items.length === 1 ? "" : items.length < 5 ? "а" : "ов"
-      }`;
-    }
-    tableBody.innerHTML = items
-      .map((item) => {
-        const linked = item.isLinked
-          ? `<span class="status-pill status-online">Связан</span>`
-          : `<span class="status-pill status-offline">Ждёт /start</span>`;
-        const enabled = item.isEnabled
-          ? `<span class="status-pill status-online">Включены</span>`
-          : `<span class="status-pill status-offline">Отключены</span>`;
-        const toggleLabel = item.isEnabled ? "Отключить" : "Включить";
-        const note = item.note ? escapeHtml(item.note) : "—";
-        return `
-          <tr data-subscriber-id="${escapeHtml(item.id)}">
-            <td><strong>@${escapeHtml(item.username)}</strong></td>
-            <td>${linked}</td>
-            <td>${enabled}</td>
-            <td>${note}</td>
-            <td class="data-table-col-actions">
-              <button type="button" class="ghost-button table-inline-button"
-                data-tg-toggle="${escapeHtml(item.id)}"
-                data-tg-current="${item.isEnabled ? "1" : "0"}">${toggleLabel}</button>
-              <button type="button" class="ghost-button table-inline-button"
-                data-tg-delete="${escapeHtml(item.id)}">Удалить</button>
-            </td>
-          </tr>
-        `;
-      })
-      .join("");
-  }
+  // Один и тот же экран на два канала: разметка отличается только
+  // префиксом id-шников, поведение (CRUD, resync, webhook) общее.
+  function initSection({ prefix, endpoint, startLabel, webhookSuccess }) {
+    const tableBody = document.getElementById(`${prefix}-table-body`);
+    const emptyEl = document.getElementById(`${prefix}-empty`);
+    const countEl = document.getElementById(`${prefix}-count`);
+    const form = document.getElementById(`${prefix}-form`);
+    const usernameInput = document.getElementById(`${prefix}-username`);
+    const noteInput = document.getElementById(`${prefix}-note`);
+    const resyncButton = document.getElementById(`${prefix}-resync`);
+    const webhookButton = document.getElementById(`${prefix}-webhook`);
 
-  async function loadAll() {
-    try {
-      const payload = await authorizedRequest("/api/admin/telegram-subscribers");
-      renderRows(payload.data?.items || []);
-    } catch (error) {
-      console.error(error);
-      showToast("error", describeError(error));
-    }
-  }
-
-  // Экспортируем для обработчика навигации.
-  window.loadTelegramSubscribers = loadAll;
-
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const username = (usernameInput?.value || "").trim();
-    if (!username) {
-      showToast("error", ERROR_MESSAGES.USERNAME_REQUIRED);
-      return;
-    }
-    const note = (noteInput?.value || "").trim();
-    try {
-      await authorizedRequest("/api/admin/telegram-subscribers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, note: note || null, isEnabled: true }),
-      });
-      if (usernameInput) usernameInput.value = "";
-      if (noteInput) noteInput.value = "";
-      showToast("success", `Добавили @${username}.`);
-      await loadAll();
-    } catch (error) {
-      console.error(error);
-      showToast("error", describeError(error));
-    }
-  });
-
-  tableBody.addEventListener("click", async (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-
-    const toggleId = target.getAttribute("data-tg-toggle");
-    if (toggleId) {
-      const current = target.getAttribute("data-tg-current") === "1";
-      try {
-        await authorizedRequest(
-          `/api/admin/telegram-subscribers/${encodeURIComponent(toggleId)}`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ isEnabled: !current }),
-          },
-        );
-        showToast("success", current ? "Уведомления отключены." : "Уведомления включены.");
-        await loadAll();
-      } catch (error) {
-        console.error(error);
-        showToast("error", describeError(error));
-      }
-      return;
+    if (!tableBody || !form) {
+      return null;
     }
 
-    const deleteId = target.getAttribute("data-tg-delete");
-    if (deleteId) {
-      if (!window.confirm("Удалить подписчика? Уведомления перестанут приходить.")) {
+    function renderRows(items) {
+      if (!Array.isArray(items) || items.length === 0) {
+        tableBody.innerHTML = "";
+        if (emptyEl) emptyEl.classList.remove("hidden");
+        if (countEl) countEl.textContent = "0 подписчиков";
         return;
       }
-      try {
-        await authorizedRequest(
-          `/api/admin/telegram-subscribers/${encodeURIComponent(deleteId)}`,
-          { method: "DELETE" },
-        );
-        showToast("success", "Подписчик удалён.");
-        await loadAll();
-      } catch (error) {
-        console.error(error);
-        showToast("error", describeError(error));
+      if (emptyEl) emptyEl.classList.add("hidden");
+      if (countEl) {
+        countEl.textContent = `${items.length} подписчик${
+          items.length === 1 ? "" : items.length < 5 ? "а" : "ов"
+        }`;
       }
+      tableBody.innerHTML = items
+        .map((item) => {
+          const linked = item.isLinked
+            ? `<span class="status-pill status-online">Связан</span>`
+            : `<span class="status-pill status-offline">Ждёт ${escapeHtml(
+                startLabel,
+              )}</span>`;
+          const enabled = item.isEnabled
+            ? `<span class="status-pill status-online">Включены</span>`
+            : `<span class="status-pill status-offline">Отключены</span>`;
+          const toggleLabel = item.isEnabled ? "Отключить" : "Включить";
+          const note = item.note ? escapeHtml(item.note) : "—";
+          // Подписчик без города получает уведомления по всей сети,
+          // с городом — только по нему (франшиза).
+          const scope = item.cityName
+            ? escapeHtml(item.cityName)
+            : "Вся сеть";
+          return `
+            <tr data-subscriber-id="${escapeHtml(item.id)}">
+              <td>
+                <strong>@${escapeHtml(item.username)}</strong>
+                <div class="section-meta">${scope}</div>
+              </td>
+              <td>${linked}</td>
+              <td>${enabled}</td>
+              <td>${note}</td>
+              <td class="data-table-col-actions">
+                <button type="button" class="ghost-button table-inline-button"
+                  data-subscriber-toggle="${escapeHtml(item.id)}"
+                  data-subscriber-current="${item.isEnabled ? "1" : "0"}">${toggleLabel}</button>
+                <button type="button" class="ghost-button table-inline-button"
+                  data-subscriber-delete="${escapeHtml(item.id)}">Удалить</button>
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
     }
-  });
 
-  if (resyncButton) {
-    resyncButton.addEventListener("click", async () => {
-      resyncButton.disabled = true;
+    async function loadAll() {
       try {
-        const payload = await authorizedRequest(
-          "/api/admin/telegram-subscribers/resync",
-          { method: "POST" },
-        );
-        const report = payload.data?.report || {};
-        const linked = report.linked ?? 0;
-        const missing = Array.isArray(report.missing) ? report.missing : [];
-        if (linked > 0) {
-          showToast(
-            "success",
-            `Привязали chat_id для ${linked} подписчика(ов).`,
-          );
-        } else if (missing.length > 0) {
-          showToast(
-            "error",
-            `Нет /start от: ${missing.map((u) => "@" + u).join(", ")}.`,
-          );
-        } else {
-          showToast("success", "Все подписчики уже связаны.");
-        }
+        const payload = await authorizedRequest(endpoint);
         renderRows(payload.data?.items || []);
       } catch (error) {
         console.error(error);
         showToast("error", describeError(error));
-      } finally {
-        resyncButton.disabled = false;
       }
-    });
-  }
+    }
 
-  const webhookButton = document.getElementById("telegram-subscribers-webhook");
-  if (webhookButton) {
-    webhookButton.addEventListener("click", async () => {
-      webhookButton.disabled = true;
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const username = (usernameInput?.value || "").trim();
+      if (!username) {
+        showToast("error", ERROR_MESSAGES.USERNAME_REQUIRED);
+        return;
+      }
+      const note = (noteInput?.value || "").trim();
       try {
-        await authorizedRequest("/api/admin/telegram-subscribers/webhook", {
+        await authorizedRequest(endpoint, {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, note: note || null, isEnabled: true }),
         });
-        showToast(
-          "success",
-          "Webhook включён. Теперь /start будет связывать пользователей автоматически.",
-        );
+        if (usernameInput) usernameInput.value = "";
+        if (noteInput) noteInput.value = "";
+        showToast("success", `Добавили @${username}.`);
+        await loadAll();
       } catch (error) {
         console.error(error);
         showToast("error", describeError(error));
-      } finally {
-        webhookButton.disabled = false;
+      }
+    });
+
+    tableBody.addEventListener("click", async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const toggleId = target.getAttribute("data-subscriber-toggle");
+      if (toggleId) {
+        const current = target.getAttribute("data-subscriber-current") === "1";
+        try {
+          await authorizedRequest(
+            `${endpoint}/${encodeURIComponent(toggleId)}`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ isEnabled: !current }),
+            },
+          );
+          showToast("success", current ? "Уведомления отключены." : "Уведомления включены.");
+          await loadAll();
+        } catch (error) {
+          console.error(error);
+          showToast("error", describeError(error));
+        }
+        return;
+      }
+
+      const deleteId = target.getAttribute("data-subscriber-delete");
+      if (deleteId) {
+        if (!window.confirm("Удалить подписчика? Уведомления перестанут приходить.")) {
+          return;
+        }
+        try {
+          await authorizedRequest(
+            `${endpoint}/${encodeURIComponent(deleteId)}`,
+            { method: "DELETE" },
+          );
+          showToast("success", "Подписчик удалён.");
+          await loadAll();
+        } catch (error) {
+          console.error(error);
+          showToast("error", describeError(error));
+        }
+      }
+    });
+
+    if (resyncButton) {
+      resyncButton.addEventListener("click", async () => {
+        resyncButton.disabled = true;
+        try {
+          const payload = await authorizedRequest(`${endpoint}/resync`, {
+            method: "POST",
+          });
+          const report = payload.data?.report || {};
+          const linked = report.linked ?? 0;
+          const missing = Array.isArray(report.missing) ? report.missing : [];
+          if (linked > 0) {
+            showToast(
+              "success",
+              `Привязали chat_id для ${linked} подписчика(ов).`,
+            );
+          } else if (missing.length > 0) {
+            showToast(
+              "error",
+              `Нет ${startLabel} от: ${missing.map((u) => "@" + u).join(", ")}.`,
+            );
+          } else {
+            showToast("success", "Все подписчики уже связаны.");
+          }
+          renderRows(payload.data?.items || []);
+        } catch (error) {
+          console.error(error);
+          showToast("error", describeError(error));
+        } finally {
+          resyncButton.disabled = false;
+        }
+      });
+    }
+
+    if (webhookButton) {
+      webhookButton.addEventListener("click", async () => {
+        webhookButton.disabled = true;
+        try {
+          await authorizedRequest(`${endpoint}/webhook`, { method: "POST" });
+          showToast("success", webhookSuccess);
+        } catch (error) {
+          console.error(error);
+          showToast("error", describeError(error));
+        } finally {
+          webhookButton.disabled = false;
+        }
+      });
+    }
+
+    return loadAll;
+  }
+
+  const noop = () => {};
+
+  // Экспортируем для обработчика навигации.
+  window.loadTelegramSubscribers =
+    initSection({
+      prefix: "telegram-subscribers",
+      endpoint: "/api/admin/telegram-subscribers",
+      startLabel: "/start",
+      webhookSuccess:
+        "Webhook включён. Теперь /start будет связывать пользователей автоматически.",
+    }) || noop;
+
+  window.loadMaxSubscribers =
+    initSection({
+      prefix: "max-subscribers",
+      endpoint: "/api/admin/max-subscribers",
+      startLabel: "/start",
+      webhookSuccess:
+        "Подписка включена. Теперь запуск бота в MAX будет связывать пользователей автоматически.",
+    }) || noop;
+})();
+
+
+// =====================================================================
+// Раздел «Франшизы» — выдача и обслуживание партнёрских доступов
+// =====================================================================
+(function initFranchisesSection() {
+  const tableBody = document.getElementById("franchises-table-body");
+  const emptyEl = document.getElementById("franchises-empty");
+  const totalEl = document.getElementById("franchises-total");
+  const refreshButton = document.getElementById("franchises-refresh-button");
+  const createModal = document.getElementById("franchise-modal");
+  const createForm = document.getElementById("franchise-form");
+  const createName = document.getElementById("franchise-create-name");
+  const createCity = document.getElementById("franchise-create-city");
+  const createLogin = document.getElementById("franchise-create-login");
+  const createPassword = document.getElementById("franchise-create-password");
+  const generateButton = document.getElementById("franchise-generate-password");
+  const passwordModal = document.getElementById("franchise-password-modal");
+  const passwordForm = document.getElementById("franchise-password-form");
+  const passwordInput = document.getElementById("franchise-password-input");
+  const passwordTarget = document.getElementById("franchise-password-target");
+  const passwordGenerate = document.getElementById("franchise-password-generate");
+  const statsModal = document.getElementById("franchise-stats-modal");
+  const statsBody = document.getElementById("franchise-stats-body");
+  const statsTitle = document.getElementById("franchise-stats-modal-title");
+
+  if (!tableBody || !createForm) {
+    return;
+  }
+
+  let franchises = [];
+  let passwordTargetId = "";
+  let isSubmitting = false;
+
+  const PASSWORD_ALPHABET = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+  function generatePassword(length = 14) {
+    const bytes = new Uint32Array(length);
+    window.crypto.getRandomValues(bytes);
+    return Array.from(
+      bytes,
+      (value) => PASSWORD_ALPHABET[value % PASSWORD_ALPHABET.length],
+    ).join("");
+  }
+
+  /** Транслитерация названия города в заготовку логина. */
+  function suggestLogin(cityName) {
+    const map = {
+      "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "e",
+      "ж": "zh", "з": "z", "и": "i", "й": "y", "к": "k", "л": "l", "м": "m",
+      "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u",
+      "ф": "f", "х": "h", "ц": "c", "ч": "ch", "ш": "sh", "щ": "sch",
+      "ъ": "", "ы": "y", "ь": "", "э": "e", "ю": "yu", "я": "ya",
+    };
+    const slug = String(cityName || "")
+      .toLowerCase()
+      .split("")
+      .map((char) => (map[char] !== undefined ? map[char] : char))
+      .join("")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return slug ? `${slug}-partner` : "";
+  }
+
+  function populateCitySelect() {
+    if (!createCity) {
+      return;
+    }
+    const previous = createCity.value;
+    createCity.innerHTML = "";
+    const cities = state.cities || [];
+    if (!cities.length) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "Сначала добавьте город";
+      createCity.appendChild(option);
+      return;
+    }
+    cities.forEach((city) => {
+      const option = document.createElement("option");
+      option.value = city.id;
+      option.textContent = city.name;
+      createCity.appendChild(option);
+    });
+    if (previous && cities.some((city) => String(city.id) === String(previous))) {
+      createCity.value = previous;
+    }
+  }
+
+  function cityNameById(cityId) {
+    const city = (state.cities || []).find((item) => String(item.id) === String(cityId));
+    return city ? city.name : "";
+  }
+
+  function renderFranchises() {
+    if (totalEl) {
+      totalEl.textContent = `${formatNumber(franchises.length)} франшиз`;
+    }
+    if (!franchises.length) {
+      tableBody.innerHTML = "";
+      if (emptyEl) emptyEl.classList.remove("hidden");
+      return;
+    }
+    if (emptyEl) emptyEl.classList.add("hidden");
+
+    tableBody.innerHTML = franchises
+      .map((item) => {
+        const access = item.isActive
+          ? `<span class="status-pill status-online">Включён</span>`
+          : `<span class="status-pill status-offline">Выключен</span>`;
+        const toggleLabel = item.isActive ? "Выключить" : "Включить";
+        return `
+          <tr>
+            <td>
+              <strong>${escapeHtml(item.name)}</strong>
+              <div class="section-meta">Выдан ${formatDate(item.createdAt)}</div>
+            </td>
+            <td><code>${escapeHtml(item.login)}</code></td>
+            <td>${escapeHtml(item.cityName || "—")}</td>
+            <td>${access}</td>
+            <td>${item.lastLoginAt ? formatDateTime(item.lastLoginAt) : "—"}</td>
+            <td class="data-table-col-actions">
+              <button type="button" class="ghost-button table-inline-button"
+                data-franchise-stats="${escapeHtml(item.id)}">Статистика</button>
+              <button type="button" class="ghost-button table-inline-button"
+                data-franchise-password="${escapeHtml(item.id)}">Пароль</button>
+              <button type="button" class="ghost-button table-inline-button"
+                data-franchise-toggle="${escapeHtml(item.id)}"
+                data-franchise-active="${item.isActive ? "1" : "0"}">${toggleLabel}</button>
+              <button type="button" class="ghost-button table-inline-button"
+                data-franchise-delete="${escapeHtml(item.id)}">Удалить</button>
+            </td>
+          </tr>`;
+      })
+      .join("");
+  }
+
+  async function loadFranchises() {
+    try {
+      const payload = await authorizedRequest("/api/admin/franchises");
+      franchises = (payload && payload.data && payload.data.franchises) || [];
+      renderFranchises();
+    } catch (error) {
+      console.error(error);
+      showToast("error", error.message || "Не удалось загрузить франшизы");
+    }
+  }
+
+  function openCreateModal() {
+    if (!createModal) {
+      return;
+    }
+    createForm.reset();
+    populateCitySelect();
+    if (createPassword) {
+      createPassword.value = generatePassword();
+    }
+    if (createLogin) {
+      createLogin.value = suggestLogin(cityNameById(createCity && createCity.value));
+      createLogin.dataset.userEdited = "0";
+    }
+    createModal.classList.remove("hidden");
+    window.setTimeout(() => createName && createName.focus(), 50);
+  }
+
+  async function submitCreate(event) {
+    event.preventDefault();
+    if (isSubmitting) {
+      return;
+    }
+    const name = String((createName && createName.value) || "").trim();
+    const cityId = String((createCity && createCity.value) || "");
+    const login = String((createLogin && createLogin.value) || "").trim().toLowerCase();
+    const password = String((createPassword && createPassword.value) || "");
+
+    if (!name || !cityId || !login) {
+      showToast("error", "Заполните название, город и логин.");
+      return;
+    }
+    if (password.length < 8) {
+      showToast("error", "Пароль должен быть не короче 8 символов.");
+      return;
+    }
+
+    isSubmitting = true;
+    const submitButton = createForm.querySelector('button[type="submit"]');
+    setModalSubmitting(true, submitButton);
+    try {
+      await authorizedRequest("/api/admin/franchises", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, login, password, cityId }),
+      });
+      closeModal();
+      // Пароль показываем один раз — в базе лежит только его хеш.
+      showToast("success", `Доступ выдан. Логин: ${login}, пароль: ${password}`);
+      await loadFranchises();
+    } catch (error) {
+      console.error(error);
+      showToast("error", error.message || "Не удалось выдать доступ");
+    } finally {
+      isSubmitting = false;
+      setModalSubmitting(false, submitButton);
+    }
+  }
+
+  function openPasswordModal(franchiseId) {
+    const item = franchises.find((row) => row.id === franchiseId);
+    if (!item || !passwordModal) {
+      return;
+    }
+    passwordTargetId = franchiseId;
+    if (passwordTarget) {
+      passwordTarget.textContent = `${item.name} · ${item.login}`;
+    }
+    if (passwordInput) {
+      passwordInput.value = generatePassword();
+    }
+    modalBackdrop.classList.remove("hidden");
+    passwordModal.classList.remove("hidden");
+    window.setTimeout(() => passwordInput && passwordInput.focus(), 50);
+  }
+
+  async function submitPassword(event) {
+    event.preventDefault();
+    if (!passwordTargetId || isSubmitting) {
+      return;
+    }
+    const password = String((passwordInput && passwordInput.value) || "");
+    if (password.length < 8) {
+      showToast("error", "Пароль должен быть не короче 8 символов.");
+      return;
+    }
+    const targetId = passwordTargetId;
+    isSubmitting = true;
+    const submitButton = passwordForm.querySelector('button[type="submit"]');
+    setModalSubmitting(true, submitButton);
+    try {
+      await authorizedRequest(
+        `/api/admin/franchises/${encodeURIComponent(targetId)}/password`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password }),
+        },
+      );
+      closeModal();
+      showToast("success", `Новый пароль: ${password}`);
+      await loadFranchises();
+    } catch (error) {
+      console.error(error);
+      showToast("error", error.message || "Не удалось сменить пароль");
+    } finally {
+      isSubmitting = false;
+      setModalSubmitting(false, submitButton);
+      passwordTargetId = "";
+    }
+  }
+
+  async function toggleAccess(franchiseId, nextActive) {
+    try {
+      await authorizedRequest(`/api/admin/franchises/${encodeURIComponent(franchiseId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: nextActive }),
+      });
+      showToast(
+        "success",
+        nextActive ? "Доступ включён." : "Доступ выключен, сессии закрыты.",
+      );
+      await loadFranchises();
+    } catch (error) {
+      console.error(error);
+      showToast("error", error.message || "Не удалось изменить доступ");
+    }
+  }
+
+  async function deleteFranchise(franchiseId) {
+    const item = franchises.find((row) => row.id === franchiseId);
+    const label = item ? `${item.name} (${item.login})` : "франшизу";
+    if (!window.confirm(`Удалить ${label}? Доступ пропадёт сразу.`)) {
+      return;
+    }
+    try {
+      await authorizedRequest(`/api/admin/franchises/${encodeURIComponent(franchiseId)}`, {
+        method: "DELETE",
+      });
+      showToast("success", "Франшиза удалена.");
+      await loadFranchises();
+    } catch (error) {
+      console.error(error);
+      showToast("error", error.message || "Не удалось удалить франшизу");
+    }
+  }
+
+  function statsBlock(title, rows) {
+    const items = rows
+      .map(
+        ([label, value]) =>
+          `<li><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></li>`,
+      )
+      .join("");
+    return `
+      <div class="detail-block">
+        <h4 class="detail-block-title">${escapeHtml(title)}</h4>
+        <ul class="detail-list">${items}</ul>
+      </div>`;
+  }
+
+  function renderStats(franchise, stats) {
+    if (!statsBody) {
+      return;
+    }
+    if (statsTitle) {
+      statsTitle.textContent = `${franchise.name} · ${franchise.cityName || "город не задан"}`;
+    }
+    const days = stats.windowDays || 30;
+    const blocks = [
+      statsBlock("Доступ", [
+        ["Логин", franchise.login],
+        ["Статус", franchise.isActive ? "включён" : "выключен"],
+        [
+          "Последний вход",
+          franchise.lastLoginAt ? formatDateTime(franchise.lastLoginAt) : "—",
+        ],
+        ["Выдан", formatDate(franchise.createdAt)],
+      ]),
+      statsBlock("Пользователи города", [
+        ["Всего", formatNumber(stats.users.total)],
+        ["Верифицированы", formatNumber(stats.users.verified)],
+        ["Ждут проверки", formatNumber(stats.users.pendingVerification)],
+        ["Заблокированы", formatNumber(stats.users.blocked)],
+        [`Новых за ${days} дн.`, formatNumber(stats.users.newInWindow)],
+      ]),
+      statsBlock("Постаматы", [
+        ["Всего", formatNumber(stats.lockers.total)],
+        ["Онлайн", formatNumber(stats.lockers.online)],
+        ["Ячеек всего", formatNumber(stats.lockers.cellsTotal)],
+        ["Свободно", formatNumber(stats.lockers.cellsFree)],
+        ["Занято", formatNumber(stats.lockers.cellsOccupied)],
+      ]),
+      statsBlock("Аренды", [
+        ["Всего", formatNumber(stats.rentals.total)],
+        ["Активные", formatNumber(stats.rentals.active)],
+        ["Просрочены", formatNumber(stats.rentals.overdue)],
+        ["Завершены", formatNumber(stats.rentals.completed)],
+        ["Отменены", formatNumber(stats.rentals.cancelled)],
+        [`Новых за ${days} дн.`, formatNumber(stats.rentals.newInWindow)],
+      ]),
+      statsBlock("Выручка (проведённые платежи)", [
+        ["Всего", formatMoney(stats.revenue.captured, stats.revenue.currency)],
+        [
+          `За ${days} дн.`,
+          formatMoney(stats.revenue.capturedInWindow, stats.revenue.currency),
+        ],
+      ]),
+    ].join("");
+    statsBody.innerHTML = `<div class="user-detail-grid">${blocks}</div>`;
+  }
+
+  async function openStats(franchiseId) {
+    try {
+      const payload = await authorizedRequest(
+        `/api/admin/franchises/${encodeURIComponent(franchiseId)}/stats`,
+      );
+      renderStats(payload.data.franchise, payload.data.stats);
+      modalBackdrop.classList.remove("hidden");
+      statsModal.classList.remove("hidden");
+    } catch (error) {
+      console.error(error);
+      showToast("error", error.message || "Не удалось загрузить статистику");
+    }
+  }
+
+  function attributeFromClick(target, attribute) {
+    const node = target.closest(`[${attribute}]`);
+    return node ? node.getAttribute(attribute) : "";
+  }
+
+  tableBody.addEventListener("click", (event) => {
+    const target = clickTargetElement(event);
+    if (!target) {
+      return;
+    }
+
+    const statsId = attributeFromClick(target, "data-franchise-stats");
+    if (statsId) {
+      openStats(statsId);
+      return;
+    }
+
+    const passwordId = attributeFromClick(target, "data-franchise-password");
+    if (passwordId) {
+      openPasswordModal(passwordId);
+      return;
+    }
+
+    const toggleButton = target.closest("[data-franchise-toggle]");
+    if (toggleButton) {
+      const id = toggleButton.getAttribute("data-franchise-toggle");
+      const isActive = toggleButton.getAttribute("data-franchise-active") === "1";
+      toggleAccess(id, !isActive);
+      return;
+    }
+
+    const deleteId = attributeFromClick(target, "data-franchise-delete");
+    if (deleteId) {
+      deleteFranchise(deleteId);
+    }
+  });
+
+  createForm.addEventListener("submit", submitCreate);
+  if (passwordForm) {
+    passwordForm.addEventListener("submit", submitPassword);
+  }
+  if (generateButton) {
+    generateButton.addEventListener("click", () => {
+      if (createPassword) {
+        createPassword.value = generatePassword();
       }
     });
   }
+  if (passwordGenerate) {
+    passwordGenerate.addEventListener("click", () => {
+      if (passwordInput) {
+        passwordInput.value = generatePassword();
+      }
+    });
+  }
+  if (createCity) {
+    createCity.addEventListener("change", () => {
+      if (createLogin && createLogin.dataset.userEdited !== "1") {
+        createLogin.value = suggestLogin(cityNameById(createCity.value));
+      }
+    });
+  }
+  if (createLogin) {
+    createLogin.addEventListener("input", () => {
+      createLogin.dataset.userEdited = createLogin.value ? "1" : "0";
+    });
+  }
+  if (refreshButton) {
+    refreshButton.addEventListener("click", loadFranchises);
+  }
+
+  // Экспортируем для обработчика навигации и общей функции openModal().
+  window.loadFranchises = loadFranchises;
+  window.openFranchiseCreateModal = openCreateModal;
 })();

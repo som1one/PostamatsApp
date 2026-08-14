@@ -1,10 +1,23 @@
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
-from sqlalchemy import Enum as SQLAlchemyEnum, String, Uuid
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum as SQLAlchemyEnum,
+    ForeignKey,
+    String,
+    Uuid,
+    true,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.core.database import Base
 from backend.models.enums import AdminRole
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class AdminAccount(Base):
@@ -23,3 +36,27 @@ class AdminAccount(Base):
         nullable=False,
     )
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    # Город франшизы. У super_admin/operator всегда NULL — они видят всю сеть.
+    city_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("cities.id"),
+        index=True,
+        nullable=True,
+    )
+    # Выключенный аккаунт не может войти, а его активные сессии отзываются.
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default=true(),
+        nullable=False,
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    # Nullable, чтобы миграция на живой таблице не требовала бэкфилла.
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        default=_utcnow,
+        nullable=True,
+    )

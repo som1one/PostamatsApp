@@ -9,6 +9,8 @@
   списке, но уведомления ему не идут.
 - Уведомление приходит, только если ``is_enabled is True`` и
   ``chat_id is not None``.
+- ``city_id`` разделяет рассылку: ``NULL`` — подписчик сети (получает
+  всё), город — подписчик франшизы (только события своего города).
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ import re
 from uuid import UUID
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.settings import settings
@@ -51,23 +53,36 @@ def normalize_username(raw: str | None) -> str:
     return cleaned.lower()
 
 
-def serialize_subscriber(sub: TelegramAdminSubscriber) -> dict:
+def serialize_subscriber(
+    sub: TelegramAdminSubscriber,
+    city_name: str | None = None,
+) -> dict:
     return {
         "id": str(sub.id),
         "username": sub.username,
         "chatId": sub.chat_id,
         "isLinked": sub.chat_id is not None,
         "isEnabled": sub.is_enabled,
+        "cityId": str(sub.city_id) if sub.city_id else None,
+        "cityName": city_name,
         "note": sub.note,
         "createdAt": sub.created_at.isoformat() if sub.created_at else None,
         "updatedAt": sub.updated_at.isoformat() if sub.updated_at else None,
     }
 
 
-async def list_subscribers(db: AsyncSession) -> list[TelegramAdminSubscriber]:
+async def list_subscribers(
+    db: AsyncSession,
+    *,
+    city_id: UUID | None = None,
+) -> list[TelegramAdminSubscriber]:
+    """Список подписчиков. ``city_id`` — показать только подписчиков города."""
+
     stmt = select(TelegramAdminSubscriber).order_by(
         TelegramAdminSubscriber.created_at.asc()
     )
+    if city_id is not None:
+        stmt = stmt.where(TelegramAdminSubscriber.city_id == city_id)
     return list((await db.scalars(stmt)).all())
 
 
@@ -77,6 +92,7 @@ async def create_subscriber(
     username: str,
     note: str | None = None,
     is_enabled: bool = True,
+    city_id: UUID | None = None,
 ) -> TelegramAdminSubscriber:
     normalized = normalize_username(username)
     existing = (
@@ -93,6 +109,7 @@ async def create_subscriber(
         username=normalized,
         note=(note or None),
         is_enabled=is_enabled,
+        city_id=city_id,
     )
     db.add(subscriber)
     await db.commit()
@@ -106,9 +123,13 @@ async def update_subscriber(
     *,
     is_enabled: bool | None = None,
     note: str | None = None,
+    require_city_id: UUID | None = None,
 ) -> TelegramAdminSubscriber:
     subscriber = await db.get(TelegramAdminSubscriber, subscriber_id)
     if subscriber is None:
+        raise SubscriberError("SUBSCRIBER_NOT_FOUND", 404)
+    if require_city_id is not None and subscriber.city_id != require_city_id:
+        # Для франшизы чужой подписчик просто «не существует».
         raise SubscriberError("SUBSCRIBER_NOT_FOUND", 404)
     if is_enabled is not None:
         subscriber.is_enabled = is_enabled
@@ -120,25 +141,50 @@ async def update_subscriber(
     return subscriber
 
 
-async def delete_subscriber(db: AsyncSession, subscriber_id: UUID) -> None:
+async def delete_subscriber(
+    db: AsyncSession,
+    subscriber_id: UUID,
+    *,
+    require_city_id: UUID | None = None,
+) -> None:
     subscriber = await db.get(TelegramAdminSubscriber, subscriber_id)
     if subscriber is None:
+        raise SubscriberError("SUBSCRIBER_NOT_FOUND", 404)
+    if require_city_id is not None and subscriber.city_id != require_city_id:
         raise SubscriberError("SUBSCRIBER_NOT_FOUND", 404)
     await db.delete(subscriber)
     await db.commit()
 
 
-async def get_active_chat_ids(db: AsyncSession) -> list[str]:
+async def get_active_chat_ids(
+    db: AsyncSession,
+    *,
+    city_id: UUID | None = None,
+) -> list[str]:
     """Адресаты для текущей рассылки уведомлений.
 
     Возвращает chat_id только тех подписчиков, которые включены и уже
     привязаны (нажали ``/start``).
+
+    ``city_id`` — город события. Тогда получатели: подписчики сети
+    (``city_id IS NULL``) плюс подписчики этого города. Без города
+    (общесетевое событие) — только подписчики сети, чтобы франчайзи не
+    получали чужие уведомления.
     """
 
     stmt = select(TelegramAdminSubscriber).where(
         TelegramAdminSubscriber.is_enabled.is_(True),
         TelegramAdminSubscriber.chat_id.is_not(None),
     )
+    if city_id is None:
+        stmt = stmt.where(TelegramAdminSubscriber.city_id.is_(None))
+    else:
+        stmt = stmt.where(
+            or_(
+                TelegramAdminSubscriber.city_id.is_(None),
+                TelegramAdminSubscriber.city_id == city_id,
+            )
+        )
     rows = (await db.scalars(stmt)).all()
     return [str(row.chat_id) for row in rows]
 

@@ -63,7 +63,7 @@ from backend.utils.reservation_utils import (
     calculate_planned_end_at,
     ensure_utc,
 )
-from backend.utils.telegram_bot import escape_html, fire_and_forget_notify
+from backend.utils.admin_notifications import escape_html, fire_and_forget_notify
 from backend.core.settings import settings
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -283,7 +283,12 @@ async def create_verification_request(
     notification_text, notification_buttons = _build_verification_notification(
         user, verification_request
     )
-    fire_and_forget_notify(notification_text, buttons=notification_buttons)
+    # Верификацию проверяет франшиза города пользователя — адресуем туда.
+    fire_and_forget_notify(
+        notification_text,
+        buttons=notification_buttons,
+        city_id=user.preferred_city_id,
+    )
 
     return {
         "data": {
