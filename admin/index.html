@@ -6,13 +6,14 @@
     <!-- Базовый URL API: только корень (http://host:8000), без /admin в конце -->
     <meta name="postamats-api-origin" content="" />
     <title>Postamats Admin</title>
-    <link rel="stylesheet" href="./styles.css?v=22" />
+    <meta name="color-scheme" content="light" />
+    <!-- Три файла подключены напрямую: @import грузил бы их последовательно -->
+    <link rel="stylesheet" href="./styles/styles-01.css?v=23" />
+    <link rel="stylesheet" href="./styles/styles-02.css?v=23" />
+    <link rel="stylesheet" href="./styles/styles-03.css?v=23" />
   </head>
   <body>
     <div class="admin-shell">
-      <div class="ambient ambient-left"></div>
-      <div class="ambient ambient-right"></div>
-
       <section id="auth-screen" class="auth-screen">
         <main class="stage">
           <div class="stage-stack">

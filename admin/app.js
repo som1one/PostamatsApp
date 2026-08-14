@@ -4113,7 +4113,8 @@ modalBackdrop.addEventListener("click", (event) => {
 const navToggle = document.getElementById("nav-toggle");
 const appNav = document.getElementById("app-nav");
 const appTools = document.querySelector(".app-tools");
-const mobileNavQuery = window.matchMedia("(max-width: 760px)");
+// Ширина, на которой боковая панель сворачивается в выдвижное меню (см. styles-03.css)
+const mobileNavQuery = window.matchMedia("(max-width: 960px)");
 
 function setMobileNavOpen(isOpen) {
   if (!navToggle || !appNav) return;
