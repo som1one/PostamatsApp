@@ -1,0 +1,85 @@
+/* ── VPN notice (посетитель с иностранным IP) ─────────────── */
+.vpn-notice {
+  position: fixed;
+  left: 22px;
+  bottom: 22px;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(390px, calc(100vw - 44px));
+  padding: 14px 14px 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--primary);
+  border-radius: 18px;
+  background: var(--surface, #fff);
+  box-shadow: 0 24px 48px rgba(63, 42, 24, 0.18);
+  animation: vpn-notice-in 0.18s ease;
+}
+@keyframes vpn-notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.vpn-notice-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+}
+.vpn-notice-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.vpn-notice-copy strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.vpn-notice-copy span {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.vpn-notice-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin: -2px -2px 0 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
+}
+.vpn-notice-close:hover {
+  background: var(--surface-tint);
+  color: var(--text);
+}
+
+@media (max-width: 560px) {
+  .vpn-notice {
+    /* Над плавающей кнопкой поддержки: она 52px + отступ 14px. */
+    left: 14px;
+    right: 14px;
+    bottom: 80px;
+    width: auto;
+    padding: 12px 12px 12px 14px;
+  }
+}

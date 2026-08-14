@@ -25,6 +25,12 @@ def _split_csv(raw: str | None) -> list[str]:
     return [item.strip().rstrip("/") for item in (raw or "").split(",") if item.strip()]
 
 
+def _split_urls(raw: str | None) -> list[str]:
+    """Список URL через «;» — в самих адресах встречаются запятые."""
+
+    return [item.strip() for item in (raw or "").split(";") if item.strip()]
+
+
 class Settings:
     def __init__(self):
         self.DEBUG = ENV_VALUES.get("DEBUG", "false") == "true"
@@ -134,6 +140,42 @@ class Settings:
         self.RETURN_REQUEST_TIMEOUT_SECONDS = int(
             ENV_VALUES.get("RETURN_REQUEST_TIMEOUT_SECONDS", "1800")
         )
+
+        # Гео-проверка посетителя сайта: если IP не из СНГ, фронт показывает
+        # плашку «выключите VPN». Своей базы IP→страна нет, поэтому спрашиваем
+        # внешний бесплатный сервис (первый ответивший из списка). Любая
+        # ошибка = страна неизвестна = плашки нет, см. utils/geo_lookup.py.
+        self.GEO_LOOKUP_ENABLED = _as_bool(ENV_VALUES.get("GEO_LOOKUP_ENABLED"), True)
+        # Список разделяется «;», а не запятой: запятая уже занята внутри
+        # самих URL (?fields=success,country_code).
+        self.GEO_LOOKUP_PROVIDERS = _split_urls(
+            ENV_VALUES.get("GEO_LOOKUP_PROVIDERS")
+        ) or [
+            "https://ipwho.is/{ip}?fields=success,country_code",
+            "https://api.country.is/{ip}",
+            # Последним: бесплатный тариф ip-api работает только по http и
+            # ограничен 45 запросами в минуту.
+            "http://ip-api.com/json/{ip}?fields=status,countryCode",
+        ]
+        self.GEO_LOOKUP_TIMEOUT_SECONDS = float(
+            ENV_VALUES.get("GEO_LOOKUP_TIMEOUT_SECONDS", "4")
+        )
+        self.GEO_CACHE_TTL_SECONDS = int(
+            ENV_VALUES.get("GEO_CACHE_TTL_SECONDS", str(7 * 24 * 60 * 60))
+        )
+        # Неизвестную страну кэшируем ненадолго: провайдер мог просто лежать.
+        self.GEO_CACHE_UNKNOWN_TTL_SECONDS = int(
+            ENV_VALUES.get("GEO_CACHE_UNKNOWN_TTL_SECONDS", "900")
+        )
+        # СНГ + Украина и Грузия: формально они из СНГ вышли, но это всё ещё
+        # «наш» регион, и посетителю оттуда предлагать выключить VPN незачем.
+        self.GEO_CIS_COUNTRIES = {
+            code.upper()
+            for code in (
+                _split_csv(ENV_VALUES.get("GEO_CIS_COUNTRIES"))
+                or ["RU", "BY", "KZ", "KG", "AM", "AZ", "MD", "TJ", "TM", "UZ", "UA", "GE"]
+            )
+        }
 
         # Telegram bot for admin operational notifications (verification queue,
         # incidents, etc.). Token belongs to a bot the admin has started a

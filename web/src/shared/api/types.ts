@@ -246,10 +246,25 @@ export type PresignUploadResponse = {
   expiresIn: number;
 };
 
+/** Активная заявка на возврат: PIN и ячейка живут на бэке, а не в состоянии экрана. */
+export type ActiveReturnRequest = {
+  id: string;
+  rentalId: string;
+  status: string;
+  lockerId: string;
+  lockerName?: string | null;
+  cellId: string;
+  cellLabel?: string | null;
+  pin?: string | null;
+  instructions?: string | null;
+  expiresAt?: string | null;
+};
+
 export type RentalListItem = {
   id: string;
   status: string;
   pickupPin?: string | null;
+  returnRequest?: ActiveReturnRequest | null;
   cancelReason?: string | null;
   startsAt?: string | null;
   plannedEndAt?: string | null;
@@ -296,4 +311,12 @@ export type RentalDetail = {
     createdAt: string;
   }>;
   reservationId?: string | null;
+};
+
+/** Ответ `/api/geo/visitor` — на нём держится плашка «выключите VPN». */
+export type VisitorGeo = {
+  /** Двухбуквенный код страны или null, если определить не удалось. */
+  country: string | null;
+  isCis: boolean;
+  shouldSuggestVpnOff: boolean;
 };

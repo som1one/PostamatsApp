@@ -46,13 +46,13 @@ export const CITY_LANDINGS = [
     description:
       "Аренда техники и вещей в Великом Новгороде через постаматы naprokatberu без залога. PS5, проекторы, дрели, перфораторы, пылесосы, пароочистители и отпариватели — получение и возврат рядом с домом.",
     address: {
-      street: "Большая Санкт-Петербургская ул., 39",
+      street: "Московская ул., 69, 1 этаж",
       locality: "Великий Новгород",
       region: "Новгородская область",
       postalCode: "173000",
       country: "RU",
     },
-    geo: { latitude: 58.533147, longitude: 31.269947 },
+    geo: { latitude: 58.545044, longitude: 31.304401 },
   },
   {
     slug: "sankt-peterburg",

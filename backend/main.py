@@ -37,6 +37,8 @@ from backend.routers.support import router as support_router
 from backend.realtime.chat_gateway import router as support_ws_router
 from backend.realtime.connection_hub import get_connection_hub
 from backend.routers.cities import router as cities_router
+from backend.routers.franchise_leads import router as franchise_leads_router
+from backend.routers.geo import router as geo_router
 from backend.routers.lockers import router as lockers_router
 from backend.routers.uploads import router as uploads_router
 from backend.routers.products import router as products_router
@@ -99,6 +101,8 @@ app.include_router(payments_router)
 app.include_router(yookassa_webhook_router)
 app.include_router(public_stats_router)
 app.include_router(rental_ideas_router)
+app.include_router(franchise_leads_router)
+app.include_router(geo_router)
 app.include_router(telegram_webhook_router)
 app.include_router(webhooks_esi_router)
 app.include_router(admin_auth_router)

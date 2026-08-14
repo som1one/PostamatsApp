@@ -11,14 +11,7 @@ import {
   WalletCards,
 } from "lucide-react";
 
-export const productCategories = [
-  { id: "", label: "Все" },
-  { id: "consoles", label: "Приставки" },
-  { id: "projectors", label: "Проекторы" },
-  { id: "cleaning", label: "Уборка" },
-  { id: "tools", label: "Инструменты" },
-  { id: "home", label: "Для дома" },
-];
+export { productCategories } from "./productCategories";
 
 export const benefits = [
   {

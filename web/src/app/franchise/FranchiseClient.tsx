@@ -30,6 +30,8 @@ import {
 import { PageChrome } from "@/components/PageChrome";
 import { FranchiseCalculator } from "@/components/FranchiseCalculator";
 import { FAQAccordion } from "@/components/FAQAccordion";
+import { ApiError } from "@/shared/api/client";
+import { submitFranchiseLead } from "@/shared/api/endpoints";
 
 const CONTACT_EMAIL = "info@naprokatberu.ru";
 
@@ -156,22 +158,43 @@ const franchiseFaq = [
   },
 ];
 
-export function FranchiseClient() {
-  const [submitted, setSubmitted] = useState(false);
+type LeadStatus =
+  | { kind: "idle" }
+  | { kind: "submitting" }
+  | { kind: "success" }
+  | { kind: "error"; message: string };
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+export function FranchiseClient() {
+  const [status, setStatus] = useState<LeadStatus>({ kind: "idle" });
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
+    if (status.kind === "submitting") {
+      return;
+    }
+    const data = new FormData(event.currentTarget);
     const name = String(data.get("name") || "").trim();
     const phone = String(data.get("phone") || "").trim();
     const city = String(data.get("city") || "").trim();
-    const subject = encodeURIComponent("Заявка на франшизу naprokatberu");
-    const body = encodeURIComponent(
-      `Имя: ${name}\nТелефон: ${phone}\nГород: ${city}\n\nХочу обсудить открытие точки аренды через постаматы.`,
-    );
-    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
-    setSubmitted(true);
+    if (!name || !phone) {
+      setStatus({ kind: "error", message: "Заполните имя и телефон." });
+      return;
+    }
+
+    setStatus({ kind: "submitting" });
+    try {
+      await submitFranchiseLead({ name, phone, city: city || null });
+      setStatus({ kind: "success" });
+    } catch (error) {
+      const code = error instanceof ApiError ? error.code : undefined;
+      const message =
+        code === "INVALID_PHONE"
+          ? "Проверьте номер телефона — например, +7 900 000-00-00."
+          : code === "TOO_MANY_REQUESTS"
+            ? `Заявка уже отправлена, менеджер свяжется с вами. Если срочно — напишите на ${CONTACT_EMAIL}.`
+            : `Не удалось отправить заявку. Попробуйте ещё раз или напишите на ${CONTACT_EMAIL}.`;
+      setStatus({ kind: "error", message });
+    }
   }
 
   return (
@@ -371,13 +394,16 @@ export function FranchiseClient() {
             <li>Стоимость старта и расчёт прибыли</li>
           </ul>
         </div>
-        {submitted ? (
+        {status.kind === "success" ? (
           <div className="franchise-form-done" role="status">
             <PackageCheck size={28} />
-            <p>Спасибо! Откроется почтовый клиент — отправьте письмо, и мы свяжемся с вами.</p>
+            <p>
+              Спасибо! Заявка у нас — свяжемся с вами по телефону. Если удобнее почтой,
+              пишите на {CONTACT_EMAIL}.
+            </p>
           </div>
         ) : (
-          <form className="franchise-form" onSubmit={handleSubmit}>
+          <form className="franchise-form" onSubmit={handleSubmit} noValidate>
             <label className="field">
               <span>Как к вам обращаться</span>
               <input className="input" name="name" type="text" required placeholder="Имя" maxLength={120} />
@@ -390,8 +416,17 @@ export function FranchiseClient() {
               <span>Город</span>
               <input className="input" name="city" type="text" placeholder="Город размещения" maxLength={120} />
             </label>
-            <button className="button button-primary" type="submit">
-              Получить консультацию
+            {status.kind === "error" ? (
+              <p className="form-error" role="alert">
+                {status.message}
+              </p>
+            ) : null}
+            <button
+              className="button button-primary"
+              type="submit"
+              disabled={status.kind === "submitting"}
+            >
+              {status.kind === "submitting" ? "Отправляем..." : "Получить консультацию"}
             </button>
             <p className="franchise-form-consent">
               Нажимая кнопку, вы соглашаетесь на обработку персональных данных.

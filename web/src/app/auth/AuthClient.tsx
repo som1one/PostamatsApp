@@ -1,12 +1,16 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageChrome } from "@/components/PageChrome";
-import { ApiError } from "@/shared/api/client";
 import { confirmCode, requestCode } from "@/shared/api/endpoints";
 import { useAuth } from "@/shared/auth/auth-context";
+import {
+  AUTH_ERROR_MESSAGES,
+  resolveAuthErrorMessage,
+} from "@/shared/authMessages";
 import {
   normalizePhoneForApi,
   normalizePhoneInput,
@@ -14,29 +18,6 @@ import {
 
 type Step = "phone" | "code";
 type Channel = "sms" | "call";
-
-const AUTH_ERROR_MESSAGES: Record<string, string> = {
-  AUTH_PHONE_REQUIRED: "Введите номер телефона.",
-  AUTH_PHONE_INVALID: "Введите корректный номер РФ или РБ.",
-  AUTH_SMS_SEND_FAILED: "Не удалось отправить код. Попробуйте еще раз чуть позже.",
-  AUTH_SMS_PROVIDER_ERROR: "Сервис подтверждения сейчас недоступен. Попробуйте еще раз чуть позже.",
-  AUTH_RESEND_TOO_SOON: "Подождите немного перед повторной отправкой кода.",
-  AUTH_SESSION_NOT_FOUND: "Сессия входа не найдена. Запросите код заново.",
-  AUTH_SESSION_INACTIVE: "Этот код уже недействителен. Запросите новый.",
-  AUTH_SESSION_EXPIRED: "Срок действия кода истек. Запросите новый.",
-  AUTH_TOO_MANY_ATTEMPTS: "Слишком много попыток. Запросите новый код.",
-  AUTH_CODE_INVALID: "Неверный код. Попробуйте еще раз.",
-  AUTH_ACCOUNT_BLOCKED: "Аккаунт заблокирован. Обратитесь в поддержку.",
-  AUTH_UNAUTHORIZED: "Сессия входа недействительна. Попробуйте войти заново.",
-};
-
-
-function resolveAuthErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof ApiError) {
-    return AUTH_ERROR_MESSAGES[error.code || ""] || fallback;
-  }
-  return fallback;
-}
 
 export function AuthClient() {
   const router = useRouter();
@@ -171,7 +152,15 @@ export function AuthClient() {
                   </button>
                 </form>
                 <p className="auth-terms">
-                  Нажимая «Получить код», вы соглашаетесь с условиями использования сервиса.
+                  Нажимая «Получить код», вы соглашаетесь с{" "}
+                  <Link className="legal-link" href="/terms-rental">
+                    условиями аренды
+                  </Link>{" "}
+                  и{" "}
+                  <Link className="legal-link" href="/privacy">
+                    политикой конфиденциальности
+                  </Link>
+                  .
                 </p>
               </>
             ) : (
@@ -189,7 +178,7 @@ export function AuthClient() {
                 {channel === "call" ? (
                   <p className="auth-hint">
                     Сейчас на ваш номер поступит входящий звонок.
-                    Возьмите трубку не нужно — последние 4 цифры
+                    Брать трубку не нужно — последние 4 цифры
                     номера, с которого звонят, и есть ваш код.
                   </p>
                 ) : null}

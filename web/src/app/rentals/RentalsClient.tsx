@@ -36,9 +36,12 @@ import { ApiError } from "@/shared/api/client";
 import type { RentalListItem, UpcomingReservation } from "@/shared/api/types";
 import { buildRescheduleProductHref } from "@/shared/checkout/reschedule";
 import { writePendingCheckout } from "@/shared/checkout/pending";
-import { formatCountRu, formatDateTime } from "@/shared/format";
 import { resolvePublicAssetUrl } from "@/shared/media";
-import { isRentalFinished } from "@/shared/rentalStatus";
+import {
+  type DeadlineIconName,
+  getRentalDeadlineMeta,
+  getReservationDeadlineMeta,
+} from "@/shared/rentalDeadline";
 import { useAuth } from "@/shared/auth/auth-context";
 
 const DEV_PAYMENT_BYPASS_ENABLED =
@@ -51,136 +54,20 @@ const filters = [
   { value: "cancelled", label: "Отменённые" },
 ];
 
-type DeadlineMeta = {
-  tone: "warn" | "danger" | "success";
-  title: string;
-  text: string;
-  Icon: LucideIcon;
+const DEADLINE_ICONS: Record<DeadlineIconName, LucideIcon> = {
+  "alert-triangle": AlertTriangle,
+  "check-circle": CheckCircle2,
+  clock: Clock3,
 };
 
-function formatDurationLabel(diffMs: number) {
-  const totalMinutes = Math.max(1, Math.ceil(Math.abs(diffMs) / 60_000));
-  const days = Math.floor(totalMinutes / (60 * 24));
-  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
-  const minutes = totalMinutes % 60;
-  const parts: string[] = [];
-
-  if (days > 0) {
-    parts.push(formatCountRu(days, ["день", "дня", "дней"]));
-  }
-  if (hours > 0) {
-    parts.push(formatCountRu(hours, ["час", "часа", "часов"]));
-  }
-  if (days === 0 && minutes > 0) {
-    parts.push(formatCountRu(minutes, ["минута", "минуты", "минут"]));
-  }
-
-  return parts.join(" ");
+function DeadlineIcon({ icon }: { icon: DeadlineIconName }) {
+  const Icon = DEADLINE_ICONS[icon];
+  return <Icon size={16} />;
 }
 
-function getReservationDeadlineMeta(reservation: UpcomingReservation, nowMs: number): DeadlineMeta | null {
-  const expiresMs = new Date(reservation.expiresAt).getTime();
-  if (Number.isNaN(expiresMs)) {
-    return null;
-  }
-
-  const diffMs = expiresMs - nowMs;
-  const duration = formatDurationLabel(diffMs);
-
-  if (diffMs <= 0) {
-    return {
-      tone: "danger",
-      title: `Бронь истекла ${duration} назад`,
-      text: "Эта бронь уже недоступна для выдачи.",
-      Icon: AlertTriangle,
-    };
-  }
-
-  if (reservation.status === "payment_authorized") {
-    return {
-      tone: "success",
-      title: `До выдачи: ${duration}`,
-      text: `Оплата подтверждена. Заберите до ${formatDateTime(reservation.expiresAt)}.`,
-      Icon: CheckCircle2,
-    };
-  }
-
-  return {
-    tone: "warn",
-    title: `До отмены брони: ${duration}`,
-    text: `Оплатите и заберите до ${formatDateTime(reservation.expiresAt)}.`,
-    Icon: Clock3,
-  };
-}
-
-export function getRentalDeadlineMeta(rental: RentalListItem, nowMs: number): DeadlineMeta | null {
-  if (rental.status === "return_in_progress") {
-    return {
-      tone: "success",
-      title: "Возврат уже начат",
-      text: "Завершите возврат через открытую ячейку постамата.",
-      Icon: CheckCircle2,
-    };
-  }
-
-  // Завершённые аренды (терминальный статус ИЛИ проставлен actualEndAt) не
-  // рисуют deadline-плашку вне зависимости от того, прошло ли плановое
-  // окончание. Это закрывает в т.ч. случаи, когда статус ещё не успел
-  // прийти к "completed" (отставание webhook'а, ручная админская правка),
-  // но фактический возврат уже зафиксирован.
-  if (isRentalFinished(rental)) {
-    return null;
-  }
-
-  if (!rental.plannedEndAt) {
-    return null;
-  }
-
-  const plannedEndMs = new Date(rental.plannedEndAt).getTime();
-  if (Number.isNaN(plannedEndMs)) {
-    return null;
-  }
-
-  const diffMs = plannedEndMs - nowMs;
-  const duration = formatDurationLabel(diffMs);
-
-  if (rental.status === "overdue" || diffMs <= 0) {
-    return {
-      tone: "danger",
-      title: `Просрочено на ${duration}`,
-      text: "Стоит оформить возврат как можно скорее.",
-      Icon: AlertTriangle,
-    };
-  }
-
-  // Если до старта аренды ещё ждать — показываем дату выдачи, а не дедлайн.
-  if (
-    ["pickup_ready", "pickup_opened"].includes(rental.status) &&
-    rental.startsAt
-  ) {
-    const startsMs = new Date(rental.startsAt).getTime();
-    if (!Number.isNaN(startsMs) && startsMs - nowMs > 60 * 60 * 1000) {
-      const wait = formatDurationLabel(startsMs - nowMs);
-      return {
-        tone: "warn",
-        title: `Получение через ${wait}`,
-        text: `Заберите товар после ${formatDateTime(rental.startsAt)}`,
-        Icon: Clock3,
-      };
-    }
-  }
-
-  if (["pickup_ready", "pickup_opened", "active"].includes(rental.status)) {
-    return {
-      tone: "warn",
-      title: `До возврата: ${duration}`,
-      text: `Вернуть до ${formatDateTime(rental.plannedEndAt)}`,
-      Icon: Clock3,
-    };
-  }
-
-  return null;
-}
+// Логика дедлайнов вынесена в @/shared/rentalDeadline (общая с мобильным
+// приложением). Реэкспорт сохраняет путь импорта для существующих тестов.
+export { getRentalDeadlineMeta };
 
 export function RentalsClient() {
   return (
@@ -467,7 +354,7 @@ function RentalsContent() {
                         </div>
                         {deadlineMeta ? (
                           <div className={`rental-deadline rental-deadline-${deadlineMeta.tone}`}>
-                            <deadlineMeta.Icon size={16} />
+                            <DeadlineIcon icon={deadlineMeta.icon} />
                             <div>
                               <strong>{deadlineMeta.title}</strong>
                             </div>
@@ -564,7 +451,7 @@ function RentalsContent() {
                         </div>
                         {deadlineMeta ? (
                           <div className={`rental-deadline rental-deadline-${deadlineMeta.tone}`}>
-                            <deadlineMeta.Icon size={16} />
+                            <DeadlineIcon icon={deadlineMeta.icon} />
                             <div>
                               <strong>{deadlineMeta.title}</strong>
                             </div>

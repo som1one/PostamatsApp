@@ -63,7 +63,21 @@ async def serialize_rental_list_item(
             "id": str(locker.id) if locker else str(rental.pickup_locker_id),
             "name": locker.name if locker else None,
         },
+        # Активная заявка на возврат: PIN и ячейка. Без этого клиент видел код
+        # только в ответе на сам запрос возврата и терял его при перезапуске.
+        "returnRequest": await serialize_active_return_request(db, rental),
     }
+
+
+async def serialize_active_return_request(
+    db: AsyncSession,
+    rental: Rental,
+) -> dict | None:
+    """Активная (ещё не завершённая) заявка на возврат — для владельца аренды."""
+    request = await get_active_return_request_for_rental(db, rental.id)
+    if request is None:
+        return None
+    return await serialize_return_request_payload(db, request)
 
 
 async def serialize_rental_detail(db: AsyncSession, rental: Rental) -> dict:

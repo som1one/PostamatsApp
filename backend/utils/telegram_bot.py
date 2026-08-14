@@ -62,7 +62,7 @@ async def _send_one(
     chat_id: str,
     text: str,
     reply_markup: dict | None,
-) -> None:
+) -> bool:
     payload: dict[str, object] = {
         "chat_id": chat_id,
         "text": text,
@@ -76,7 +76,7 @@ async def _send_one(
         response = await client.post(_telegram_api_url("sendMessage"), json=payload)
     except httpx.RequestError:
         logger.exception("Telegram sendMessage failed for chat %s", chat_id)
-        return
+        return False
 
     if response.status_code >= 400:
         # 403 — пользователь не нажал /start или заблокировал бота.
@@ -87,6 +87,9 @@ async def _send_one(
             response.status_code,
             response.text[:200],
         )
+        return False
+
+    return True
 
 
 async def _resolve_chat_ids() -> list[str]:
@@ -119,18 +122,21 @@ async def notify_admins(
     *,
     buttons: Iterable[InlineButton] = (),
     chat_ids: Sequence[str] | None = None,
-) -> None:
+) -> int:
     """Шлёт ``text`` всем активным подписчикам.
 
     :param buttons: список ``(label, url)`` для inline-клавиатуры.
         Каждая кнопка занимает свой ряд.
     :param chat_ids: переопределение получателей. Если ``None``,
         берутся из БД (или CSV-fallback из настроек).
+    :return: сколько чатов реально приняли сообщение. ``0`` означает, что
+        уведомление никуда не ушло (нет токена, нет подписчиков или
+        Telegram ответил ошибкой) — вызывающий код может это залогировать.
     """
 
     if not settings.TELEGRAM_ADMIN_BOT_TOKEN:
         logger.debug("Telegram admin notifications skipped: no bot token")
-        return
+        return 0
 
     if chat_ids is not None:
         targets = list(chat_ids)
@@ -139,16 +145,18 @@ async def notify_admins(
 
     if not targets:
         logger.debug("Telegram admin notifications skipped: no recipients")
-        return
+        return 0
 
     reply_markup = _build_reply_markup(tuple(buttons))
     timeout = max(1.0, settings.TELEGRAM_API_TIMEOUT_SECONDS)
 
     async with httpx.AsyncClient(timeout=timeout) as client:
-        await asyncio.gather(
+        results = await asyncio.gather(
             *(_send_one(client, str(chat), text, reply_markup) for chat in targets),
             return_exceptions=True,
         )
+
+    return sum(1 for result in results if result is True)
 
 
 def fire_and_forget_notify(

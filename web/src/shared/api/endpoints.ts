@@ -19,6 +19,7 @@ import type {
   ReservationSummary,
   UpcomingReservation,
   VerificationState,
+  VisitorGeo,
 } from "./types";
 
 export async function requestCode(phone: string) {
@@ -133,6 +134,18 @@ export async function submitRentalIdea(payload: {
   photoId?: string | null;
 }) {
   return requestJson<{ id: string }>("/api/ideas", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function submitFranchiseLead(payload: {
+  name: string;
+  phone: string;
+  city?: string | null;
+  comment?: string | null;
+}) {
+  return requestJson<{ delivered: number }>("/api/franchise/leads", {
     method: "POST",
     body: payload,
   });
@@ -497,4 +510,8 @@ export async function confirmRentalReturn(rentalId: string) {
     `/me/rentals/${rentalId}/confirm-return`,
     { method: "POST" },
   );
+}
+
+export async function fetchVisitorGeo() {
+  return requestJson<VisitorGeo>("/api/geo/visitor");
 }
