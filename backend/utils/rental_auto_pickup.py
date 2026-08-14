@@ -12,7 +12,7 @@ import logging
 import threading
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from backend.core.database import SessionLocal
 from backend.models.enums import (
@@ -44,17 +44,32 @@ async def auto_confirm_opened_pickups() -> None:
     cutoff = now - timedelta(minutes=AUTO_PICKUP_TIMEOUT_MINUTES)
 
     async with SessionLocal() as db:
-        stmt = select(Rental).where(
-            Rental.status == RentalStatus.PICKUP_OPENED,
-            Rental.cell_opened_at.is_not(None),
-            Rental.cell_opened_at <= cutoff,
+        # Момента открытия ячейки в rentals нет, поэтому берём его из события
+        # перехода в PICKUP_OPENED — его пишут и ручка open-cell, и вебхук ESI.
+        # Если ячейку открывали несколько раз, считаем от последнего раза.
+        opened = (
+            select(
+                RentalEvent.rental_id.label("rental_id"),
+                func.max(RentalEvent.created_at).label("opened_at"),
+            )
+            .where(RentalEvent.to_status == RentalStatus.PICKUP_OPENED)
+            .group_by(RentalEvent.rental_id)
+            .subquery()
         )
-        rentals = list((await db.scalars(stmt)).all())
-        if not rentals:
+        stmt = (
+            select(Rental, opened.c.opened_at)
+            .join(opened, opened.c.rental_id == Rental.id)
+            .where(
+                Rental.status == RentalStatus.PICKUP_OPENED,
+                opened.c.opened_at <= cutoff,
+            )
+        )
+        rows = list((await db.execute(stmt)).all())
+        if not rows:
             return
 
         confirmed = 0
-        for rental in rentals:
+        for rental, cell_opened_at in rows:
             try:
                 prev_rental_status = rental.status
 
@@ -113,8 +128,8 @@ async def auto_confirm_opened_pickups() -> None:
                         payload_json={
                             "trigger": "auto_pickup_timeout",
                             "timeoutMinutes": AUTO_PICKUP_TIMEOUT_MINUTES,
-                            "cellOpenedAt": rental.cell_opened_at.isoformat()
-                            if rental.cell_opened_at
+                            "cellOpenedAt": cell_opened_at.isoformat()
+                            if cell_opened_at
                             else None,
                         },
                     )
