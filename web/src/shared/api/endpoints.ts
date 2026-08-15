@@ -126,16 +126,23 @@ export async function presignPublicUpload(payload: {
   });
 }
 
-export async function submitRentalIdea(payload: {
+/**
+ * Обращения с сайта и из приложения складываются в один раздел админки
+ * «Обратная связь», и в карточке видно, откуда пришло. Источник проставляем
+ * здесь, чтобы ни одна форма не забыла его передать.
+ */
+const FEEDBACK_SOURCE = "web";
+
+export async function submitFeedback(payload: {
   name: string;
   email: string;
-  idea: string;
+  message: string;
   referenceUrl?: string | null;
   photoId?: string | null;
 }) {
-  return requestJson<{ id: string }>("/api/ideas", {
+  return requestJson<{ id: string }>("/api/feedback", {
     method: "POST",
-    body: payload,
+    body: { ...payload, source: FEEDBACK_SOURCE },
   });
 }
 
@@ -145,9 +152,9 @@ export async function submitFranchiseLead(payload: {
   city?: string | null;
   comment?: string | null;
 }) {
-  return requestJson<{ delivered: number }>("/api/franchise/leads", {
+  return requestJson<{ delivered: number; id: string }>("/api/franchise/leads", {
     method: "POST",
-    body: payload,
+    body: { ...payload, source: FEEDBACK_SOURCE },
   });
 }
 

@@ -5,7 +5,7 @@ import { Lightbulb, ArrowRight, ImagePlus, Check } from "lucide-react";
 import Link from "next/link";
 import { PageChrome } from "@/components/PageChrome";
 import { apiBaseUrl } from "@/shared/api/client";
-import { presignPublicUpload, submitRentalIdea } from "@/shared/api/endpoints";
+import { presignPublicUpload, submitFeedback } from "@/shared/api/endpoints";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const ACCEPTED_MIME = ["image/jpeg", "image/png", "image/gif", "image/webp"];
@@ -94,10 +94,10 @@ export function IdeasClient() {
         photoId = await uploadPhoto(photo);
       }
       const trimmedRef = referenceUrl.trim();
-      await submitRentalIdea({
+      await submitFeedback({
         name: trimmedName,
         email: trimmedEmail,
-        idea: trimmedIdea,
+        message: trimmedIdea,
         referenceUrl: trimmedRef || null,
         photoId,
       });

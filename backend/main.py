@@ -19,6 +19,7 @@ from backend.routers.admin.audit import router as admin_audit_router
 from backend.routers.admin.auth import router as admin_auth_router
 from backend.routers.admin.cities import router as admin_cities_router
 from backend.routers.admin.dashboard import router as admin_dashboard_router
+from backend.routers.admin.feedback import router as admin_feedback_router
 from backend.routers.admin.franchises import router as admin_franchises_router
 from backend.routers.admin.inventory import router as admin_inventory_router
 from backend.routers.admin.lockers import router as admin_lockers_router
@@ -27,7 +28,6 @@ from backend.routers.admin.product_categories import router as admin_product_cat
 from backend.routers.admin.product_filters import router as admin_product_filters_router
 from backend.routers.admin.products import router as admin_products_router
 from backend.routers.admin.rentals import router as admin_rentals_router
-from backend.routers.admin.rental_ideas import router as admin_rental_ideas_router
 from backend.routers.admin.telegram_subscribers import router as admin_telegram_subscribers_router
 from backend.routers.admin.uploads import router as admin_uploads_router
 from backend.routers.admin.users import router as admin_users_router
@@ -47,7 +47,7 @@ from backend.routers.products import router as products_router
 from backend.routers.reservation import router as reservation_router
 from backend.routers.payments import router as payments_router, yookassa_webhook_router
 from backend.routers.public_stats import router as public_stats_router
-from backend.routers.rental_ideas import router as rental_ideas_router
+from backend.routers.feedback import router as feedback_router
 from backend.routers.max_webhook import router as max_webhook_router
 from backend.routers.telegram_webhook import router as telegram_webhook_router
 from backend.routers.webhooks_esi import router as webhooks_esi_router
@@ -109,7 +109,7 @@ app.include_router(reservation_router)
 app.include_router(payments_router)
 app.include_router(yookassa_webhook_router)
 app.include_router(public_stats_router)
-app.include_router(rental_ideas_router)
+app.include_router(feedback_router)
 app.include_router(franchise_leads_router)
 app.include_router(geo_router)
 app.include_router(telegram_webhook_router)
@@ -124,7 +124,7 @@ app.include_router(admin_cities_router)
 app.include_router(admin_lockers_router)
 app.include_router(admin_inventory_router)
 app.include_router(admin_rentals_router)
-app.include_router(admin_rental_ideas_router)
+app.include_router(admin_feedback_router)
 app.include_router(admin_telegram_subscribers_router)
 app.include_router(admin_max_subscribers_router)
 app.include_router(admin_audit_router)

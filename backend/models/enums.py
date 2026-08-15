@@ -50,6 +50,27 @@ class MediaFileKind(str, Enum):
     RENTAL_IDEA_PHOTO = "rental_idea_photo"
 
 
+class FeedbackTopic(str, Enum):
+    """Тип обращения в разделе «Обратная связь»."""
+
+    IDEA = "idea"
+    FRANCHISE = "franchise"
+    OTHER = "other"
+
+
+class FeedbackSource(str, Enum):
+    """Откуда пришло обращение: какой клиент отправил форму.
+
+    ``UNKNOWN`` — клиент источник не прислал (старая версия приложения или
+    запрос мимо наших форм). Врать «сайт» в таком случае хуже, чем честно
+    показать в админке «источник не определён».
+    """
+
+    WEB = "web"
+    MOBILE = "mobile"
+    UNKNOWN = "unknown"
+
+
 class DocumentType(str, Enum):
     PASSPORT_RF = "passport_rf"
     DRIVING_LICENSE = "driving_license"

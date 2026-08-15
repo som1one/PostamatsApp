@@ -792,8 +792,12 @@ function showAppShell() {
   applyRoleVisibility();
 }
 
-const FRANCHISE_HIDDEN_SECTIONS = ["cities", "catalog", "ideas", "audit", "franchises"];
+const FRANCHISE_HIDDEN_SECTIONS = ["cities", "catalog", "feedback", "audit", "franchises"];
 const SUPER_ADMIN_ONLY_SECTIONS = ["franchises"];
+
+// Раздел «Обратная связь» живёт в собственной IIFE ниже по файлу; сюда он
+// кладёт хендл, чтобы deep-link из уведомления мог открыть карточку.
+let feedbackSection = null;
 
 function adminRole() {
   return (state.admin && state.admin.role) || "";
@@ -3597,6 +3601,13 @@ async function applyDeepLinkFromQuery() {
         console.error(error);
       }
     }
+    if (section === "feedback" && feedbackSection) {
+      try {
+        await feedbackSection.open((params.get("item") || "").trim());
+      } catch (error) {
+        console.error(error);
+      }
+    }
   }
 
   const userId = (params.get("user") || "").trim();
@@ -4717,104 +4728,186 @@ if (inventoryServiceSubmit) {
 
 
 // =====================================================================
-// Раздел "Идеи для аренды" (заявки с публичной формы /ideas)
+// Раздел "Обратная связь" (обращения с публичных форм сайта и приложения)
 // =====================================================================
-(function initRentalIdeasSection() {
-  const ideasTableBody = document.getElementById("ideas-table-body");
-  const ideasEmpty = document.getElementById("ideas-empty");
-  const ideasTotal = document.getElementById("ideas-total");
-  const ideasRefreshButton = document.getElementById("ideas-refresh-button");
-  if (!ideasTableBody || !ideasEmpty || !ideasTotal) {
+(function initFeedbackSection() {
+  const listNode = document.getElementById("feedback-list");
+  const emptyNode = document.getElementById("feedback-empty");
+  const totalNode = document.getElementById("feedback-total");
+  const refreshButton = document.getElementById("feedback-refresh-button");
+  const topicFilter = document.getElementById("feedback-filter-topic");
+  const sourceFilter = document.getElementById("feedback-filter-source");
+  if (!listNode || !emptyNode || !totalNode) {
     return;
   }
 
-  let ideas = [];
+  // Обращений немного, поэтому фильтруем уже загруженный список на клиенте:
+  // переключение типа не ждёт запрос.
+  let items = [];
+  let focusId = "";
 
-  function renderIdeas() {
-    ideasTotal.textContent = `${formatNumber(ideas.length)} заявок`;
-    if (!ideas.length) {
-      ideasTableBody.innerHTML = "";
-      ideasEmpty.classList.remove("hidden");
+  function pluralItems(count) {
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+    if (mod10 === 1 && mod100 !== 11) {
+      return "обращение";
+    }
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+      return "обращения";
+    }
+    return "обращений";
+  }
+
+  function visibleItems() {
+    const topic = topicFilter ? topicFilter.value : "";
+    const source = sourceFilter ? sourceFilter.value : "";
+    return items.filter((item) => {
+      if (topic && item.topic !== topic) {
+        return false;
+      }
+      if (source && item.source !== source) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  function renderCard(item) {
+    const contacts = [];
+    if (item.phone) {
+      contacts.push(
+        `<a href="tel:${escapeHtml(item.phone)}">${escapeHtml(item.phone)}</a>`,
+      );
+    }
+    if (item.email) {
+      contacts.push(
+        `<a href="mailto:${escapeHtml(item.email)}">${escapeHtml(item.email)}</a>`,
+      );
+    }
+    if (item.city) {
+      contacts.push(escapeHtml(item.city));
+    }
+
+    const links = [];
+    if (item.referenceUrl) {
+      links.push(
+        `<a href="${escapeHtml(item.referenceUrl)}" target="_blank" rel="noreferrer">Ссылка на вещь</a>`,
+      );
+    }
+    if (item.photoUrl) {
+      links.push(
+        `<a href="${escapeHtml(item.photoUrl)}" target="_blank" rel="noreferrer">Фото</a>`,
+      );
+    }
+
+    const sourceClass = `feedback-pill--source-${escapeHtml(item.source || "unknown")}`;
+    return `
+      <article class="surface feedback-card${item.id === focusId ? " is-focused" : ""}" data-feedback-id="${escapeHtml(item.id)}">
+        <header class="feedback-card__top">
+          <div class="feedback-card__pills">
+            <span class="feedback-pill">${escapeHtml(item.topicLabel || "Обращение")}</span>
+            <span class="feedback-pill ${sourceClass}" title="Откуда пришло обращение">
+              ${escapeHtml(item.sourceLabel || "Источник не определён")}
+            </span>
+          </div>
+          <time class="feedback-card__date">${formatDateTime(item.createdAt)}</time>
+        </header>
+        <p class="feedback-card__name">${escapeHtml(item.name)}</p>
+        ${contacts.length ? `<p class="feedback-card__contacts">${contacts.join(" · ")}</p>` : ""}
+        <p class="feedback-card__message">${escapeHtml(item.message || "")}</p>
+        <footer class="feedback-card__bottom">
+          <div class="feedback-card__links">${links.join(" · ")}</div>
+          <button class="ghost-button" type="button" data-delete-feedback="${escapeHtml(item.id)}">Удалить</button>
+        </footer>
+      </article>`;
+  }
+
+  function renderFeedback() {
+    const visible = visibleItems();
+    totalNode.textContent = `${formatNumber(visible.length)} ${pluralItems(visible.length)}`;
+    if (!visible.length) {
+      listNode.innerHTML = "";
+      emptyNode.textContent = items.length
+        ? "Под фильтр ничего не подошло."
+        : "Обращений пока нет.";
+      emptyNode.classList.remove("hidden");
       return;
     }
-    ideasEmpty.classList.add("hidden");
-    ideasTableBody.innerHTML = ideas
-      .map((idea) => {
-        const ref = idea.referenceUrl
-          ? `<a href="${escapeHtml(idea.referenceUrl)}" target="_blank" rel="noreferrer">Ссылка</a>`
-          : "—";
-        const photo = idea.photoUrl
-          ? `<a href="${escapeHtml(idea.photoUrl)}" target="_blank" rel="noreferrer">Открыть</a>`
-          : "—";
-        const ideaText = idea.idea || "";
-        const trimmed = ideaText.length > 200 ? `${ideaText.slice(0, 200)}…` : ideaText;
-        return `
-          <tr>
-            <td>${formatDateTime(idea.createdAt)}</td>
-            <td>${escapeHtml(idea.name)}</td>
-            <td><a href="mailto:${escapeHtml(idea.email)}">${escapeHtml(idea.email)}</a></td>
-            <td title="${escapeHtml(ideaText)}">${escapeHtml(trimmed)}</td>
-            <td class="muted-inline">${ref}</td>
-            <td class="muted-inline">${photo}</td>
-            <td class="data-table-col-actions">
-              <button class="ghost-button" type="button" data-delete-idea="${escapeHtml(idea.id)}">Удалить</button>
-            </td>
-          </tr>`;
-      })
-      .join("");
-  }
-
-  async function loadIdeas() {
-    try {
-      const payload = await authorizedRequest("/api/admin/ideas?page=1&limit=200");
-      ideas = (payload && payload.data && payload.data.items) || [];
-      renderIdeas();
-    } catch (error) {
-      console.error(error);
-      showToast("error", error.message || "Не удалось загрузить идеи");
+    emptyNode.classList.add("hidden");
+    listNode.innerHTML = visible.map(renderCard).join("");
+    if (focusId) {
+      const card = listNode.querySelector(`[data-feedback-id="${focusId}"]`);
+      if (card && card.scrollIntoView) {
+        card.scrollIntoView({ block: "center" });
+      }
     }
   }
 
-  async function deleteIdea(id) {
-    if (!confirm("Удалить заявку?")) {
+  async function loadFeedback() {
+    try {
+      const payload = await authorizedRequest("/api/admin/feedback?page=1&limit=200");
+      items = (payload && payload.data && payload.data.items) || [];
+      renderFeedback();
+    } catch (error) {
+      console.error(error);
+      showToast("error", error.message || "Не удалось загрузить обращения");
+    }
+  }
+
+  async function deleteFeedback(id) {
+    if (!confirm("Удалить обращение?")) {
       return;
     }
     try {
-      await authorizedRequest(`/api/admin/ideas/${id}`, { method: "DELETE" });
-      ideas = ideas.filter((item) => item.id !== id);
-      renderIdeas();
-      showToast("success", "Заявка удалена");
+      await authorizedRequest(`/api/admin/feedback/${id}`, { method: "DELETE" });
+      items = items.filter((item) => item.id !== id);
+      renderFeedback();
+      showToast("success", "Обращение удалено");
     } catch (error) {
       console.error(error);
-      showToast("error", error.message || "Не удалось удалить заявку");
+      showToast("error", error.message || "Не удалось удалить обращение");
     }
   }
 
-  ideasTableBody.addEventListener("click", (event) => {
+  listNode.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
     }
-    const btn = target.closest("[data-delete-idea]");
+    const btn = target.closest("[data-delete-feedback]");
     if (!btn) {
       return;
     }
-    const id = btn.getAttribute("data-delete-idea");
+    const id = btn.getAttribute("data-delete-feedback");
     if (id) {
-      deleteIdea(id);
+      deleteFeedback(id);
     }
   });
 
-  if (ideasRefreshButton) {
-    ideasRefreshButton.addEventListener("click", loadIdeas);
+  if (refreshButton) {
+    refreshButton.addEventListener("click", loadFeedback);
   }
+  [topicFilter, sourceFilter].forEach((select) => {
+    if (select) {
+      select.addEventListener("change", renderFeedback);
+    }
+  });
 
   // Подключаемся к существующему обработчику навигации: загружаем,
-  // когда пользователь переходит на раздел "ideas".
-  const navLink = document.querySelector('[data-section="ideas"]');
+  // когда пользователь переходит на раздел "feedback".
+  const navLink = document.querySelector('[data-section="feedback"]');
   if (navLink) {
-    navLink.addEventListener("click", loadIdeas);
+    navLink.addEventListener("click", loadFeedback);
   }
+
+  // Кнопка «Открыть в админке» из уведомления ведёт на
+  // ?section=feedback&item=<uuid> — подсвечиваем нужную карточку.
+  feedbackSection = {
+    async open(itemId) {
+      focusId = itemId && UUID_RE.test(itemId) ? itemId : "";
+      await loadFeedback();
+    },
+  };
 })();
 
 

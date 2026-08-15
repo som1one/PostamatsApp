@@ -958,3 +958,114 @@
 .metrics-column {
   min-width: 0;
 }
+
+/* --------------------------- Обратная связь ---------------------------- */
+
+.feedback-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.feedback-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feedback-card.is-focused {
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.feedback-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.feedback-card__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Тип обращения и источник: подпись «откуда пришло» всегда на виду */
+.feedback-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.45;
+  white-space: nowrap;
+}
+
+.feedback-pill--source-web {
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+.feedback-pill--source-mobile {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.feedback-pill--source-unknown {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.feedback-card__date {
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.feedback-card__name {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.feedback-card__contacts {
+  margin: -6px 0 0;
+  color: var(--text-2);
+  font-size: 0.8125rem;
+  word-break: break-word;
+}
+
+.feedback-card__message {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.feedback-card__bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.feedback-card__links {
+  color: var(--text-2);
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 560px) {
+  .feedback-list {
+    grid-template-columns: 1fr;
+  }
+}
