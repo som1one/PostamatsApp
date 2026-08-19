@@ -1,5 +1,12 @@
 .empty-state strong {
   color: var(--text);
+}
+/* Две кнопки в пустом состоянии: на узком экране складываются в столбик. */
+.empty-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
 }.loader {
   display: grid;
   min-height: 220px;

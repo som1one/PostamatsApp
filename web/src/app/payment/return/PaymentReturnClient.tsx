@@ -209,21 +209,32 @@ function PaymentReturnContent() {
     );
   }
 
+  // Ссылка на бронь лежит в localStorage той вкладки, из которой уходили
+  // платить. При оплате через СБП или приложение банка возврат сплошь и
+  // рядом открывается в другом браузере, и здесь её просто нет. Это не
+  // ошибка оплаты: статус подтверждает бэкенд, поэтому ведём человека в
+  // «Мои заказы», а не пугаем «платёж не найден».
   if (!pending && !rental) {
     return (
       <>
         <PageHeader
           eyebrow="Оплата"
-          title="Нет активного платежа"
-          subtitle="Не нашли сохраненную бронь для проверки оплаты."
+          title="Проверьте заказ в личном кабинете"
+          subtitle="Вы вернулись в браузер, где не сохранена бронь — так бывает после оплаты через приложение банка."
         />
         <EmptyState
-          icon={<ShoppingBag size={34} />}
-          title="Платеж не найден"
+          icon={<PackageCheck size={34} />}
+          title="Заказ ждёт в «Мои заказы»"
+          text="Если оплата прошла, бронь уже подтверждена — статус обновится там в течение минуты. Если платёж не прошёл, там же можно оплатить снова."
           action={
-            <Link className="button button-primary" href="/catalog">
-              В каталог
-            </Link>
+            <div className="empty-state-actions">
+              <Link className="button button-primary" href="/profile/orders">
+                Мои заказы
+              </Link>
+              <Link className="button button-ghost" href="/catalog">
+                В каталог
+              </Link>
+            </div>
           }
         />
       </>
