@@ -42,6 +42,10 @@ from backend.schemas.me_schemas import (
 )
 from backend.utils.auth_utils import get_current_client_user
 from backend.utils.document_numbers import normalize_document_number
+from backend.utils.payment_reconcile import (
+    reconcile_reservation_payments,
+    resolve_payment_before_release,
+)
 from backend.utils.yookassa_service import cancel_yookassa_payment, refund_yookassa_payment
 from backend.utils.me_utils import (
     UPDATE_ME_FIELD_MAP,
@@ -396,11 +400,22 @@ async def list_my_reservations(
         )
         confirmed_payments = (await db.scalars(payment_stmt)).all()
         confirmed_reservation_ids = {p.reservation_id for p in confirmed_payments}
+        changed = bool(confirmed_reservation_ids)
         if confirmed_reservation_ids:
             for r in reservations:
                 if r.id in confirmed_reservation_ids and r.status == ReservationStatus.AWAITING_PAYMENT:
                     r.status = ReservationStatus.PAYMENT_AUTHORIZED
                     r.expires_at = calculate_paid_reservation_expires_at(r)
+        # Локальной сверки мало: платёж мог остаться PENDING у нас, потому
+        # что уведомление ЮKassa не дошло, а клиент не возвращался на
+        # /payment/return (оплата через СБП/приложение банка). Тогда карточка
+        # показывала «Оплатить» и таймер отмены поверх уже оплаченной брони.
+        # Спрашиваем провайдера — обновление списка чинит статус сразу.
+        changed = (
+            await reconcile_reservation_payments(db, list(reservations), min_age_seconds=10)
+            or changed
+        )
+        if changed:
             await db.commit()
 
     product_ids = list({reservation.product_id for reservation in reservations})
@@ -483,6 +498,12 @@ async def cancel_my_reservation(
         raise HTTPException(status_code=409, detail="RESERVATION_NOT_CANCELLABLE")
 
     now = datetime.now(timezone.utc)
+
+    # Бронь может числиться неоплаченной только потому, что до нас не дошло
+    # уведомление ЮKassa. Сверяемся с провайдером до отмены: иначе клиент,
+    # нажавший «Отменить» на карточке с зависшей кнопкой «Оплатить»,
+    # остался бы и без брони, и без денег.
+    await resolve_payment_before_release(db, reservation)
 
     # Возврат денег при отмене оплаченной брони. Одностадийная оплата =
     # деньги уже списаны (CAPTURED) → нужен refund. Если платёж только

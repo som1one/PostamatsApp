@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -14,9 +15,15 @@ from backend.utils.payment_flow import (
     create_preauth_for_reservation,
     process_yookassa_webhook,
     serialize_payment_for_user,
+    sync_payment_with_provider,
 )
-from backend.utils.reservation_utils import calculate_paid_reservation_expires_at
+from backend.utils.reservation_utils import (
+    calculate_paid_reservation_expires_at,
+    ensure_utc,
+)
 from backend.models.payment import Payment
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 yookassa_webhook_router = APIRouter(prefix="/payments/webhooks", tags=["payments"])
@@ -63,25 +70,12 @@ async def get_payment(
         and payment.provider_payment_id
         and payment.created_at is not None
     ):
-        from backend.utils.yookassa_service import fetch_yookassa_payment_status
-        from backend.utils.payment_flow import _map_yookassa_status_to_payment_status
-
-        age_seconds = (datetime.now(timezone.utc) - payment.created_at).total_seconds()
-        if age_seconds > 10:
-            yk_status = await fetch_yookassa_payment_status(payment.provider_payment_id)
-            if yk_status:
-                new_status = _map_yookassa_status_to_payment_status(yk_status)
-                if new_status is not None and new_status != PaymentStatus.PENDING:
-                    payment.status = new_status
-                    payment.processed_at = datetime.now(timezone.utc)
-                    # Также обновляем бронь если платёж confirmed
-                    if new_status in (PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED) and payment.reservation_id:
-                        res = await db.get(Reservation, payment.reservation_id)
-                        if res is not None and res.status == ReservationStatus.AWAITING_PAYMENT:
-                            res.status = ReservationStatus.PAYMENT_AUTHORIZED
-                            res.expires_at = calculate_paid_reservation_expires_at(res)
-                    await db.commit()
-                    await db.refresh(payment)
+        age_seconds = (
+            datetime.now(timezone.utc) - ensure_utc(payment.created_at)
+        ).total_seconds()
+        if age_seconds > 10 and await sync_payment_with_provider(db, payment):
+            await db.commit()
+            await db.refresh(payment)
 
     return {"data": {"payment": serialize_payment_for_user(payment)}}
 
@@ -131,10 +125,20 @@ async def authorize_payment_dev_stub(
 
 @yookassa_webhook_router.post("/yookassa")
 async def yookassa_webhook(request: Request, db: AsyncSession = Depends(get_db)):
-    from backend.utils.yookassa_service import verify_yookassa_notification
+    from backend.utils.yookassa_service import (
+        resolve_client_ip,
+        verify_yookassa_notification,
+    )
 
-    if not verify_yookassa_notification(request):
-        raise HTTPException(status_code=401, detail="INVALID_WEBHOOK_SIGNATURE")
+    # Уведомления ЮKassa не подписаны и не авторизованы, поэтому отказывать
+    # по IP нельзя: при смене подсетей или лишнем прокси мы бы снова молча
+    # теряли все оплаты. IP — только признак доверия к телу запроса, сам
+    # статус подтверждается запросом в API ЮKassa.
+    trusted_source = verify_yookassa_notification(request)
+    if not trusted_source:
+        logger.warning(
+            "YooKassa notification from unexpected IP %s", resolve_client_ip(request)
+        )
 
     try:
         raw = await request.json()
@@ -151,16 +155,17 @@ async def yookassa_webhook(request: Request, db: AsyncSession = Depends(get_db))
     ostatus = body.object_status()
 
     try:
-        await process_yookassa_webhook(
+        accepted = await process_yookassa_webhook(
             db,
             event=event,
             object_id=oid,
             object_status=ostatus,
             raw_payload=raw if isinstance(raw, dict) else {},
+            trusted_source=trusted_source,
         )
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail="PAYMENT_WEBHOOK_FAILED") from exc
 
-    return {"data": {"accepted": True}}
+    return {"data": {"accepted": accepted}}

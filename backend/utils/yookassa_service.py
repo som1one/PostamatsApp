@@ -1,5 +1,5 @@
 import asyncio
-import base64
+import ipaddress
 import logging
 import uuid
 from decimal import Decimal
@@ -11,23 +11,63 @@ from backend.core.settings import settings
 
 logger = logging.getLogger(__name__)
 
+# ЮKassa не подписывает уведомления и не шлёт Authorization: единственный
+# способ узнать отправителя — сверить IP с официальным списком подсетей.
+# https://yookassa.ru/developers/using-api/webhooks — «Проверка подлинности».
+# Раньше здесь стояла проверка Basic-авторизации shop_id:secret_key, которой
+# в уведомлениях нет и не было, поэтому КАЖДОЕ боевое уведомление получало
+# 401 и статус платежа в нашей БД не обновлялся.
+YOOKASSA_NOTIFICATION_NETWORKS = tuple(
+    ipaddress.ip_network(cidr)
+    for cidr in (
+        "185.71.76.0/27",
+        "185.71.77.0/27",
+        "77.75.153.0/25",
+        "77.75.156.11/32",
+        "77.75.156.35/32",
+        "77.75.154.128/25",
+        "2a02:5180::/32",
+    )
+)
 
-def verify_yookassa_notification(request: Request) -> bool:
-    if settings.YOOKASSA_DEV_STUB and not settings.YOOKASSA_SECRET_KEY:
-        return True
-    shop_id = settings.YOOKASSA_SHOP_ID
-    secret = settings.YOOKASSA_SECRET_KEY
-    if not shop_id or not secret:
-        return False
-    header = request.headers.get("Authorization")
-    if not header or not header.startswith("Basic "):
+
+def resolve_client_ip(request: Request) -> str | None:
+    """IP непосредственного отправителя запроса.
+
+    За Caddy реальный адрес приходит последним элементом X-Forwarded-For:
+    прокси дописывает адрес своего пира в конец списка, поэтому подделать
+    последний элемент снаружи нельзя (клиентский XFF окажется левее).
+    """
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        parts = [item.strip() for item in forwarded.split(",") if item.strip()]
+        if parts:
+            return parts[-1]
+    client = request.client
+    return client.host if client is not None else None
+
+
+def is_yookassa_notification_ip(request: Request) -> bool:
+    raw_ip = resolve_client_ip(request)
+    if not raw_ip:
         return False
     try:
-        raw = base64.b64decode(header[6:].strip()).decode("utf-8")
-        user, _, pwd = raw.partition(":")
-        return user == shop_id and pwd == secret
-    except Exception:
+        ip = ipaddress.ip_address(raw_ip)
+    except ValueError:
         return False
+    return any(ip in network for network in YOOKASSA_NOTIFICATION_NETWORKS)
+
+
+def verify_yookassa_notification(request: Request) -> bool:
+    """True, если уведомление точно пришло из ЮKassa.
+
+    False — не повод отбрасывать уведомление: обработчик всё равно сверяет
+    статус платежа напрямую через API, а IP используется только как признак
+    доверия к телу запроса (см. routers/payments.py).
+    """
+    if settings.YOOKASSA_DEV_STUB and not settings.YOOKASSA_SECRET_KEY:
+        return True
+    return is_yookassa_notification_ip(request)
 
 
 def _create_payment_sync(

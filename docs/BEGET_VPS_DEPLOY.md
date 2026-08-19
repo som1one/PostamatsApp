@@ -187,6 +187,22 @@ MEDIA_PUBLIC_BASE_URL=https://cdn.naprokatberu.ru
 - `DB_URL`, `ASYNC_DB_URL` и `REDIS_URL` контейнеры получают из `deploy/docker-compose.beget.yml`, поэтому в `backend/.env.production` можно оставить примерные значения или не использовать их как источник истины.
 - Если YooKassa и S3 пока не готовы, сайт можно поднять и без них, но соответствующие функции оплаты и загрузки файлов не будут работать.
 
+### Уведомления ЮKassa
+
+В личном кабинете ЮKassa → «Интеграция» → «HTTP-уведомления» указать URL
+`https://api.naprokatberu.ru/payments/webhooks/yookassa` и включить события
+`payment.succeeded`, `payment.canceled`, `payment.waiting_for_capture`,
+`refund.succeeded`.
+
+Уведомления ЮKassa не подписаны и не содержат авторизации: отправитель
+определяется по [официальному списку подсетей][yk-webhooks], а статус платежа
+бэкенд в любом случае перепроверяет запросом в API. Поэтому неправильно
+настроенный (или вовсе не настроенный) вебхук больше не оставляет оплату
+незамеченной: фоновая сверка `payment_reconcile` раз в минуту сама
+спрашивает ЮKassa о статусе всех незавершённых платежей.
+
+[yk-webhooks]: https://yookassa.ru/developers/using-api/webhooks
+
 ## 6. Собрать и запустить проект
 
 Первый запуск:
