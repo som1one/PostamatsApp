@@ -7,17 +7,28 @@ from sqlalchemy import select
 
 from backend.core.database import SessionLocal
 from backend.core.settings import settings
-from backend.models.enums import LockerCellStatus, LockerStatus, RentalEventSource, ReturnRequestStatus
+from backend.models.enums import (
+    LockerCellStatus,
+    LockerStatus,
+    RentalEventSource,
+    RentalStatus,
+    ReturnRequestStatus,
+)
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
 from backend.models.product import Product
 from backend.models.rental import Rental
+from backend.models.rental_event import RentalEvent
 from backend.models.return_request import ReturnRequest
 from backend.utils.inventory_confirmation_notifications import (
     notify_inventory_awaiting_confirmation,
 )
-from backend.utils.esi_client import fetch_machine_snapshot, fetch_machines_snapshot
+from backend.utils.esi_client import (
+    fetch_machine_snapshot,
+    fetch_machines_snapshot,
+    sync_cell_state,
+)
 from backend.utils.reservation_utils import ensure_utc
 from backend.utils.return_requests import complete_return_request, fail_return_request
 
@@ -47,6 +58,105 @@ def _state_to_cell_status(state: str | None, open_flag: bool) -> LockerCellStatu
     if normalized == "blocked":
         return LockerCellStatus.FAULT
     return None
+
+
+async def _restore_forgotten_pickup_pins(
+    db,
+    candidates: list[LockerCell],
+    now: datetime,
+) -> None:
+    """Возвращает PIN в ячейки, из которых постамат его потерял.
+
+    Код попадает в железо один раз — при подтверждении брони. Сброс
+    постамата (или любой перевод ячейки в свободную, при котором ESI
+    затирает pin) оставляет клиента с кодом, которого на клавиатуре уже
+    нет: приложение показывает 4 цифры, постамат их не принимает.
+
+    Чиним сами: если ячейка числится за арендой, которая ещё ждёт выдачи,
+    а постамат говорит «свободна» — записываем код заново. Это `set-cell`,
+    он назначает состояние и код; ячейка при этом НЕ открывается, команда
+    `/open-cell` отсюда не вызывается.
+    """
+    if not candidates:
+        return
+
+    cell_by_id = {cell.id: cell for cell in candidates}
+    units = list(
+        (
+            await db.scalars(
+                select(InventoryUnit).where(
+                    InventoryUnit.locker_cell_id.in_(list(cell_by_id.keys()))
+                )
+            )
+        ).all()
+    )
+    if not units:
+        return
+
+    rentals = list(
+        (
+            await db.scalars(
+                select(Rental).where(
+                    Rental.inventory_unit_id.in_([unit.id for unit in units]),
+                    Rental.status.in_(
+                        (RentalStatus.PICKUP_READY, RentalStatus.PICKUP_OPENED)
+                    ),
+                )
+            )
+        ).all()
+    )
+    if not rentals:
+        return
+
+    rental_by_unit = {rental.inventory_unit_id: rental for rental in rentals}
+    for unit in units:
+        cell = cell_by_id.get(unit.locker_cell_id)
+        rental = rental_by_unit.get(unit.id)
+        if cell is None or rental is None or not rental.pickup_pin:
+            continue
+
+        # Ячейку уже открывали после того, как аренда появилась — значит
+        # товар, скорее всего, забрали, и возвращать код туда не нужно.
+        if cell.last_opened_at is not None and ensure_utc(cell.last_opened_at) > ensure_utc(
+            rental.created_at
+        ):
+            continue
+
+        try:
+            await sync_cell_state(
+                db,
+                locker_id=cell.locker_id,
+                cell_id=cell.id,
+                state="occupied",
+                pin=rental.pickup_pin,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to restore pickup PIN for cell %s (rental %s)",
+                cell.id,
+                rental.id,
+            )
+            continue
+
+        cell.status = LockerCellStatus.RESERVED
+        cell.last_event_at = now
+        db.add(
+            RentalEvent(
+                rental_id=rental.id,
+                event_type="pickup_pin_restored",
+                from_status=rental.status,
+                to_status=rental.status,
+                source=RentalEventSource.SYSTEM,
+                payload_json={
+                    "cellId": str(cell.id),
+                    "externalCellId": cell.external_cell_id,
+                    "reason": "locker_reported_cell_vacant",
+                },
+            )
+        )
+        logger.info(
+            "Restored pickup PIN in cell %s for rental %s", cell.id, rental.id
+        )
 
 
 async def reconcile_esi_and_returns() -> None:
@@ -86,6 +196,9 @@ async def reconcile_esi_and_returns() -> None:
             await db.commit()
             return
 
+        # Ячейки, которые постамат считает свободными: кандидаты на возврат
+        # забытого PIN (см. `_restore_forgotten_pickup_pins`).
+        pin_restore_candidates: list[LockerCell] = []
         snapshots_by_serial: dict[str, dict] = {}
         if not settings.ESI_DEV_STUB and settings.ESI_BASE_URL:
             try:
@@ -138,6 +251,15 @@ async def reconcile_esi_and_returns() -> None:
                     cell.last_opened_at = now
                 else:
                     cell.last_closed_at = now
+
+                # Постамат считает ячейку свободной: если за ней числится
+                # аренда, ждущая выдачи, её PIN там уже стёрт — вернём.
+                # Открытую ячейку не трогаем: там сейчас идёт выдача.
+                snapshot_state = str(cell_snapshot.get("state") or "").strip().lower()
+                if not open_flag and snapshot_state in ("vacant", "unassigned"):
+                    pin_restore_candidates.append(cell)
+
+        await _restore_forgotten_pickup_pins(db, pin_restore_candidates, now)
 
         if not settings.ESI_DEV_STUB and settings.ESI_BASE_URL:
             active_requests = list((await db.scalars(active_requests_stmt)).all())

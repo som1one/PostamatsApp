@@ -438,6 +438,15 @@ function OrderDetailContent({ id }: { id: string }) {
         setError("Получить PIN можно только в назначенное время. Обновите страницу через минуту.");
       } else if (err instanceof ApiError && err.code === "RENTAL_NOT_PICKUP_READY") {
         setError("Не удалось получить PIN. Обновите страницу.");
+      } else if (
+        err instanceof ApiError &&
+        ["LOCKER_OFFLINE", "LOCKER_NOT_CONFIGURED", "PIN_SYNC_FAILED"].includes(err.code ?? "")
+      ) {
+        // Код не удалось записать в постамат — выдавать его бессмысленно,
+        // на клавиатуре он не сработает.
+        setError(
+          "Постамат сейчас не отвечает, поэтому код выдать нельзя — он бы не подошёл. Попробуйте через минуту или напишите в поддержку.",
+        );
       } else {
         setError(err instanceof Error ? err.message : "Не удалось получить PIN");
       }

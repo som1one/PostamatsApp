@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -28,7 +29,12 @@ from backend.models.reservation import Reservation
 from backend.models.return_request import ReturnRequest
 from backend.models.user import User
 from backend.models.verification_request import VerificationRequest
-from backend.utils.esi_client import EsiOpenError, admin_trigger_open_cell
+from backend.utils.esi_client import (
+    EsiOpenError,
+    EsiReserveError,
+    admin_trigger_open_cell,
+    reserve_pickup_cell,
+)
 from backend.utils.inventory_tracking import add_inventory_movement
 from backend.utils.return_requests import (
     complete_return_request,
@@ -69,6 +75,8 @@ from backend.utils.reservation_utils import (
 )
 from backend.utils.admin_notifications import escape_html, fire_and_forget_notify
 from backend.core.settings import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/me", tags=["me"])
 
@@ -1029,6 +1037,40 @@ async def confirm_pickup(
         if unit is not None and unit.locker_cell_id is not None
         else None
     )
+
+    # Перезаписываем PIN в самом постамате перед тем, как показать его
+    # клиенту. Код попадал в железо только один раз — при подтверждении
+    # брони, и любой сброс постамата (или перевод ячейки в свободную, при
+    # котором ESI затирает pin) оставлял в приложении код, которого на
+    # клавиатуре уже не существует. Это `set-cell`: он назначает ячейке
+    # состояние и код, но НЕ открывает её — открытие делает отдельная
+    # команда `/open-cell`, и здесь она не вызывается.
+    if cell is not None:
+        try:
+            await reserve_pickup_cell(
+                db,
+                locker_id=rental.pickup_locker_id,
+                cell_id=cell.id,
+                pickup_pin=rental.pickup_pin,
+            )
+        except EsiReserveError as exc:
+            # Аренду не стартуем: лучше честная ошибка, чем активная аренда
+            # с кодом, который постамат не примет.
+            code = str(exc) or "PIN_SYNC_FAILED"
+            if code == "ESI_MACHINE_OFFLINE":
+                raise HTTPException(status_code=503, detail="LOCKER_OFFLINE") from exc
+            if code == "ESI_NOT_CONFIGURED":
+                raise HTTPException(
+                    status_code=503, detail="LOCKER_NOT_CONFIGURED"
+                ) from exc
+            raise HTTPException(status_code=502, detail="PIN_SYNC_FAILED") from exc
+        except Exception as exc:
+            # Любой неожиданный сбой записи — тоже причина не выдавать код.
+            # Клиенту нужен работающий PIN, а не 500 у постамата.
+            logger.exception(
+                "Unexpected failure syncing pickup PIN for rental %s", rental.id
+            )
+            raise HTTPException(status_code=502, detail="PIN_SYNC_FAILED") from exc
 
     prev_rental_status = rental.status
     prev_unit_status = unit.status if unit is not None else None
