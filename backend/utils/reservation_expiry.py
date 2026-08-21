@@ -18,22 +18,16 @@ from sqlalchemy import select
 from backend.core.database import SessionLocal
 from backend.models.enums import (
     InventoryStatus,
-    PaymentStatus,
-    PaymentType,
     ReservationStatus,
 )
 from backend.models.inventory_unit import InventoryUnit
-from backend.models.payment import Payment
 from backend.models.reservation import Reservation
+from backend.utils.payment_flow import release_reservation_payment
 from backend.utils.payment_reconcile import (
     reconcile_pending_payments,
     resolve_payment_before_release,
 )
 from backend.utils.reservation_auto_confirm import auto_confirm_paid_reservations
-from backend.utils.yookassa_service import (
-    cancel_yookassa_payment,
-    refund_yookassa_payment,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -102,49 +96,13 @@ async def expire_stale_reservations() -> None:
 async def _release_reservation_money(db, reservation: Reservation, now: datetime) -> bool:
     """Возвращает деньги клиенту перед экспирацией оплаченной брони.
 
-    Схема оплаты одностадийная (capture=true), поэтому в норме платёж
-    приходит в CAPTURED — деньги списаны, нужен refund. Двухстадийный
-    AUTHORIZED (холд) отменяем через cancel. Раньше здесь искался только
-    AUTHORIZED, и списанные деньги при экспирации не возвращались вовсе.
+    Тонкая обёртка над общей `release_reservation_payment`: ту же операцию
+    делает шедулер экспирации забора (`rental_pickup_expiry`), и логика
+    возврата должна быть ровно одна.
 
     False — деньги вернуть не удалось, бронь закрывать нельзя.
     """
-    payment = (
-        await db.scalars(
-            select(Payment)
-            .where(
-                Payment.reservation_id == reservation.id,
-                Payment.type == PaymentType.PREAUTH,
-                Payment.status.in_((PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED)),
-            )
-            .limit(1)
-        )
-    ).first()
-    if payment is None or not payment.provider_payment_id:
-        return True
-
-    is_captured = payment.status == PaymentStatus.CAPTURED
-    try:
-        if is_captured:
-            await refund_yookassa_payment(
-                payment.provider_payment_id,
-                amount_value=payment.amount,
-                currency=payment.currency or "RUB",
-            )
-            payment.status = PaymentStatus.REFUNDED
-        else:
-            await cancel_yookassa_payment(payment.provider_payment_id)
-            payment.status = PaymentStatus.CANCELLED
-        payment.processed_at = now
-        return True
-    except Exception:
-        logger.exception(
-            "Failed to %s Yookassa payment %s for expired reservation %s",
-            "refund" if is_captured else "cancel",
-            payment.provider_payment_id,
-            reservation.id,
-        )
-        return False
+    return await release_reservation_payment(db, reservation.id, now)
 
 
 async def _reservation_maintenance_tick() -> None:

@@ -267,6 +267,8 @@ export type RentalListItem = {
   returnRequest?: ActiveReturnRequest | null;
   cancelReason?: string | null;
   startsAt?: string | null;
+  /** Дедлайн забора: после него аренда отменяется, деньги возвращаются. */
+  pickupExpiresAt?: string | null;
   plannedEndAt?: string | null;
   actualEndAt?: string | null;
   product: {
@@ -285,6 +287,7 @@ export type RentalDetail = {
   status: string;
   pickupPin?: string | null;
   startsAt?: string | null;
+  pickupExpiresAt?: string | null;
   plannedEndAt?: string | null;
   actualEndAt?: string | null;
   product: {

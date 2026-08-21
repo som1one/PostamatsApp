@@ -132,11 +132,11 @@ describe("computeOrderDeadlineMeta — preservation — Behaviour Matrix", () =>
     expect(meta?.title?.startsWith("Просрочено")).toBe(true);
   });
 
-  // Replacement for rows 6/7: `pickup_ready` with future plannedEnd → warn
-  // «До возврата». В отличие от getRentalDeadlineMeta здесь НЕТ под-ветки
-  // «Получение через …» — функция всегда падает в "До возврата" для статусов
-  // pickup_ready/pickup_opened/active при будущем plannedEnd.
-  it("returns warn 'До возврата' meta for pickup_ready booking with future plannedEndAt", () => {
+  // Replacement for rows 6/7: `pickup_ready` → warn «Аренда начнётся после
+  // получения PIN». В отличие от getRentalDeadlineMeta здесь НЕТ под-ветки
+  // «Получение через …»: дату выдачи страница и так печатает строкой
+  // «Начало аренды», дублировать её в плашке незачем.
+  it("returns warn 'Аренда начнётся…' meta for pickup_ready booking", () => {
     const rental = makeRental({
       status: "pickup_ready",
       plannedEndAt: "2025-01-01T13:00:00Z",
@@ -147,11 +147,11 @@ describe("computeOrderDeadlineMeta — preservation — Behaviour Matrix", () =>
     const meta = computeOrderDeadlineMeta(rental, nowMs);
 
     expect(meta?.tone).toBe("warn");
-    expect(meta?.title?.startsWith("До возврата")).toBe(true);
+    expect(meta?.title).toBe("Аренда начнётся после получения PIN");
   });
 
-  // Row 8: pickup_opened + now < plannedEndAt → warn «До возврата».
-  it("returns warn 'До возврата' meta for pickup_opened booking near start", () => {
+  // Row 8: pickup_opened → та же ветка, что и pickup_ready.
+  it("returns warn 'Аренда начнётся…' meta for pickup_opened booking near start", () => {
     const rental = makeRental({
       status: "pickup_opened",
       plannedEndAt: "2025-01-01T13:00:00Z",
@@ -162,7 +162,9 @@ describe("computeOrderDeadlineMeta — preservation — Behaviour Matrix", () =>
     const meta = computeOrderDeadlineMeta(rental, nowMs);
 
     expect(meta?.tone).toBe("warn");
-    expect(meta?.title?.startsWith("До возврата")).toBe(true);
+    expect(meta?.title).toBe("Аренда начнётся после получения PIN");
+    // Срок = plannedEndAt - startsAt = 1 ч 30 мин.
+    expect(meta?.text).toBe("Срок (1 час 30 минут) отсчитывается с момента, когда вы заберёте товар.");
   });
 
   // Row 9: return_in_progress → success «Возврат уже начат» (req 3.4).
@@ -199,6 +201,80 @@ describe("computeOrderDeadlineMeta — preservation — Behaviour Matrix", () =>
     expect(meta?.tone).toBe("danger");
     expect(meta?.title).toBe("Просрочено на 1 час");
     expect(meta?.text).toBe("Стоит оформить возврат как можно скорее.");
+  });
+});
+
+// Регрессия: жалоба клиента «сутки посчитались с 00 часов» — зеркало кейса из
+// getRentalDeadlineMeta.test.ts. До получения PIN `plannedEndAt` посчитан от
+// выбранной ДАТЫ (00:00) и будет перезаписан на confirm-pickup, поэтому ни
+// обратного отсчёта, ни просрочки на странице заказа быть не должно.
+describe("computeOrderDeadlineMeta — regression: preliminary plannedEndAt before pickup", () => {
+  it("does not count down to return for pickup_ready booking whose date-only start is already past", () => {
+    const rental = makeRental({
+      status: "pickup_ready",
+      // 21.08.2026 00:00 и 22.08.2026 00:00 по МСК (UTC+3).
+      startsAt: "2026-08-20T21:00:00Z",
+      plannedEndAt: "2026-08-21T21:00:00Z",
+    });
+    // 21.08.2026 10:27 МСК — клиент открыл заказ, PIN ещё не получал.
+    const nowMs = Date.parse("2026-08-21T07:27:00Z");
+
+    const meta = computeOrderDeadlineMeta(rental, nowMs);
+
+    expect(meta?.tone).toBe("warn");
+    expect(meta?.title).toBe("Аренда начнётся после получения PIN");
+    expect(meta?.text).toBe("Срок (1 день) отсчитывается с момента, когда вы заберёте товар.");
+    expect(meta?.text ?? "").not.toContain("Вернуть до");
+  });
+
+  it("does not flag pickup_ready booking as overdue when preliminary plannedEndAt is past", () => {
+    const rental = makeRental({
+      status: "pickup_ready",
+      startsAt: "2026-08-20T21:00:00Z",
+      plannedEndAt: "2026-08-21T21:00:00Z",
+    });
+    // 22.08.2026 01:00 МСК — предварительный дедлайн позади, аренда не начата.
+    const nowMs = Date.parse("2026-08-21T22:00:00Z");
+
+    const meta = computeOrderDeadlineMeta(rental, nowMs);
+
+    expect(meta?.tone).not.toBe("danger");
+    expect(meta?.title ?? "").not.toContain("Просрочено");
+  });
+
+  it("warns about the pickup deadline so the booking does not vanish silently", () => {
+    const rental = makeRental({
+      status: "pickup_ready",
+      startsAt: "2026-08-20T21:00:00Z",
+      plannedEndAt: "2026-08-21T21:00:00Z",
+      // Дедлайн забора = starts_at + 24 ч, то есть 22.08.2026 00:00 МСК.
+      pickupExpiresAt: "2026-08-21T21:00:00Z",
+    });
+    const nowMs = Date.parse("2026-08-21T07:27:00Z");
+
+    const meta = computeOrderDeadlineMeta(rental, nowMs);
+
+    expect(meta?.tone).toBe("warn");
+    expect(meta?.title).toBe("Аренда начнётся после получения PIN");
+    expect(meta?.text).toContain("Забрать нужно до");
+    expect(meta?.text).toContain("деньги вернутся");
+  });
+
+  it("flags an already-missed pickup deadline instead of a silent cancellation", () => {
+    const rental = makeRental({
+      status: "pickup_ready",
+      startsAt: "2026-08-20T21:00:00Z",
+      plannedEndAt: "2026-08-21T21:00:00Z",
+      pickupExpiresAt: "2026-08-21T21:00:00Z",
+    });
+    // Шедулер экспирации ещё не добежал (тик раз в 60 с).
+    const nowMs = Date.parse("2026-08-21T21:00:30Z");
+
+    const meta = computeOrderDeadlineMeta(rental, nowMs);
+
+    expect(meta?.tone).toBe("danger");
+    expect(meta?.title).toBe("Время на получение истекло");
+    expect(meta?.text).toContain("деньги вернутся");
   });
 });
 

@@ -108,6 +108,64 @@ export function getRentalDeadlineMeta(rental: RentalListItem, nowMs: number): De
     return null;
   }
 
+  // До фактического забора `plannedEndAt` — предварительный: он посчитан от
+  // выбранной клиентом ДАТЫ, то есть от 00:00, и бэкенд перезапишет и
+  // `startsAt`, и `plannedEndAt` в момент подтверждения забора
+  // (POST /me/rentals/{id}/confirm-pickup). Показывать здесь обратный отсчёт
+  // или просрочку нельзя: клиент видел бы «До возврата: 13 часов» и
+  // «Вернуть до 22.08, 00:00», хотя аренда ещё даже не началась и сутки
+  // пойдут с момента, когда он получит PIN.
+  if (["pickup_ready", "pickup_opened"].includes(rental.status)) {
+    const startsAt = rental.startsAt;
+    const startsMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
+
+    // Если до старта аренды ещё ждать — показываем дату выдачи.
+    if (startsAt && !Number.isNaN(startsMs) && startsMs - nowMs > 60 * 60 * 1000) {
+      const wait = formatDurationLabel(startsMs - nowMs);
+      return {
+        tone: "warn",
+        title: `Получение через ${wait}`,
+        text: `Заберите товар после ${formatDateTime(startsAt)}`,
+        icon: "clock",
+      };
+    }
+
+    // Срок аренды = plannedEndAt - startsAt: оба значения бэкенд посчитал
+    // согласованно, поэтому разница даёт ровно оплаченную длительность.
+    const term = Number.isNaN(startsMs) ? null : formatDurationLabel(plannedEndMs - startsMs);
+    const termText = term
+      ? `Срок (${term}) отсчитывается с момента, когда вы заберёте товар.`
+      : "Срок отсчитывается с момента, когда вы заберёте товар.";
+
+    // Дедлайн забора — жёсткий: по нему шедулер отменяет аренду и возвращает
+    // деньги. Без этой строки бронь для клиента исчезала бы без объяснений.
+    const pickupExpiresAt = rental.pickupExpiresAt;
+    const pickupExpiresMs = pickupExpiresAt ? new Date(pickupExpiresAt).getTime() : Number.NaN;
+    if (pickupExpiresAt && !Number.isNaN(pickupExpiresMs)) {
+      if (pickupExpiresMs <= nowMs) {
+        return {
+          tone: "danger",
+          title: "Время на получение истекло",
+          text: "Бронь вот-вот отменится, деньги вернутся на карту.",
+          icon: "alert-triangle",
+        };
+      }
+      return {
+        tone: "warn",
+        title: "Аренда начнётся после получения PIN",
+        text: `${termText} Забрать нужно до ${formatDateTime(pickupExpiresAt)} — иначе бронь отменится и деньги вернутся.`,
+        icon: "clock",
+      };
+    }
+
+    return {
+      tone: "warn",
+      title: "Аренда начнётся после получения PIN",
+      text: termText,
+      icon: "clock",
+    };
+  }
+
   const diffMs = plannedEndMs - nowMs;
   const duration = formatDurationLabel(diffMs);
 
@@ -120,24 +178,7 @@ export function getRentalDeadlineMeta(rental: RentalListItem, nowMs: number): De
     };
   }
 
-  // Если до старта аренды ещё ждать — показываем дату выдачи, а не дедлайн.
-  if (
-    ["pickup_ready", "pickup_opened"].includes(rental.status) &&
-    rental.startsAt
-  ) {
-    const startsMs = new Date(rental.startsAt).getTime();
-    if (!Number.isNaN(startsMs) && startsMs - nowMs > 60 * 60 * 1000) {
-      const wait = formatDurationLabel(startsMs - nowMs);
-      return {
-        tone: "warn",
-        title: `Получение через ${wait}`,
-        text: `Заберите товар после ${formatDateTime(rental.startsAt)}`,
-        icon: "clock",
-      };
-    }
-  }
-
-  if (["pickup_ready", "pickup_opened", "active"].includes(rental.status)) {
+  if (rental.status === "active") {
     return {
       tone: "warn",
       title: `До возврата: ${duration}`,

@@ -47,7 +47,7 @@ from backend.models.product import Product  # noqa: E402
 from backend.models.product_category import ProductCategory  # noqa: E402
 from backend.models.reservation import Reservation  # noqa: E402
 from backend.models.user import User  # noqa: E402
-from backend.utils import reservation_expiry, yookassa_service  # noqa: E402
+from backend.utils import payment_flow, yookassa_service  # noqa: E402
 from backend.utils.payment_reconcile import reconcile_pending_payments  # noqa: E402
 from backend.utils.reservation_expiry import expire_stale_reservations  # noqa: E402
 from backend.utils.reservation_utils import ensure_utc  # noqa: E402
@@ -83,10 +83,12 @@ class PaymentReconcileTests(unittest.IsolatedAsyncioTestCase):
             self.cancels.append(provider_payment_id)
             return {"status": "canceled"}
 
-        self._original_refund = reservation_expiry.refund_yookassa_payment
-        self._original_cancel = reservation_expiry.cancel_yookassa_payment
-        reservation_expiry.refund_yookassa_payment = _fake_refund
-        reservation_expiry.cancel_yookassa_payment = _fake_cancel
+        # Возврат денег живёт в payment_flow.release_reservation_payment —
+        # общей точке для экспирации броней и экспирации забора.
+        self._original_refund = payment_flow.refund_yookassa_payment
+        self._original_cancel = payment_flow.cancel_yookassa_payment
+        payment_flow.refund_yookassa_payment = _fake_refund
+        payment_flow.cancel_yookassa_payment = _fake_cancel
 
         async with SessionLocal() as db:
             self.city_id = uuid4()
@@ -139,8 +141,8 @@ class PaymentReconcileTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         yookassa_service.fetch_yookassa_payment_status = self._original_fetch
-        reservation_expiry.refund_yookassa_payment = self._original_refund
-        reservation_expiry.cancel_yookassa_payment = self._original_cancel
+        payment_flow.refund_yookassa_payment = self._original_refund
+        payment_flow.cancel_yookassa_payment = self._original_cancel
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
         try:
@@ -392,7 +394,7 @@ class PaymentReconcileTests(unittest.IsolatedAsyncioTestCase):
             expires_in=timedelta(minutes=-5),
         )
         self._patch_yookassa("succeeded")
-        reservation_expiry.refund_yookassa_payment = _broken_refund
+        payment_flow.refund_yookassa_payment = _broken_refund
 
         await expire_stale_reservations()
 

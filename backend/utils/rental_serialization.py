@@ -52,6 +52,12 @@ async def serialize_rental_list_item(
         "cancelReason": rental.cancel_reason,
         "pickupPin": rental.pickup_pin,
         "startsAt": rental.starts_at.isoformat() if rental.starts_at else None,
+        # Дедлайн забора: после него шедулер отменяет аренду и возвращает
+        # деньги. Клиент должен видеть этот срок, иначе бронь «исчезает»
+        # без предупреждения.
+        "pickupExpiresAt": (
+            rental.pickup_expires_at.isoformat() if rental.pickup_expires_at else None
+        ),
         "plannedEndAt": rental.planned_end_at.isoformat() if rental.planned_end_at else None,
         "actualEndAt": rental.actual_end_at.isoformat() if rental.actual_end_at else None,
         "product": {
@@ -151,6 +157,9 @@ async def serialize_rental_detail(db: AsyncSession, rental: Rental) -> dict:
             "status": rental.status.value,
             "pickupPin": rental.pickup_pin,
             "startsAt": rental.starts_at.isoformat() if rental.starts_at else None,
+            "pickupExpiresAt": (
+                rental.pickup_expires_at.isoformat() if rental.pickup_expires_at else None
+            ),
             "plannedEndAt": rental.planned_end_at.isoformat() if rental.planned_end_at else None,
             "actualEndAt": rental.actual_end_at.isoformat() if rental.actual_end_at else None,
             "product": prod_payload,

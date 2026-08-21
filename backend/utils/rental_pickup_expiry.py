@@ -3,11 +3,17 @@
 Runs every RENTAL_PICKUP_EXPIRY_INTERVAL_SECONDS seconds (default 60).
 If a rental has status PICKUP_READY and pickup_expires_at <= now,
 it is cancelled:
+  - деньги клиенту   → refund списанного (или cancel холда)
   - inventory unit → AVAILABLE
   - locker cell    → VACANT  (if still RESERVED)
   - rental.status  → CANCELLED
   - rental.cancel_reason → "pickup_expired"
   - RentalEvent logged
+
+Возврат денег обязателен: клиент уже заплатил, а товар так и не получил.
+Раньше этот проход просто закрывал аренду, и деньги оставались у нас —
+в отличие от ручной отмены до забора и от экспирации оплаченной брони,
+где возврат делается.
 """
 import asyncio
 import logging
@@ -22,6 +28,7 @@ from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
+from backend.utils.payment_flow import release_reservation_payment
 
 logger = logging.getLogger(__name__)
 
@@ -31,18 +38,39 @@ RENTAL_PICKUP_EXPIRY_INTERVAL_SECONDS = 60
 async def expire_stale_pickup_rentals() -> None:
     now = datetime.now(timezone.utc)
     async with SessionLocal() as db:
-        stmt = select(Rental).where(
+        stmt = select(Rental.id).where(
             Rental.status == RentalStatus.PICKUP_READY,
             Rental.pickup_expires_at.is_not(None),
             Rental.pickup_expires_at <= now,
         )
-        rentals = list((await db.scalars(stmt)).all())
-        if not rentals:
+        rental_ids = list((await db.scalars(stmt)).all())
+        if not rental_ids:
             return
 
         cancelled = 0
-        for rental in rentals:
+        # Коммитим каждую аренду отдельно: в проходе есть обращение к ЮKassa,
+        # и падение на одной аренде не должно откатывать уже сделанные
+        # возвраты по другим.
+        for rental_id in rental_ids:
             try:
+                rental = await db.get(Rental, rental_id)
+                if rental is None or rental.status != RentalStatus.PICKUP_READY:
+                    continue
+
+                # Деньги возвращаем ДО отмены. Если ЮKassa недоступна, аренду
+                # не закрываем — она попадёт в следующий тик. Подержать товар
+                # в ячейке дешевле, чем оставить клиента без вещи и без денег.
+                if rental.reservation_id is not None:
+                    released = await release_reservation_payment(
+                        db,
+                        rental.reservation_id,
+                        now,
+                        context="pickup-expired rental",
+                    )
+                    if not released:
+                        await db.rollback()
+                        continue
+
                 prev_status = rental.status
 
                 # Освобождаем единицу инвентаря
@@ -73,17 +101,14 @@ async def expire_stale_pickup_rentals() -> None:
                         payload_json={"cancelReason": "pickup_expired"},
                     )
                 )
+                await db.commit()
                 cancelled += 1
             except Exception:
-                logger.exception("Error expiring pickup-ready rental %s", rental.id)
+                await db.rollback()
+                logger.exception("Error expiring pickup-ready rental %s", rental_id)
 
         if cancelled:
-            try:
-                await db.commit()
-                logger.info("Cancelled %d stale pickup-ready rental(s)", cancelled)
-            except Exception:
-                await db.rollback()
-                logger.exception("Failed to commit pickup rental expiry batch")
+            logger.info("Cancelled %d stale pickup-ready rental(s)", cancelled)
 
 
 def rental_pickup_expiry_worker(
