@@ -33,7 +33,7 @@ from backend.utils.esi_client import (
     EsiOpenError,
     EsiReserveError,
     admin_trigger_open_cell,
-    reserve_pickup_cell,
+    reserve_cell_with_pin,
 )
 from backend.utils.inventory_tracking import add_inventory_movement
 from backend.utils.return_requests import (
@@ -142,6 +142,8 @@ _RETURN_REQUEST_ERRORS: dict[str, tuple[int, str]] = {
     "RETURN_LOCKER_DIFFERENT_CITY": (409, "RETURN_LOCKER_DIFFERENT_CITY"),
     "RETURN_CELL_NOT_AVAILABLE": (409, "RETURN_CELL_NOT_AVAILABLE"),
     "INVENTORY_NOT_FOUND": (500, "RETURN_REQUEST_FAILED"),
+    # Код не удалось записать в постамат — заявки нет, показывать нечего.
+    "RETURN_PIN_SYNC_FAILED": (502, "RETURN_PIN_SYNC_FAILED"),
     "ESI_OPEN_FAILED": (502, "ESI_OPEN_FAILED"),
     "ESI_OPEN_NOT_CONFIRMED": (504, "LOCKER_OPEN_NOT_CONFIRMED"),
     "ESI_NOT_CONFIGURED": (503, "ESI_NOT_CONFIGURED"),
@@ -1047,11 +1049,11 @@ async def confirm_pickup(
     # команда `/open-cell`, и здесь она не вызывается.
     if cell is not None:
         try:
-            await reserve_pickup_cell(
+            await reserve_cell_with_pin(
                 db,
                 locker_id=rental.pickup_locker_id,
                 cell_id=cell.id,
-                pickup_pin=rental.pickup_pin,
+                pin=rental.pickup_pin,
             )
         except EsiReserveError as exc:
             # Аренду не стартуем: лучше честная ошибка, чем активная аренда

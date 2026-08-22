@@ -28,12 +28,6 @@ class EsiOpenError(Exception):
     pass
 
 
-class EsiReturnOpenError(Exception):
-    def __init__(self, code: str):
-        self.code = code
-        super().__init__(code)
-
-
 class EsiDiscoveryError(Exception):
     pass
 
@@ -490,13 +484,19 @@ async def discover_external_lockers(
     ]
 
 
-async def reserve_pickup_cell(
+async def reserve_cell_with_pin(
     db: AsyncSession,
     *,
     locker_id: UUID,
     cell_id: UUID,
-    pickup_pin: str,
+    pin: str,
 ) -> None:
+    """Назначает ячейке код: только `set-cell`, дверца не открывается.
+
+    Используется и для выдачи, и для возврата — в обоих случаях клиент
+    набирает код на клавиатуре постамата сам. Команда `/open-cell`
+    отсюда не вызывается ни при каких условиях.
+    """
     locker = await db.get(LockerLocation, locker_id)
     cell = await db.get(LockerCell, cell_id)
     if locker is None or cell is None or cell.locker_id != locker_id:
@@ -526,7 +526,7 @@ async def reserve_pickup_cell(
             locker_id=locker_id,
             cell_id=cell_id,
             state="occupied",
-            pin=pickup_pin,
+            pin=pin,
         )
     except EsiOpenError as exc:
         code = str(exc)
@@ -632,64 +632,9 @@ async def admin_trigger_open_cell(
     await db.flush()
 
 
-async def esi_trigger_return_cell_open(
-    db: AsyncSession,
-    *,
-    locker_id: UUID,
-    cell_id: UUID,
-    rental_id: UUID,
-    pin: str,
-) -> None:
-    locker = await db.get(LockerLocation, locker_id)
-    cell = await db.get(LockerCell, cell_id)
-    if cell is None or locker is None or cell.locker_id != locker_id:
-        raise EsiReturnOpenError("RETURN_CELL_NOT_FOUND")
-
-    if cell.status in (LockerCellStatus.FAULT, LockerCellStatus.DISABLED):
-        raise EsiReturnOpenError("RETURN_CELL_NOT_OPERABLE")
-
-    now = datetime.now(timezone.utc)
-
-    if _should_use_stub(locker):
-        cell.status = LockerCellStatus.OPENED
-        cell.last_opened_at = now
-        cell.last_event_at = now
-        await db.flush()
-        return
-
-    serial = _external_serial(locker)
-    external_cell_id = _external_cell_key(cell)
-    if not serial or not external_cell_id:
-        raise EsiReturnOpenError("ESI_NOT_CONFIGURED")
-
-    try:
-        # Бронируем ячейку под возврат: ESI ожидает `occupied` + pin
-        # (`vacant` с непустым pin провайдер не принимает). После этого
-        # принудительно открываем дверцу — клиент кладёт товар.
-        await _esi_post(
-            f"/set-cell/{serial}/{external_cell_id}",
-            payload={"state": _esi_state_payload("occupied"), "pin": pin},
-        )
-        await _esi_post(f"/open-cell/{serial}/{external_cell_id}")
-    except EsiOpenError as exc:
-        code = str(exc)
-        if code == "ESI_NOT_CONFIGURED":
-            raise EsiReturnOpenError("ESI_NOT_CONFIGURED") from exc
-        if code == "ESI_HTTP_ERROR":
-            raise EsiReturnOpenError("ESI_HTTP_ERROR") from exc
-        raise EsiReturnOpenError("ESI_OPEN_FAILED") from exc
-
-    confirmed = await _wait_for_cell_open(serial, external_cell_id)
-    if not confirmed:
-        logger.warning(
-            "ESI return open-cell not confirmed within timeout: serial=%s cell=%s rental=%s",
-            serial,
-            external_cell_id,
-            rental_id,
-        )
-        raise EsiReturnOpenError("ESI_OPEN_NOT_CONFIRMED")
-
-    cell.status = LockerCellStatus.OPENED
-    cell.last_opened_at = now
-    cell.last_event_at = now
-    await db.flush()
+# Здесь жил `esi_trigger_return_cell_open` — он слал `/open-cell` на
+# оформлении возврата. Возврат давно работает иначе: ячейке назначается
+# код, а дверцу открывает сам клиент, набрав его на клавиатуре. После
+# перехода на `reserve_cell_with_pin` функцию не звал никто, и оставлять
+# в клиенте неиспользуемый путь к открытию дверцы незачем. Открывает
+# ячейку теперь ровно одно место — `admin_trigger_open_cell`.

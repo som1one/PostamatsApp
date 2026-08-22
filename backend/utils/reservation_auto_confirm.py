@@ -40,7 +40,7 @@ from backend.models.locker_location import LockerLocation
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
 from backend.models.reservation import Reservation
-from backend.utils.esi_client import EsiReserveError, reserve_pickup_cell
+from backend.utils.esi_client import EsiReserveError, reserve_cell_with_pin
 from backend.utils.reservation_utils import (
     calculate_paid_reservation_expires_at,
     calculate_pickup_expires_at,
@@ -136,11 +136,11 @@ async def _confirm_reservation(db, reservation: Reservation, now: datetime) -> N
         return
 
     pickup_pin = generate_pickup_pin()
-    await reserve_pickup_cell(
+    await reserve_cell_with_pin(
         db,
         locker_id=reservation.locker_id,
         cell_id=inventory_unit.locker_cell_id,
-        pickup_pin=pickup_pin,
+        pin=pickup_pin,
     )
 
     # Пока ходили в ESI, фронт мог успеть подтвердить бронь сам —

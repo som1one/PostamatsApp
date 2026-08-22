@@ -358,6 +358,12 @@ function OrderDetailContent({ id }: { id: string }) {
         setError("Постамат сейчас офлайн. Попробуйте позже.");
       } else if (err instanceof ApiError && err.code === "RETURN_CELL_NOT_AVAILABLE") {
         setError("В постамате нет свободных ячеек для возврата. Попробуйте позже.");
+      } else if (
+        err instanceof ApiError &&
+        (err.code === "RETURN_PIN_SYNC_FAILED" || err.code === "ESI_NOT_CONFIGURED")
+      ) {
+        // Код не записался в постамат — показывать его нельзя, он не сработает.
+        setError("Постамат не принял код возврата. Попробуйте ещё раз через пару минут.");
       } else {
         setError(err instanceof Error ? err.message : "Не удалось начать возврат");
       }

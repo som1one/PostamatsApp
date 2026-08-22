@@ -44,7 +44,7 @@ from backend.utils.product_filters import (
     minor_to_major_decimal,
     resolve_effective_cover_url,
 )
-from backend.utils.esi_client import EsiReserveError, reserve_pickup_cell
+from backend.utils.esi_client import EsiReserveError, reserve_cell_with_pin
 from backend.utils.reservation_utils import (
     calculate_expires_at,
     calculate_pickup_expires_at,
@@ -562,11 +562,11 @@ async def confirm_reservation(
     # ESI ответил ошибкой, бронь не подтверждаем — клиент увидит понятное
     # сообщение и сможет повторить позже.
     try:
-        await reserve_pickup_cell(
+        await reserve_cell_with_pin(
             db,
             locker_id=reservation.locker_id,
             cell_id=inventory_unit.locker_cell_id,
-            pickup_pin=pickup_pin,
+            pin=pickup_pin,
         )
     except EsiReserveError as exc:
         await db.rollback()

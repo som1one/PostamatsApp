@@ -159,6 +159,112 @@ async def _restore_forgotten_pickup_pins(
         )
 
 
+async def _restore_forgotten_return_pins(
+    db,
+    candidates: list[LockerCell],
+    now: datetime,
+) -> None:
+    """То же самое, но для возвратов: код сдачи тоже живёт в железе.
+
+    Ячейку под возврат мы назначаем один раз — в момент, когда клиент
+    нажал «Оформить возврат». Сброс постамата (или любой перевод ячейки
+    в свободную, при котором ESI затирает pin) оставляет человека у
+    постамата с кодом, которого на клавиатуре уже нет, а вещь — на руках.
+
+    Чиним так же, как выдачу: если постамат говорит «ячейка свободна», а
+    на неё есть живая заявка на возврат, записываем код заново. Это
+    `set-cell`; ячейка при этом НЕ открывается, `/open-cell` отсюда не
+    вызывается.
+    """
+    if not candidates:
+        return
+
+    cell_by_id = {cell.id: cell for cell in candidates}
+    requests = list(
+        (
+            await db.scalars(
+                select(ReturnRequest).where(
+                    ReturnRequest.cell_id.in_(list(cell_by_id.keys())),
+                    ReturnRequest.status.in_(
+                        (
+                            ReturnRequestStatus.CREATED,
+                            ReturnRequestStatus.LOCKER_OPENED,
+                            ReturnRequestStatus.AWAITING_CLOSE,
+                        )
+                    ),
+                )
+            )
+        ).all()
+    )
+
+    active_statuses = (
+        ReturnRequestStatus.CREATED,
+        ReturnRequestStatus.LOCKER_OPENED,
+        ReturnRequestStatus.AWAITING_CLOSE,
+    )
+    for request in requests:
+        cell = cell_by_id.get(request.cell_id)
+        if cell is None or not request.pin:
+            continue
+
+        # Сессия без autoflush: выборка выше могла прийти из БД, а в памяти
+        # заявку уже уронил проход по дедлайнам в начале тика. Сверяемся с
+        # объектом, а не с тем, что было в базе на момент SELECT.
+        if request.status not in active_statuses:
+            continue
+
+        # Заявка уже протухла — её добьёт проход по дедлайнам, писать код
+        # в ячейку под мёртвый возврат незачем.
+        if ensure_utc(request.deadline_at) <= now:
+            continue
+
+        # Ячейку открывали после оформления возврата — товар, скорее всего,
+        # уже внутри, и ждём только события о закрытии.
+        if cell.last_opened_at is not None and ensure_utc(cell.last_opened_at) > ensure_utc(
+            request.requested_at
+        ):
+            continue
+
+        try:
+            await sync_cell_state(
+                db,
+                locker_id=cell.locker_id,
+                cell_id=cell.id,
+                state="occupied",
+                pin=request.pin,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to restore return PIN for cell %s (return request %s)",
+                cell.id,
+                request.id,
+            )
+            continue
+
+        cell.status = LockerCellStatus.RESERVED
+        cell.last_event_at = now
+        rental = await db.get(Rental, request.rental_id)
+        if rental is not None:
+            db.add(
+                RentalEvent(
+                    rental_id=rental.id,
+                    event_type="return_pin_restored",
+                    from_status=rental.status,
+                    to_status=rental.status,
+                    source=RentalEventSource.SYSTEM,
+                    payload_json={
+                        "returnRequestId": str(request.id),
+                        "cellId": str(cell.id),
+                        "externalCellId": cell.external_cell_id,
+                        "reason": "locker_reported_cell_vacant",
+                    },
+                )
+            )
+        logger.info(
+            "Restored return PIN in cell %s for return request %s", cell.id, request.id
+        )
+
+
 async def reconcile_esi_and_returns() -> None:
     now = datetime.now(timezone.utc)
     async with SessionLocal() as db:
@@ -260,6 +366,7 @@ async def reconcile_esi_and_returns() -> None:
                     pin_restore_candidates.append(cell)
 
         await _restore_forgotten_pickup_pins(db, pin_restore_candidates, now)
+        await _restore_forgotten_return_pins(db, pin_restore_candidates, now)
 
         if not settings.ESI_DEV_STUB and settings.ESI_BASE_URL:
             active_requests = list((await db.scalars(active_requests_stmt)).all())

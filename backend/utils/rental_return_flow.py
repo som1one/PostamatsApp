@@ -1,5 +1,6 @@
-"""Return flow bootstrap: choose a cell, open it via ESI, persist a return request."""
+"""Return flow bootstrap: choose a cell, write its PIN, persist a return request."""
 
+import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -21,7 +22,7 @@ from backend.models.locker_location import LockerLocation
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
 from backend.models.return_request import ReturnRequest
-from backend.utils.esi_client import EsiReturnOpenError, esi_trigger_return_cell_open
+from backend.utils.esi_client import EsiReserveError, reserve_cell_with_pin
 from backend.utils.reservation_utils import generate_pickup_pin
 from backend.utils.return_requests import (
     ACTIVE_RETURN_REQUEST_STATUSES,
@@ -293,28 +294,39 @@ async def start_rental_return(
     now = datetime.now(timezone.utc)
     return_pin = generate_pickup_pin()
     deadline = generate_return_deadline(now)
+    # Читаем id заранее: после rollback объекты сессии протухают, и обращение
+    # к их полям в обработчике ошибки уже не сходит с рук.
+    rental_id = rental.id
 
+    # Назначаем ячейке код возврата и только потом показываем его клиенту.
+    # Раньше ошибку записи глотали «чтобы не блокировать возврат», и человек
+    # уходил к постамату с четырьмя цифрами, которых на клавиатуре нет.
+    # Заявку в этом случае не создаём: честная ошибка лучше мёртвого кода.
+    # Это `set-cell` — он назначает состояние и код; `/open-cell` отсюда
+    # не вызывается, дверца сама не откроется.
     try:
-        # Резервируем ячейку с PIN-кодом. Клиент сам введёт PIN
-        # на клавиатуре постамата — дверца откроется.
-        # Если постамат offline — пропускаем: пин записан в БД,
-        # клиент введёт его когда постамат будет доступен.
-        from backend.utils.esi_client import sync_cell_state, EsiOpenError
-        await sync_cell_state(
+        await reserve_cell_with_pin(
             db,
             locker_id=return_locker_id,
             cell_id=cell.id,
-            state="occupied",
             pin=return_pin,
         )
-    except EsiOpenError as exc:
-        code = str(exc)
+    except EsiReserveError as exc:
+        await db.rollback()
+        code = str(exc) or "RETURN_PIN_SYNC_FAILED"
+        if code == "ESI_MACHINE_OFFLINE":
+            raise ReturnRequestError("LOCKER_OFFLINE") from exc
         if code == "ESI_NOT_CONFIGURED":
             raise ReturnRequestError("ESI_NOT_CONFIGURED") from exc
-        # ESI_MACHINE_OFFLINE, ESI_HTTP_ERROR — не блокируем возврат,
-        # пин сохранён в БД и будет работать когда постамат online.
-        import logging
-        logging.getLogger(__name__).warning("ESI set-cell for return failed (non-blocking): %s", code)
+        if code == "CELL_NOT_RESERVABLE":
+            raise ReturnRequestError("RETURN_CELL_NOT_OPERABLE") from exc
+        raise ReturnRequestError("RETURN_PIN_SYNC_FAILED") from exc
+    except Exception as exc:
+        await db.rollback()
+        logging.getLogger(__name__).exception(
+            "Unexpected failure writing return PIN for rental %s", rental_id
+        )
+        raise ReturnRequestError("RETURN_PIN_SYNC_FAILED") from exc
 
     prev = rental.status
     rental.return_locker_id = return_locker_id
