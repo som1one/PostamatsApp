@@ -14,7 +14,7 @@ from backend.routers.admin.auth import get_current_admin
 from backend.utils.admin_audit import record_admin_audit
 from backend.utils.admin_scope import (
     ensure_city_in_scope,
-    franchise_city_id,
+    franchise_city_ids,
     require_not_franchise,
 )
 from backend.schemas.admin_panel_schemas import AdminCreateCityPayload, AdminUpdateCityPayload
@@ -49,13 +49,13 @@ async def list_admin_cities(
     db: AsyncSession = Depends(get_db),
 ):
     admin, _ = await get_current_admin(request, db)
-    scope_city_id = franchise_city_id(admin)
+    scope_city_ids = franchise_city_ids(admin)
 
     # Раздел «Города» франшизе не показываем, но список нужен самой панели
     # (подписи городов, форма постамата) — отдаём только её город.
     stmt = select(City).order_by(City.sort_order.asc(), City.name.asc())
-    if scope_city_id is not None:
-        stmt = stmt.where(City.id == scope_city_id)
+    if scope_city_ids is not None:
+        stmt = stmt.where(City.id.in_(scope_city_ids))
     cities = (await db.scalars(stmt)).all()
     counts = await _locker_counts_by_city(db, [c.id for c in cities])
 
@@ -77,7 +77,7 @@ async def get_admin_city(
     db: AsyncSession = Depends(get_db),
 ):
     admin, _ = await get_current_admin(request, db)
-    ensure_city_in_scope(franchise_city_id(admin), city_id)
+    ensure_city_in_scope(franchise_city_ids(admin), city_id)
 
     city = (
         await db.execute(select(City).where(City.id == city_id))
@@ -255,6 +255,11 @@ async def _perform_admin_city_delete(
         raise HTTPException(
             status_code=409,
             detail="Нельзя удалить город, пока к нему привязаны постаматы",
+        )
+    if outcome == "has_franchises":
+        raise HTTPException(
+            status_code=409,
+            detail="Нельзя удалить город, пока он выдан франшизе",
         )
 
     try:

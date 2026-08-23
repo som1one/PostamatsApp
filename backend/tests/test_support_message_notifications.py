@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from backend.core.database import Base
 from backend.core.settings import settings
 from backend.models.admin_account import AdminAccount
+from backend.models.admin_account_city import admin_account_cities
 from backend.models.city import City
 from backend.models.enums import ConversationStatus, VerificationStatus
 from backend.models.support_conversation import SupportConversation
@@ -38,6 +39,7 @@ TEST_TABLES = [
     City.__table__,
     User.__table__,
     AdminAccount.__table__,
+    admin_account_cities,
     SupportConversation.__table__,
     SupportMessage.__table__,
 ]

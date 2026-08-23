@@ -25,7 +25,7 @@ from backend.schemas.admin_panel_schemas import (
     AdminTakeForServicePayload,
 )
 from backend.utils.admin_audit import record_admin_audit
-from backend.utils.admin_scope import ensure_locker_in_scope, franchise_city_id
+from backend.utils.admin_scope import ensure_locker_in_scope, franchise_city_ids
 from backend.utils.esi_client import (
     EsiDiscoveryError,
     EsiOpenError,
@@ -129,15 +129,15 @@ async def list_inventory_lockers(
     db: AsyncSession = Depends(get_db),
 ):
     admin, _ = await get_current_admin(request, db)
-    scope_city_id = franchise_city_id(admin)
+    scope_city_ids = franchise_city_ids(admin)
 
     lockers_stmt = (
         select(LockerLocation)
         .where(LockerLocation.status != LockerStatus.OFFLINE)
         .order_by(LockerLocation.name.asc())
     )
-    if scope_city_id is not None:
-        lockers_stmt = lockers_stmt.where(LockerLocation.city_id == scope_city_id)
+    if scope_city_ids is not None:
+        lockers_stmt = lockers_stmt.where(LockerLocation.city_id.in_(scope_city_ids))
     lockers = (await db.scalars(lockers_stmt)).all()
     if not lockers:
         return {"data": {"lockers": []}, "meta": {"total": 0}}
@@ -203,7 +203,7 @@ async def list_inventory_locker_cells(
     locker = await db.get(LockerLocation, locker_id)
     if locker is None:
         raise HTTPException(status_code=404, detail="Постамат не найден")
-    await ensure_locker_in_scope(db, franchise_city_id(admin), locker)
+    await ensure_locker_in_scope(db, franchise_city_ids(admin), locker)
 
     cells = (
         await db.scalars(
@@ -375,7 +375,7 @@ async def place_product_in_cell(
     locker = await db.get(LockerLocation, cell.locker_id)
     if locker is None:
         raise HTTPException(status_code=404, detail="Постамат не найден")
-    await ensure_locker_in_scope(db, franchise_city_id(admin), locker)
+    await ensure_locker_in_scope(db, franchise_city_ids(admin), locker)
 
     if cell.status in (LockerCellStatus.FAULT, LockerCellStatus.DISABLED):
         raise HTTPException(
@@ -523,7 +523,7 @@ async def take_cell_for_service(
     locker = await db.get(LockerLocation, cell.locker_id)
     if locker is None:
         raise HTTPException(status_code=404, detail="Постамат не найден")
-    await ensure_locker_in_scope(db, franchise_city_id(admin), locker)
+    await ensure_locker_in_scope(db, franchise_city_ids(admin), locker)
 
     unit = (
         await db.execute(
@@ -669,7 +669,7 @@ async def confirm_inventory_ready(
     locker = await db.get(LockerLocation, cell.locker_id)
     if locker is None:
         raise HTTPException(status_code=404, detail="Постамат не найден")
-    await ensure_locker_in_scope(db, franchise_city_id(admin), locker)
+    await ensure_locker_in_scope(db, franchise_city_ids(admin), locker)
 
     product = await db.get(Product, unit.product_id)
     if product is None:
@@ -803,7 +803,7 @@ async def test_open_cell(
     locker = await db.get(LockerLocation, cell.locker_id)
     if locker is None:
         raise HTTPException(status_code=404, detail="Постамат не найден")
-    await ensure_locker_in_scope(db, franchise_city_id(admin), locker)
+    await ensure_locker_in_scope(db, franchise_city_ids(admin), locker)
 
     serial = (locker.external_locker_id or "").strip()
     external_cell_id = (cell.external_cell_id or "").strip()

@@ -152,6 +152,12 @@ class RentalSummary(BaseModel):
     status: RentalStatus = Field(..., description="Rental status")
     startsAt: datetime | None = Field(default=None, description="Rental start time, if set")
     plannedEndAt: datetime | None = Field(default=None, description="Planned rental end time")
+    lockerName: str | None = Field(default=None, description="Pickup locker name")
+    cityName: str | None = Field(default=None, description="Pickup locker city")
+    adminUrl: str | None = Field(
+        default=None,
+        description="Deep link into the admin rental card, when ADMIN_PANEL_URL is configured",
+    )
 
 
 class ClientInfoCard(BaseModel):

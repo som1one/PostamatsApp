@@ -4,11 +4,12 @@ from uuid import UUID
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.models.admin_account_city import admin_account_cities
 from backend.models.city import City
 from backend.models.locker_location import LockerLocation
 from backend.models.user import User
 
-DeleteCityOutcome = Literal["deleted", "not_found", "has_lockers"]
+DeleteCityOutcome = Literal["deleted", "not_found", "has_lockers", "has_franchises"]
 
 
 async def delete_city_by_id(session: AsyncSession, city_id: UUID) -> DeleteCityOutcome:
@@ -23,6 +24,16 @@ async def delete_city_by_id(session: AsyncSession, city_id: UUID) -> DeleteCityO
     )
     if (locker_count or 0) > 0:
         return "has_lockers"
+
+    # Город может быть единственным у франчайзи: снеси его молча — и
+    # партнёр останется с пустым скоупом и 403 вместо админки.
+    franchise_count = await session.scalar(
+        select(func.count())
+        .select_from(admin_account_cities)
+        .where(admin_account_cities.c.city_id == city_id)
+    )
+    if (franchise_count or 0) > 0:
+        return "has_franchises"
 
     await session.execute(
         update(User).where(User.preferred_city_id == city_id).values(preferred_city_id=None)

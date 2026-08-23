@@ -7,6 +7,7 @@
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import Sequence
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
@@ -54,14 +55,14 @@ _ACTIVE_RENTAL_STATUSES = (
 _STATS_WINDOW_DAYS = 30
 
 
-def _serialize_franchise(admin: AdminAccount, city: City | None) -> dict:
+def _serialize_franchise(admin: AdminAccount) -> dict:
+    cities = [{"id": str(city.id), "name": city.name} for city in admin.cities]
     return {
         "id": str(admin.id),
         "name": admin.name,
         "login": admin.login,
         "isActive": bool(admin.is_active),
-        "cityId": str(admin.city_id) if admin.city_id else None,
-        "cityName": city.name if city else None,
+        "cities": cities,
         "lastLoginAt": admin.last_login_at.isoformat() if admin.last_login_at else None,
         "createdAt": admin.created_at.isoformat() if admin.created_at else None,
     }
@@ -74,11 +75,25 @@ async def _get_franchise(db: AsyncSession, franchise_id: UUID) -> AdminAccount:
     return admin
 
 
-async def _get_city(db: AsyncSession, city_id: UUID) -> City:
-    city = await db.get(City, city_id)
-    if city is None:
+async def _get_cities(db: AsyncSession, city_ids: list[UUID]) -> list[City]:
+    """Города франшизы по списку id, с проверкой, что все существуют.
+
+    Дубликаты в запросе схлопываем: связка — множество, а не список.
+    """
+
+    unique: list[UUID] = []
+    for city_id in city_ids:
+        if city_id not in unique:
+            unique.append(city_id)
+    if not unique:
+        raise HTTPException(status_code=422, detail="Выберите хотя бы один город")
+
+    found = (await db.scalars(select(City).where(City.id.in_(unique)))).all()
+    by_id = {city.id: city for city in found}
+    missing = [city_id for city_id in unique if city_id not in by_id]
+    if missing:
         raise HTTPException(status_code=404, detail="Город не найден")
-    return city
+    return [by_id[city_id] for city_id in unique]
 
 
 async def _revoke_sessions(db: AsyncSession, admin_id: UUID, reason: str) -> None:
@@ -116,19 +131,8 @@ async def list_franchises(
         )
     ).all()
 
-    city_ids = [item.city_id for item in franchises if item.city_id]
-    city_map: dict[UUID, City] = {}
-    if city_ids:
-        cities = (await db.scalars(select(City).where(City.id.in_(city_ids)))).all()
-        city_map = {city.id: city for city in cities}
-
     return {
-        "data": {
-            "franchises": [
-                _serialize_franchise(item, city_map.get(item.city_id))
-                for item in franchises
-            ]
-        },
+        "data": {"franchises": [_serialize_franchise(item) for item in franchises]},
         "meta": {"total": len(franchises)},
     }
 
@@ -142,7 +146,7 @@ async def create_franchise(
     admin, _ = await get_current_admin(request, db)
     require_super_admin(admin)
 
-    city = await _get_city(db, payload.cityId)
+    cities = await _get_cities(db, payload.city_ids())
     await _ensure_login_free(db, payload.login)
 
     franchise = AdminAccount(
@@ -150,7 +154,7 @@ async def create_franchise(
         login=payload.login,
         role=AdminRole.FRANCHISE,
         password_hash=hash_password(payload.password),
-        city_id=city.id,
+        cities=cities,
         is_active=True,
         created_at=datetime.now(timezone.utc),
     )
@@ -165,7 +169,10 @@ async def create_franchise(
             request=request,
             resource_type="franchise",
             resource_id=franchise.id,
-            payload={"login": franchise.login, "cityId": str(city.id)},
+            payload={
+                "login": franchise.login,
+                "cityIds": [str(city.id) for city in cities],
+            },
         )
         await db.commit()
         await db.refresh(franchise)
@@ -173,7 +180,7 @@ async def create_franchise(
         await db.rollback()
         raise HTTPException(status_code=500, detail="Не удалось создать франшизу") from exc
 
-    return {"data": {"franchise": _serialize_franchise(franchise, city)}}
+    return {"data": {"franchise": _serialize_franchise(franchise)}}
 
 
 @router.patch("/{franchise_id}")
@@ -193,22 +200,21 @@ async def update_franchise(
         franchise.name = payload.name
         changes["name"] = payload.name
 
-    city: City | None = None
-    if payload.cityId is not None and payload.cityId != franchise.city_id:
-        city = await _get_city(db, payload.cityId)
-        franchise.city_id = city.id
-        changes["cityId"] = str(city.id)
-        # Город сменился — старые сессии смотрели на чужие данные.
-        await _revoke_sessions(db, franchise.id, "city_changed")
+    requested_city_ids = payload.city_ids()
+    if requested_city_ids is not None:
+        current = {city.id for city in franchise.cities}
+        if current != set(requested_city_ids):
+            cities = await _get_cities(db, requested_city_ids)
+            franchise.cities = cities
+            changes["cityIds"] = [str(city.id) for city in cities]
+            # Набор городов сменился — старые сессии смотрели на чужие данные.
+            await _revoke_sessions(db, franchise.id, "city_changed")
 
     if payload.isActive is not None and payload.isActive != franchise.is_active:
         franchise.is_active = payload.isActive
         changes["isActive"] = payload.isActive
         if not payload.isActive:
             await _revoke_sessions(db, franchise.id, "access_disabled")
-
-    if city is None and franchise.city_id is not None:
-        city = await db.get(City, franchise.city_id)
 
     if changes:
         try:
@@ -229,7 +235,7 @@ async def update_franchise(
                 status_code=500, detail="Не удалось обновить франшизу"
             ) from exc
 
-    return {"data": {"franchise": _serialize_franchise(franchise, city)}}
+    return {"data": {"franchise": _serialize_franchise(franchise)}}
 
 
 @router.post("/{franchise_id}/password")
@@ -323,12 +329,17 @@ async def delete_franchise(
     return {"data": {"deleted": True}}
 
 
-async def build_city_stats(db: AsyncSession, city_id: UUID) -> dict:
-    """Сводка по городу: пользователи, постаматы, аренды, выручка."""
+async def build_city_stats(db: AsyncSession, city_ids: Sequence[UUID] | UUID) -> dict:
+    """Сводка по городам франшизы: пользователи, постаматы, аренды, выручка.
 
+    Принимает один город или несколько — у франшизы их может быть больше
+    одного, и цифры тогда суммируются по всем её городам.
+    """
+
+    cities = [city_ids] if isinstance(city_ids, UUID) else list(city_ids)
     now = datetime.now(timezone.utc)
     window_start = now - timedelta(days=_STATS_WINDOW_DAYS)
-    user_scope = user_in_city_clause(city_id)
+    user_scope = user_in_city_clause(cities)
 
     users_total = (await db.scalar(select(func.count(User.id)).where(user_scope))) or 0
     users_verified = (
@@ -360,7 +371,7 @@ async def build_city_stats(db: AsyncSession, city_id: UUID) -> dict:
     locker_rows = (
         await db.execute(
             select(LockerLocation.status, func.count(LockerLocation.id))
-            .where(LockerLocation.city_id == city_id)
+            .where(LockerLocation.city_id.in_(cities))
             .group_by(LockerLocation.status)
         )
     ).all()
@@ -374,7 +385,7 @@ async def build_city_stats(db: AsyncSession, city_id: UUID) -> dict:
             select(LockerCell.status, func.count(LockerCell.id))
             .join(LockerLocation, LockerCell.locker_id == LockerLocation.id)
             .where(
-                LockerLocation.city_id == city_id,
+                LockerLocation.city_id.in_(cities),
                 LockerCell.status != LockerCellStatus.DISABLED,
             )
             .group_by(LockerCell.status)
@@ -394,7 +405,7 @@ async def build_city_stats(db: AsyncSession, city_id: UUID) -> dict:
         await db.execute(
             select(Rental.status, func.count(Rental.id))
             .join(LockerLocation, Rental.pickup_locker_id == LockerLocation.id)
-            .where(LockerLocation.city_id == city_id)
+            .where(LockerLocation.city_id.in_(cities))
             .group_by(Rental.status)
         )
     ).all()
@@ -407,7 +418,7 @@ async def build_city_stats(db: AsyncSession, city_id: UUID) -> dict:
         await db.scalar(
             select(func.count(Rental.id))
             .join(LockerLocation, Rental.pickup_locker_id == LockerLocation.id)
-            .where(LockerLocation.city_id == city_id, Rental.created_at >= window_start)
+            .where(LockerLocation.city_id.in_(cities), Rental.created_at >= window_start)
         )
     ) or 0
 
@@ -416,7 +427,7 @@ async def build_city_stats(db: AsyncSession, city_id: UUID) -> dict:
         .join(Rental, Payment.rental_id == Rental.id)
         .join(LockerLocation, Rental.pickup_locker_id == LockerLocation.id)
         .where(
-            LockerLocation.city_id == city_id,
+            LockerLocation.city_id.in_(cities),
             Payment.status == PaymentStatus.CAPTURED,
         )
     )
@@ -425,7 +436,7 @@ async def build_city_stats(db: AsyncSession, city_id: UUID) -> dict:
         .join(Rental, Payment.rental_id == Rental.id)
         .join(LockerLocation, Rental.pickup_locker_id == LockerLocation.id)
         .where(
-            LockerLocation.city_id == city_id,
+            LockerLocation.city_id.in_(cities),
             Payment.status == PaymentStatus.CAPTURED,
             func.coalesce(Payment.processed_at, Payment.created_at) >= window_start,
         )
@@ -479,15 +490,14 @@ async def get_franchise_stats(
     require_super_admin(admin)
 
     franchise = await _get_franchise(db, franchise_id)
-    if franchise.city_id is None:
-        raise HTTPException(status_code=409, detail="У франшизы не задан город")
+    if not franchise.cities:
+        raise HTTPException(status_code=409, detail="У франшизы не заданы города")
 
-    city = await _get_city(db, franchise.city_id)
-    stats = await build_city_stats(db, city.id)
+    stats = await build_city_stats(db, [city.id for city in franchise.cities])
 
     return {
         "data": {
-            "franchise": _serialize_franchise(franchise, city),
+            "franchise": _serialize_franchise(franchise),
             "stats": stats,
         }
     }

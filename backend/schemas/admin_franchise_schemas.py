@@ -32,7 +32,22 @@ class AdminCreateFranchisePayload(BaseModel):
     name: str = Field(..., min_length=1, max_length=200, description="Название франшизы")
     login: str = Field(..., description="Логин для входа в админку")
     password: str = Field(..., description="Пароль для входа")
-    cityId: UUID = Field(..., description="Город, к которому привязан доступ")
+    cityIds: list[UUID] | None = Field(
+        default=None, description="Города, к которым привязан доступ"
+    )
+    # Одиночный cityId — форма первой версии. Принимаем, чтобы вкладка,
+    # открытая до обновления админки, не получала 422 на ровном месте.
+    cityId: UUID | None = Field(default=None, description="Устаревшее: один город")
+
+    def city_ids(self) -> list[UUID]:
+        """Города доступа, собранные из обоих полей."""
+
+        values = list(self.cityIds or [])
+        if self.cityId is not None and self.cityId not in values:
+            values.append(self.cityId)
+        if not values:
+            raise ValueError("Выберите хотя бы один город")
+        return values
 
     @field_validator("name")
     @classmethod
@@ -55,8 +70,20 @@ class AdminCreateFranchisePayload(BaseModel):
 
 class AdminUpdateFranchisePayload(BaseModel):
     name: str | None = Field(default=None, max_length=200)
+    cityIds: list[UUID] | None = None
+    # Устаревшее поле первой версии формы — см. AdminCreateFranchisePayload.
     cityId: UUID | None = None
     isActive: bool | None = None
+
+    def city_ids(self) -> list[UUID] | None:
+        """Новый набор городов или ``None``, если города не трогаем."""
+
+        if self.cityIds is None and self.cityId is None:
+            return None
+        values = list(self.cityIds or [])
+        if self.cityId is not None and self.cityId not in values:
+            values.append(self.cityId)
+        return values
 
     @field_validator("name")
     @classmethod

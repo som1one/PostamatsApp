@@ -463,6 +463,24 @@
   color: var(--text-3);
 }
 
+/* Имя пользователя как ссылка — в таблице аренд и в карточке аренды. */
+.link-button {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+}
+
+.link-button:hover,
+.link-button:focus-visible {
+  text-decoration: underline;
+}
+
 .doc-links {
   display: flex;
   flex-wrap: wrap;
@@ -1068,4 +1086,39 @@
   .feedback-list {
     grid-template-columns: 1fr;
   }
+}
+
+/* ------------------------ Города франшизы (мультивыбор) ------------------ */
+
+.city-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  max-height: 220px;
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid var(--input-line);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+}
+
+.city-checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--radius-xs);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.city-checklist-item:hover {
+  background: var(--surface-3);
+}
+
+.city-checklist-item input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
 }

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import Sequence
 from uuid import UUID
 
 import httpx
@@ -74,15 +75,15 @@ def serialize_subscriber(
 async def list_subscribers(
     db: AsyncSession,
     *,
-    city_id: UUID | None = None,
+    city_ids: Sequence[UUID] | None = None,
 ) -> list[TelegramAdminSubscriber]:
-    """Список подписчиков. ``city_id`` — показать только подписчиков города."""
+    """Список подписчиков. ``city_ids`` — только подписчики этих городов."""
 
     stmt = select(TelegramAdminSubscriber).order_by(
         TelegramAdminSubscriber.created_at.asc()
     )
-    if city_id is not None:
-        stmt = stmt.where(TelegramAdminSubscriber.city_id == city_id)
+    if city_ids is not None:
+        stmt = stmt.where(TelegramAdminSubscriber.city_id.in_(city_ids))
     return list((await db.scalars(stmt)).all())
 
 
@@ -123,12 +124,12 @@ async def update_subscriber(
     *,
     is_enabled: bool | None = None,
     note: str | None = None,
-    require_city_id: UUID | None = None,
+    require_city_ids: Sequence[UUID] | None = None,
 ) -> TelegramAdminSubscriber:
     subscriber = await db.get(TelegramAdminSubscriber, subscriber_id)
     if subscriber is None:
         raise SubscriberError("SUBSCRIBER_NOT_FOUND", 404)
-    if require_city_id is not None and subscriber.city_id != require_city_id:
+    if require_city_ids is not None and subscriber.city_id not in require_city_ids:
         # Для франшизы чужой подписчик просто «не существует».
         raise SubscriberError("SUBSCRIBER_NOT_FOUND", 404)
     if is_enabled is not None:
@@ -145,12 +146,12 @@ async def delete_subscriber(
     db: AsyncSession,
     subscriber_id: UUID,
     *,
-    require_city_id: UUID | None = None,
+    require_city_ids: Sequence[UUID] | None = None,
 ) -> None:
     subscriber = await db.get(TelegramAdminSubscriber, subscriber_id)
     if subscriber is None:
         raise SubscriberError("SUBSCRIBER_NOT_FOUND", 404)
-    if require_city_id is not None and subscriber.city_id != require_city_id:
+    if require_city_ids is not None and subscriber.city_id not in require_city_ids:
         raise SubscriberError("SUBSCRIBER_NOT_FOUND", 404)
     await db.delete(subscriber)
     await db.commit()

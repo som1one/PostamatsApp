@@ -2,11 +2,11 @@ import asyncio
 import logging
 import threading
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
 from sqlalchemy import exists, func, select
 
 from backend.core.database import SessionLocal
-from backend.core.settings import settings
 from backend.models.enums import RentalEventSource, RentalStatus
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_location import LockerLocation
@@ -14,6 +14,7 @@ from backend.models.product import Product
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
 from backend.models.user import User
+from backend.utils.admin_links import build_admin_rentals_url
 from backend.utils.admin_notifications import escape_html, notify_admins
 
 logger = logging.getLogger(__name__)
@@ -48,11 +49,13 @@ def _format_duration(delta: timedelta) -> str:
     return f"{minutes} мин"
 
 
-def _admin_rentals_link() -> str | None:
-    base = settings.ADMIN_PANEL_URL
-    if not base:
-        return None
-    return f"{base.rstrip('/')}/?section=rentals"
+def _admin_rentals_link(rental_id: UUID | None = None) -> str | None:
+    """Deep-link в админку: без id — в список аренд, с id — сразу в карточку.
+
+    Раньше кнопка вела только в список, и оператор искал аренду глазами по
+    UUID из текста уведомления.
+    """
+    return build_admin_rentals_url(rental_id)
 
 
 def _build_overdue_notification_text(
@@ -84,10 +87,6 @@ def _build_overdue_notification_text(
 async def notify_support_about_long_overdue_rentals() -> None:
     now = datetime.now(timezone.utc)
     threshold = now - SUPPORT_OVERDUE_NOTIFICATION_DELAY
-    buttons = []
-    link = _admin_rentals_link()
-    if link:
-        buttons.append(("Открыть аренды", link))
 
     async with SessionLocal() as db:
         already_notified = exists().where(
@@ -118,6 +117,10 @@ async def notify_support_about_long_overdue_rentals() -> None:
                 user=user,
                 now=now,
             )
+            buttons = []
+            link = _admin_rentals_link(rental.id)
+            if link:
+                buttons.append(("Открыть аренду", link))
             try:
                 await notify_admins(text, buttons=buttons, city_id=locker.city_id)
             except Exception:

@@ -8,9 +8,9 @@
     <title>Postamats Admin</title>
     <meta name="color-scheme" content="light" />
     <!-- Три файла подключены напрямую: @import грузил бы их последовательно -->
-    <link rel="stylesheet" href="./styles/styles-01.css?v=24" />
-    <link rel="stylesheet" href="./styles/styles-02.css?v=24" />
-    <link rel="stylesheet" href="./styles/styles-03.css?v=24" />
+    <link rel="stylesheet" href="./styles/styles-01.css?v=26" />
+    <link rel="stylesheet" href="./styles/styles-02.css?v=26" />
+    <link rel="stylesheet" href="./styles/styles-03.css?v=26" />
   </head>
   <body>
     <div class="admin-shell">
@@ -551,6 +551,10 @@
                     maxlength="64"
                   />
                 </label>
+                <label class="field hidden" id="telegram-subscribers-city-field">
+                  <span>Город подписчика</span>
+                  <select id="telegram-subscribers-city" name="cityId"></select>
+                </label>
                 <label class="field">
                   <span>Заметка (необязательно)</span>
                   <input
@@ -624,6 +628,10 @@
                     required
                     maxlength="64"
                   />
+                </label>
+                <label class="field hidden" id="max-subscribers-city-field">
+                  <span>Город подписчика</span>
+                  <select id="max-subscribers-city" name="cityId"></select>
                 </label>
                 <label class="field">
                   <span>Заметка (необязательно)</span>
@@ -721,9 +729,10 @@
             <div class="users-toolbar surface">
               <p class="users-search-hint" style="margin: 0">
                 Франшиза входит в эту же админку по логину и паролю и видит только
-                свой город: аренды, пользователей, верификацию и постаматы этого
-                города. Города, каталог, идеи и аудит ей не показываются, а
-                уведомления автоматически привязываются к её городу.
+                свои города: аренды, пользователей, верификацию и постаматы этих
+                городов. Городов можно выдать несколько — партнёру не придётся
+                держать по аккаунту на каждый. Города, каталог, обратная связь и
+                аудит ей не показываются, а уведомления привязываются к её городу.
               </p>
             </div>
 
@@ -734,7 +743,7 @@
                     <tr>
                       <th>Франшиза</th>
                       <th>Логин</th>
-                      <th>Город</th>
+                      <th>Города</th>
                       <th>Доступ</th>
                       <th>Последний вход</th>
                       <th class="data-table-col-actions">Действия</th>
@@ -1082,13 +1091,14 @@
             />
           </label>
 
-          <label class="field">
-            <span>Город</span>
-            <select id="franchise-create-city" name="cityId" required></select>
+          <div class="field">
+            <span>Города</span>
+            <div id="franchise-create-cities" class="city-checklist"></div>
             <span class="muted-inline">
-              Франшиза увидит только этот город. Город можно поменять позже.
+              Отметьте один город или несколько — франшиза увидит только их.
+              Набор городов можно поменять позже.
             </span>
-          </label>
+          </div>
 
           <label class="field">
             <span>Логин</span>
@@ -1169,6 +1179,35 @@
       </section>
 
       <section
+        id="franchise-cities-modal"
+        class="modal-card hidden"
+        aria-labelledby="franchise-cities-modal-title"
+      >
+        <div class="modal-head">
+          <div>
+            <p class="section-kicker">Франшизы</p>
+            <h3 id="franchise-cities-modal-title">Города франшизы</h3>
+          </div>
+          <button class="modal-close" type="button" data-close-modal>&times;</button>
+        </div>
+
+        <form id="franchise-cities-form" class="modal-form">
+          <p id="franchise-cities-target" class="muted-inline" style="margin-top: 0"></p>
+          <div class="field">
+            <span>Города</span>
+            <div id="franchise-edit-cities" class="city-checklist"></div>
+            <span class="muted-inline">
+              Смена набора городов закрывает активные сессии франшизы: старые
+              вкладки смотрели на другой город.
+            </span>
+          </div>
+          <div class="modal-actions">
+            <button class="primary-button modal-submit" type="submit">Сохранить</button>
+          </div>
+        </form>
+      </section>
+
+      <section
         id="franchise-stats-modal"
         class="modal-card modal-card-wide hidden"
         aria-labelledby="franchise-stats-modal-title"
@@ -1186,6 +1225,6 @@
 
     <div id="toast-stack" class="toast-stack" aria-live="assertive" aria-atomic="true"></div>
 
-    <script src="./app.js?v=28" defer></script>
+    <script src="./app.js?v=30" defer></script>
   </body>
 </html>

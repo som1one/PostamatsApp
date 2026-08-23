@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from backend.core.database import Base
 from backend.models.admin_account import AdminAccount
+from backend.models.admin_account_city import admin_account_cities
 from backend.models.admin_audit_event import AdminAuditEvent
 from backend.models.admin_auth_session import AdminAuthSession
 from backend.models.city import City
@@ -62,7 +63,12 @@ from backend.schemas.admin_franchise_schemas import (
 )
 from backend.schemas.admin_panel_schemas import AdminCreateCityPayload
 from backend.utils.admin_auth_utils import hash_password, verify_password
-from backend.utils.admin_scope import require_not_franchise, require_super_admin
+from backend.utils.admin_scope import (
+    ensure_rental_in_scope,
+    franchise_city_ids,
+    require_not_franchise,
+    require_super_admin,
+)
 from backend.utils.max_admin_subscribers import get_active_recipients
 from backend.utils.telegram_admin_subscribers import get_active_chat_ids
 
@@ -77,6 +83,7 @@ TestSessionLocal = async_sessionmaker(
 
 TEST_TABLES = [
     City.__table__,
+    admin_account_cities,
     ProductCategory.__table__,
     Product.__table__,
     AdminAccount.__table__,
@@ -138,7 +145,7 @@ class AdminFranchiseScopeTests(unittest.IsolatedAsyncioTestCase):
                 login="spb-partner",
                 role=AdminRole.FRANCHISE,
                 password_hash="x",
-                city_id=city_a.id,
+                cities=[city_a],
                 is_active=True,
             )
 
@@ -339,6 +346,57 @@ class AdminFranchiseScopeTests(unittest.IsolatedAsyncioTestCase):
                 )
         self.assertEqual(ctx.exception.status_code, 403)
 
+    async def test_user_card_rentals_are_scoped_and_carry_context(self):
+        """Аренды в карточке: свой город, с товаром и постаматом.
+
+        Карточку открывают, когда клиент написал в поддержку, и из неё
+        проваливаются в аренду. Значит показывать можно только то, что
+        франшиза потом сможет открыть: `/api/admin/rentals/{id}` для чужого
+        города ответит 403, и ссылка вела бы в тупик.
+        """
+        now = datetime.now(timezone.utc)
+        foreign_rental_id = uuid4()
+        async with TestSessionLocal() as db:
+            product_id = (await db.scalars(select(Product.id))).first()
+            foreign_unit = InventoryUnit(
+                id=uuid4(), product_id=product_id, status=InventoryStatus.RENTED
+            )
+            db.add_all(
+                [
+                    foreign_unit,
+                    Rental(
+                        id=foreign_rental_id,
+                        user_id=self.user_cross_id,
+                        inventory_unit_id=foreign_unit.id,
+                        pickup_locker_id=self.locker_b_id,
+                        status=RentalStatus.PICKUP_READY,
+                        planned_end_at=now + timedelta(days=1),
+                    ),
+                ]
+            )
+            await db.commit()
+
+        async with TestSessionLocal() as db:
+            response = await admin_users_router.get_admin_user(
+                _make_request(), str(self.user_cross_id), db
+            )
+        rentals = response["data"]["rentals"]
+        self.assertEqual([item["id"] for item in rentals], [str(self.rental_a_id)])
+        self.assertEqual(rentals[0]["productName"], "Пылесос")
+        self.assertEqual(rentals[0]["pickupLockerName"], "СПб-1")
+        self.assertEqual(rentals[0]["cityName"], "Питер")
+        self.assertFalse(rentals[0]["isOverdue"])
+
+        self._act_as_super_admin()
+        async with TestSessionLocal() as db:
+            response = await admin_users_router.get_admin_user(
+                _make_request(), str(self.user_cross_id), db
+            )
+        self.assertEqual(
+            {item["id"] for item in response["data"]["rentals"]},
+            {str(self.rental_a_id), str(foreign_rental_id)},
+        )
+
     async def test_rentals_list_scoped_and_city_filter_cannot_widen(self):
         async with TestSessionLocal() as db:
             response = await admin_rentals_router.list_rentals(
@@ -437,13 +495,16 @@ class AdminFranchiseScopeTests(unittest.IsolatedAsyncioTestCase):
             name="Франшиза Казань",
             login="  KZN-Partner ",
             password="secret12345",
-            cityId=self.city_b_id,
+            cityIds=[self.city_b_id],
         )
         async with TestSessionLocal() as db:
             created = await franchises_router.create_franchise(_make_request(), payload, db)
         new_id = created["data"]["franchise"]["id"]
         self.assertEqual(created["data"]["franchise"]["login"], "kzn-partner")
-        self.assertEqual(created["data"]["franchise"]["cityName"], "Казань")
+        self.assertEqual(
+            [city["name"] for city in created["data"]["franchise"]["cities"]],
+            ["Казань"],
+        )
         self.assertTrue(created["data"]["franchise"]["isActive"])
 
         # Живая сессия, которую должно отозвать выключением доступа.
@@ -506,7 +567,7 @@ class AdminFranchiseScopeTests(unittest.IsolatedAsyncioTestCase):
             name="Дубль",
             login="spb-partner",
             password="secret12345",
-            cityId=self.city_b_id,
+            cityIds=[self.city_b_id],
         )
         async with TestSessionLocal() as db:
             with self.assertRaises(HTTPException) as ctx:
@@ -696,6 +757,191 @@ class AdminFranchiseScopeTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaises(HTTPException) as ctx:
                     await max_router.setup_max_webhook(_make_request(), db)
             self.assertEqual(ctx.exception.status_code, 403)
+
+
+    # ------------------------------------------------------------------
+    # Несколько городов у одной франшизы
+    # ------------------------------------------------------------------
+
+    async def _give_franchise_second_city(self) -> None:
+        """Выдаёт питерской франшизе ещё и Казань."""
+
+        async with TestSessionLocal() as db:
+            account = await db.get(AdminAccount, self.franchise_id)
+            city_b = await db.get(City, self.city_b_id)
+            account.cities = list(account.cities) + [city_b]
+            await db.commit()
+
+    async def test_two_cities_widen_the_scope(self):
+        await self._give_franchise_second_city()
+
+        async with TestSessionLocal() as db:
+            lockers = await admin_lockers_router.list_admin_lockers(
+                _make_request(), db
+            )
+            rentals = await admin_rentals_router.list_rentals(
+                _make_request(),
+                db,
+                status=None,
+                city_id=None,
+                locker_id=None,
+                overdue_only=False,
+                page=1,
+                limit=50,
+            )
+            users = await admin_users_router.list_admin_users(
+                _make_request(),
+                db,
+                page=1,
+                limit=20,
+                q=None,
+                verification_status=None,
+                is_blocked=None,
+            )
+
+        self.assertEqual(
+            {item["id"] for item in lockers["data"]["lockers"]},
+            {str(self.locker_a_id), str(self.locker_b_id)},
+        )
+        self.assertEqual(
+            {item["id"] for item in rentals["data"]["rentals"]},
+            {str(self.rental_a_id), str(self.rental_b_id)},
+        )
+        # Оба города плюс клиент, приехавший из другого города.
+        self.assertEqual(
+            {item["id"] for item in users["data"]["users"]},
+            {str(self.user_a_id), str(self.user_b_id), str(self.user_cross_id)},
+        )
+
+    async def test_second_city_object_is_no_longer_foreign(self):
+        # До выдачи второго города аренда соседнего города — чужая...
+        async with TestSessionLocal() as db:
+            account = await db.get(AdminAccount, self.franchise_id)
+            rental_b = await db.get(Rental, self.rental_b_id)
+            with self.assertRaises(HTTPException) as ctx:
+                await ensure_rental_in_scope(db, franchise_city_ids(account), rental_b)
+        self.assertEqual(ctx.exception.status_code, 403)
+
+        # ...а после — своя, проверка молча пропускает.
+        await self._give_franchise_second_city()
+        async with TestSessionLocal() as db:
+            account = await db.get(AdminAccount, self.franchise_id)
+            rental_b = await db.get(Rental, self.rental_b_id)
+            await ensure_rental_in_scope(db, franchise_city_ids(account), rental_b)
+
+    async def test_franchise_without_cities_gets_403(self):
+        async with TestSessionLocal() as db:
+            account = await db.get(AdminAccount, self.franchise_id)
+            account.cities = []
+            await db.commit()
+
+        async with TestSessionLocal() as db:
+            with self.assertRaises(HTTPException) as ctx:
+                await admin_lockers_router.list_admin_lockers(_make_request(), db)
+        # Пустой скоуп — это 403, а не «показать всё».
+        self.assertEqual(ctx.exception.status_code, 403)
+
+    async def test_create_franchise_with_two_cities(self):
+        self._act_as_super_admin()
+        payload = AdminCreateFranchisePayload(
+            name="Франшиза Северо-Запад",
+            login="nw-partner",
+            password="secret12345",
+            cityIds=[self.city_a_id, self.city_b_id],
+        )
+        async with TestSessionLocal() as db:
+            created = await franchises_router.create_franchise(
+                _make_request(), payload, db
+            )
+
+        names = [city["name"] for city in created["data"]["franchise"]["cities"]]
+        self.assertEqual(sorted(names), ["Казань", "Питер"])
+
+    async def test_changing_cities_revokes_sessions(self):
+        # Живая сессия франчайзи: смена городов должна её закрыть.
+        async with TestSessionLocal() as db:
+            db.add(
+                AdminAuthSession(
+                    id=uuid4(),
+                    admin_account_id=self.franchise_id,
+                    refresh_token_hash="hash",
+                    expires_at=datetime.now(timezone.utc) + timedelta(days=1),
+                )
+            )
+            await db.commit()
+
+        self._act_as_super_admin()
+        async with TestSessionLocal() as db:
+            await franchises_router.update_franchise(
+                _make_request(),
+                self.franchise_id,
+                AdminUpdateFranchisePayload(cityIds=[self.city_a_id, self.city_b_id]),
+                db,
+            )
+
+        async with TestSessionLocal() as db:
+            account = await db.get(AdminAccount, self.franchise_id)
+            self.assertEqual(
+                sorted(city.name for city in account.cities), ["Казань", "Питер"]
+            )
+            revoked = (
+                await db.scalars(
+                    select(AdminAuthSession.revoke_reason).where(
+                        AdminAuthSession.admin_account_id == self.franchise_id
+                    )
+                )
+            ).all()
+        self.assertEqual(list(revoked), ["city_changed"])
+
+    async def test_city_given_to_franchise_cannot_be_deleted(self):
+        self._act_as_super_admin()
+        async with TestSessionLocal() as db:
+            with self.assertRaises(HTTPException) as ctx:
+                await admin_cities_router.delete_admin_city(
+                    _make_request(), self.city_a_id, db
+                )
+        # Иначе франчайзи остался бы без городов и без админки.
+        self.assertEqual(ctx.exception.status_code, 409)
+
+    async def test_multi_city_franchise_picks_subscriber_city(self):
+        from backend.routers.admin import telegram_subscribers as tg_router
+
+        await self._give_franchise_second_city()
+
+        async def fake_get_current_admin(request, db):
+            account = await db.get(AdminAccount, self.acting_admin_id)
+            return account, None
+
+        with patch.object(tg_router, "get_current_admin", new=fake_get_current_admin):
+            async with TestSessionLocal() as db:
+                # Городов несколько — без выбора не создаём.
+                with self.assertRaises(HTTPException) as ctx:
+                    await tg_router.create_telegram_subscriber(
+                        _make_request(),
+                        db,
+                        tg_router.CreateSubscriberPayload(username="nwpartner"),
+                    )
+                self.assertEqual(ctx.exception.status_code, 400)
+
+                # Чужой город — тоже нет.
+                with self.assertRaises(HTTPException) as ctx:
+                    await tg_router.create_telegram_subscriber(
+                        _make_request(),
+                        db,
+                        tg_router.CreateSubscriberPayload(
+                            username="nwpartner", cityId=uuid4()
+                        ),
+                    )
+                self.assertEqual(ctx.exception.status_code, 403)
+
+                created = await tg_router.create_telegram_subscriber(
+                    _make_request(),
+                    db,
+                    tg_router.CreateSubscriberPayload(
+                        username="nwpartner", cityId=self.city_b_id
+                    ),
+                )
+        self.assertEqual(created["data"]["subscriber"]["cityId"], str(self.city_b_id))
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ from backend.models.user import User
 from backend.models.verification_request import VerificationRequest
 from backend.routers.admin.auth import get_current_admin
 from backend.routers.admin.users import serialize_admin_user_row
-from backend.utils.admin_scope import franchise_city_id, user_in_city_clause
+from backend.utils.admin_scope import franchise_city_ids, user_in_city_clause
 
 router = APIRouter(prefix="/api/admin/verification-queue", tags=["admin-verification"])
 
@@ -19,7 +19,7 @@ async def verification_queue(
     db: AsyncSession = Depends(get_db),
 ):
     admin, _ = await get_current_admin(request, db)
-    scope_city_id = franchise_city_id(admin)
+    scope_city_ids = franchise_city_ids(admin)
 
     stmt = (
         select(VerificationRequest)
@@ -32,9 +32,9 @@ async def verification_queue(
 
     user_ids = list({row.user_id for row in requests})
     users_stmt = select(User).where(User.id.in_(user_ids))
-    if scope_city_id is not None:
+    if scope_city_ids is not None:
         # Франшиза проверяет документы только своих клиентов.
-        users_stmt = users_stmt.where(user_in_city_clause(scope_city_id))
+        users_stmt = users_stmt.where(user_in_city_clause(scope_city_ids))
     users = (await db.scalars(users_stmt)).all()
     user_by_id = {u.id: u for u in users}
 

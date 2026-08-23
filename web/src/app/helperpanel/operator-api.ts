@@ -76,6 +76,14 @@ export type OperatorRentalSummary = {
   status: string;
   startsAt: string | null;
   plannedEndAt: string | null;
+  /** Постамат выдачи — «где» в вопросе «что, где и как». */
+  lockerName: string | null;
+  cityName: string | null;
+  /**
+   * Deep-link в карточку аренды в админке. `null`, если на бэкенде не задан
+   * `ADMIN_PANEL_URL` — тогда переход просто не показываем.
+   */
+  adminUrl: string | null;
 };
 
 /**

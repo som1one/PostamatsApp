@@ -479,6 +479,23 @@
   background: var(--surface-2);
 }
 
+/* Строка-ссылка в карточку. Колонка «Действия» на узком экране уезжает за
+   правый край прокручиваемой таблицы, поэтому открывать запись нужно кликом
+   по любому её месту, а не только по кнопке. */
+.data-table tbody tr.row-clickable {
+  cursor: pointer;
+}
+
+.data-table tbody tr.row-clickable:hover td {
+  background: var(--surface-3);
+}
+
+/* Вложенные кнопки (карточка пользователя, «Снять», «Удалить») остаются
+   самостоятельными целями — курсор не должен обещать переход в аренду. */
+.data-table tbody tr.row-clickable button {
+  cursor: pointer;
+}
+
 .data-table td code {
   font-size: 0.75rem;
   color: var(--text-2);

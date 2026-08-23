@@ -8,7 +8,6 @@ from backend.core.database import get_db
 from backend.core.settings import settings
 from backend.models.admin_account import AdminAccount
 from backend.models.admin_auth_session import AdminAuthSession
-from backend.models.city import City
 from backend.schemas.admin_auth_schemas import AdminLoginPayload
 from backend.utils.admin_auth_utils import (
     create_admin_access_token,
@@ -29,23 +28,21 @@ ACCESS_DISABLED_DETAIL = "ACCESS_DISABLED"
 
 
 def serialize_admin(admin: AdminAccount) -> dict:
+    cities = [{"id": str(city.id), "name": city.name} for city in admin.cities]
     return {
         "id": str(admin.id),
         "name": admin.name,
         "login": admin.login,
         "role": admin.role.value,
         "isActive": bool(admin.is_active),
-        "cityId": str(admin.city_id) if admin.city_id else None,
-        "cityName": None,
+        "cities": cities,
     }
 
 
 async def serialize_admin_with_city(db: AsyncSession, admin: AdminAccount) -> dict:
-    payload = serialize_admin(admin)
-    if admin.city_id is not None:
-        city = await db.get(City, admin.city_id)
-        payload["cityName"] = city.name if city else None
-    return payload
+    # Города подтягиваются вместе с аккаунтом (``lazy="selectin"``), так что
+    # отдельный запрос больше не нужен — обёртка осталась ради вызывающих.
+    return serialize_admin(admin)
 
 
 async def get_current_admin(

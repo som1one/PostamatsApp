@@ -32,8 +32,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.admin_account import AdminAccount
+from backend.models.city import City
 from backend.models.enums import ConversationStatus, MessageAuthorType, RentalStatus, ReservationStatus
 from backend.models.inventory_unit import InventoryUnit
+from backend.models.locker_location import LockerLocation
 from backend.models.product import Product
 from backend.models.rental import Rental
 from backend.models.reservation import Reservation
@@ -41,6 +43,7 @@ from backend.models.support_conversation import SupportConversation
 from backend.models.support_conversation_read import SupportConversationRead
 from backend.models.support_message import SupportMessage
 from backend.models.user import User
+from backend.utils.admin_links import build_admin_rentals_url
 
 # Maximum number of characters allowed in a (trimmed) message body.
 MAX_MESSAGE_LENGTH = 4000
@@ -228,6 +231,10 @@ class RentalSummaryData:
         starts_at: the rental start time, or ``None`` when unset.
         planned_end_at: the planned rental end time.
         created_at: when the rental was created (used only for ordering).
+        locker_name: the pickup locker's name, or ``None`` when unresolved.
+        city_name: the pickup locker's city, or ``None`` when unresolved.
+        admin_url: deep link into the admin rental card, or ``None`` when
+            ``ADMIN_PANEL_URL`` is not configured.
     """
 
     id: UUID
@@ -236,6 +243,9 @@ class RentalSummaryData:
     starts_at: datetime | None
     planned_end_at: datetime
     created_at: datetime
+    locker_name: str | None = None
+    city_name: str | None = None
+    admin_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -861,12 +871,15 @@ async def build_client_info_card(
         for reservation in reservations
     ]
 
+    place_by_locker_id = await _resolve_pickup_places(db, rentals)
+
     recent_rentals = []
     for rental in rentals:
         product_id = product_id_by_inventory_unit_id.get(rental.inventory_unit_id)
         product_name = (
             product_name_by_product_id.get(product_id) if product_id is not None else None
         )
+        locker_name, city_name = place_by_locker_id.get(rental.pickup_locker_id, (None, None))
         recent_rentals.append(
             RentalSummaryData(
                 id=rental.id,
@@ -875,6 +888,9 @@ async def build_client_info_card(
                 starts_at=rental.starts_at,
                 planned_end_at=rental.planned_end_at,
                 created_at=rental.created_at,
+                locker_name=locker_name,
+                city_name=city_name,
+                admin_url=build_admin_rentals_url(rental.id),
             )
         )
 
@@ -969,6 +985,33 @@ async def _resolve_product_names(
         product_name_by_product_id = {row[0]: row[1] for row in product_rows.all()}
 
     return product_name_by_product_id, product_id_by_inventory_unit_id
+
+
+async def _resolve_pickup_places(
+    db: AsyncSession,
+    rentals: list[Rental],
+) -> dict[UUID, tuple[str | None, str | None]]:
+    """Batch-resolve «где» для аренд карточки клиента (no N+1).
+
+    Оператору поддержки постамат и город нужны в первую же секунду разговора:
+    «что, где и как» — это товар, постамат и статус. Одним ``IN``-запросом с
+    join'ом на город, потому что аренд в карточке максимум десять, но запросов
+    к базе на них должно оставаться два, а не двадцать.
+
+    Возвращает ``locker_id -> (название постамата, город)``; ключи, которые не
+    удалось разрешить, в map просто отсутствуют.
+    """
+    locker_ids = {
+        rental.pickup_locker_id for rental in rentals if rental.pickup_locker_id is not None
+    }
+    if not locker_ids:
+        return {}
+    rows = await db.execute(
+        select(LockerLocation.id, LockerLocation.name, City.name)
+        .outerjoin(City, LockerLocation.city_id == City.id)
+        .where(LockerLocation.id.in_(locker_ids))
+    )
+    return {row[0]: (row[1], row[2]) for row in rows.all()}
 
 
 async def _load_conversation_by_user(

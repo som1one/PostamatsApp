@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from backend.core.database import Base
 from backend.core.settings import settings
 from backend.models.admin_account import AdminAccount
+from backend.models.admin_account_city import admin_account_cities
 from backend.models.admin_audit_event import AdminAuditEvent
 from backend.models.admin_user import AdminUser
 from backend.models.city import City
@@ -47,6 +48,7 @@ TEST_TABLES = [
     ProductCategory.__table__,
     Product.__table__,
     AdminAccount.__table__,
+    admin_account_cities,
     AdminUser.__table__,
     AdminAuditEvent.__table__,
     LockerLocation.__table__,

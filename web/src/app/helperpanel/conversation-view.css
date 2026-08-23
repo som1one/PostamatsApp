@@ -398,6 +398,31 @@
   font-weight: 600;
 }
 
+.cv-activity-place {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--hp-text-soft);
+}
+
+.cv-activity-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hp-accent, #2563eb);
+  text-decoration: none;
+}
+
+.cv-activity-link:hover,
+.cv-activity-link:focus-visible {
+  text-decoration: underline;
+}
+
 .cv-empty {
   font-size: 13px;
   color: var(--hp-text-soft);

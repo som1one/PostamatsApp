@@ -16,7 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.database import get_db
 from backend.models.city import City
 from backend.routers.admin.auth import get_current_admin
-from backend.utils.admin_scope import franchise_city_id, require_not_franchise
+from backend.utils.admin_scope import (
+    ensure_city_in_scope,
+    franchise_city_ids,
+    require_not_franchise,
+)
 from backend.utils.telegram_admin_subscribers import (
     SubscriberError,
     create_subscriber,
@@ -40,11 +44,31 @@ class CreateSubscriberPayload(BaseModel):
     username: str = Field(..., min_length=1, max_length=64)
     note: str | None = Field(default=None, max_length=200)
     isEnabled: bool = True
+    # Город подписчика. Сеть (super_admin/operator) поле не заполняет —
+    # такой подписчик получает всё. Франшиза с одним городом тоже: город
+    # проставится сам; с несколькими — обязана выбрать, чей это подписчик.
+    cityId: UUID | None = None
 
 
 class UpdateSubscriberPayload(BaseModel):
     isEnabled: bool | None = None
     note: str | None = Field(default=None, max_length=200)
+
+
+def _resolve_subscriber_city(
+    scope_city_ids: list[UUID] | None, requested: UUID | None
+) -> UUID | None:
+    """Город нового подписчика с учётом прав вызывающего админа."""
+
+    if scope_city_ids is None:
+        # Сеть заводит подписчиков без города — они получают все события.
+        return None
+    if requested is None:
+        if len(scope_city_ids) > 1:
+            raise HTTPException(status_code=400, detail="CITY_REQUIRED")
+        return scope_city_ids[0]
+    ensure_city_in_scope(scope_city_ids, requested)
+    return requested
 
 
 def _to_http(error: SubscriberError) -> HTTPException:
@@ -70,7 +94,7 @@ async def list_telegram_subscribers(
     db: AsyncSession = Depends(get_db),
 ):
     admin, _ = await get_current_admin(request, db)
-    rows = await list_subscribers(db, city_id=franchise_city_id(admin))
+    rows = await list_subscribers(db, city_ids=franchise_city_ids(admin))
     return {"data": {"items": await _serialize_rows(db, rows)}}
 
 
@@ -81,9 +105,10 @@ async def create_telegram_subscriber(
     payload: CreateSubscriberPayload = Body(...),
 ):
     admin, _ = await get_current_admin(request, db)
-    # Франшиза не выбирает город — подписчик автоматически привязывается
-    # к её городу и получает только его события.
-    city_id = franchise_city_id(admin)
+    # Подписчик всегда принадлежит одному городу: у франшизы с одним
+    # городом он подставляется сам, с несколькими — берём выбранный, но
+    # только из её городов. Для сети город остаётся пустым.
+    city_id = _resolve_subscriber_city(franchise_city_ids(admin), payload.cityId)
     try:
         subscriber = await create_subscriber(
             db,
@@ -111,14 +136,14 @@ async def patch_telegram_subscriber(
     payload: UpdateSubscriberPayload = Body(...),
 ):
     admin, _ = await get_current_admin(request, db)
-    scope_city_id = franchise_city_id(admin)
+    scope_city_ids = franchise_city_ids(admin)
     try:
         subscriber = await update_subscriber(
             db,
             subscriber_id,
             is_enabled=payload.isEnabled,
             note=payload.note,
-            require_city_id=scope_city_id,
+            require_city_ids=scope_city_ids,
         )
     except SubscriberError as exc:
         raise _to_http(exc) from exc
@@ -140,7 +165,7 @@ async def delete_telegram_subscriber(
     admin, _ = await get_current_admin(request, db)
     try:
         await delete_subscriber(
-            db, subscriber_id, require_city_id=franchise_city_id(admin)
+            db, subscriber_id, require_city_ids=franchise_city_ids(admin)
         )
     except SubscriberError as exc:
         raise _to_http(exc) from exc
@@ -156,14 +181,14 @@ async def resync_telegram_subscribers(
     """Сматчить username-ы с chat_id из последних апдейтов бота."""
 
     admin, _ = await get_current_admin(request, db)
-    scope_city_id = franchise_city_id(admin)
+    scope_city_ids = franchise_city_ids(admin)
     try:
         report = await resync_chat_ids(db)
     except SubscriberError as exc:
         raise _to_http(exc) from exc
 
-    items = await list_subscribers(db, city_id=scope_city_id)
-    if scope_city_id is not None:
+    items = await list_subscribers(db, city_ids=scope_city_ids)
+    if scope_city_ids is not None:
         # Отчёт по всей сети франшизе не показываем — только её username-ы.
         own = {row.username for row in items}
         report = {

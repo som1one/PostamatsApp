@@ -5,14 +5,15 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Enum as SQLAlchemyEnum,
-    ForeignKey,
     String,
     Uuid,
     true,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.core.database import Base
+from backend.models.admin_account_city import admin_account_cities
+from backend.models.city import City
 from backend.models.enums import AdminRole
 
 
@@ -36,12 +37,15 @@ class AdminAccount(Base):
         nullable=False,
     )
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
-    # Город франшизы. У super_admin/operator всегда NULL — они видят всю сеть.
-    city_id: Mapped[UUID | None] = mapped_column(
-        Uuid,
-        ForeignKey("cities.id"),
-        index=True,
-        nullable=True,
+    # Города франшизы: один или несколько. У super_admin/operator список
+    # пустой — они видят всю сеть. Грузим сразу (``selectin``): скоуп нужен
+    # почти в каждом админском запросе, а ленивая подгрузка в async-сессии
+    # просто упала бы.
+    cities: Mapped[list[City]] = relationship(
+        City,
+        secondary=admin_account_cities,
+        lazy="selectin",
+        order_by=City.name,
     )
     # Выключенный аккаунт не может войти, а его активные сессии отзываются.
     is_active: Mapped[bool] = mapped_column(

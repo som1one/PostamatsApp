@@ -9,8 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.database import get_db
 from backend.models.city import City
 from backend.models.enums import VerificationStatus
+from backend.models.inventory_unit import InventoryUnit
+from backend.models.locker_location import LockerLocation
 from backend.models.media_file import MediaFile
 from backend.models.payment import Payment
+from backend.models.product import Product
 from backend.models.rental import Rental
 from backend.models.user import User
 from backend.models.verification_request import VerificationRequest
@@ -18,9 +21,10 @@ from backend.routers.admin.auth import get_current_admin
 from backend.utils.admin_audit import record_admin_audit
 from backend.utils.admin_scope import (
     ensure_user_in_scope,
-    franchise_city_id,
+    franchise_city_ids,
     user_in_city_clause,
 )
+from backend.utils.rental_serialization import rental_is_overdue
 from backend.utils.document_numbers import normalize_document_number
 from backend.schemas.admin_panel_schemas import AdminBlockUserPayload, AdminRejectVerificationPayload
 from backend.utils.phone_utils import normalize_phone_for_storage
@@ -136,14 +140,33 @@ def _serialize_verification(
     }
 
 
-def _serialize_rental(r: Rental) -> dict:
+def _serialize_rental(
+    r: Rental,
+    product: Product | None,
+    locker: LockerLocation | None,
+    city: City | None,
+    now: datetime,
+) -> dict:
+    """Строка «последних аренд» в карточке пользователя.
+
+    Товар и постамат тут не для красоты: карточку открывают, когда клиент
+    написал в поддержку, и оператору нужно с одного взгляда понять, что у
+    человека на руках и из какого постамата, а не сверять UUID со списком
+    аренд.
+    """
     return {
         "id": str(r.id),
         "status": r.status.value,
         "createdAt": r.created_at.isoformat(),
+        "startsAt": r.starts_at.isoformat() if r.starts_at else None,
         "plannedEndAt": r.planned_end_at.isoformat(),
         "actualEndAt": r.actual_end_at.isoformat() if r.actual_end_at else None,
         "completedAt": r.completed_at.isoformat() if r.completed_at else None,
+        "isOverdue": rental_is_overdue(r, now),
+        "productName": product.name if product else None,
+        "pickupLockerName": locker.name if locker else None,
+        "pickupLockerAddress": locker.address if locker else None,
+        "cityName": city.name if city else None,
     }
 
 
@@ -244,14 +267,14 @@ async def list_admin_users(
     ),
 ):
     admin, _ = await get_current_admin(request, db)
-    scope_city_id = franchise_city_id(admin)
+    scope_city_ids = franchise_city_ids(admin)
 
     search = _user_search_clause(q) if q else None
     count_stmt = select(func.count(User.id))
     stmt = select(User).order_by(User.created_at.desc())
 
-    if scope_city_id is not None:
-        scope_clause = user_in_city_clause(scope_city_id)
+    if scope_city_ids is not None:
+        scope_clause = user_in_city_clause(scope_city_ids)
         count_stmt = count_stmt.where(scope_clause)
         stmt = stmt.where(scope_clause)
     if search is not None:
@@ -299,7 +322,8 @@ async def get_admin_user(
     ).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
-    await ensure_user_in_scope(db, franchise_city_id(admin), uid)
+    scope_city_ids = franchise_city_ids(admin)
+    await ensure_user_in_scope(db, scope_city_ids, uid)
 
     city_name = None
     if user.preferred_city_id:
@@ -311,14 +335,29 @@ async def get_admin_user(
     media_map = await _load_media_map(db, vr)
     verification_payload = _serialize_verification(vr, media_map) if vr else None
 
-    rentals = (
-        await db.scalars(
-            select(Rental)
-            .where(Rental.user_id == uid)
+    # Аренды показываем вместе с товаром и постаматом, чтобы из карточки
+    # можно было сразу провалиться в нужную аренду. LEFT JOIN — потому что
+    # запись об аренде важнее, чем полнота её окружения: юнит могли удалить,
+    # но аренда должна остаться в истории клиента.
+    rental_filters = [Rental.user_id == uid]
+    if scope_city_ids is not None:
+        # Чужой город франшиза всё равно не откроет (`/api/admin/rentals/{id}`
+        # ответит 403) — не показываем ссылку в никуда.
+        rental_filters.append(LockerLocation.city_id.in_(scope_city_ids))
+
+    rental_rows = (
+        await db.execute(
+            select(Rental, Product, LockerLocation, City)
+            .outerjoin(InventoryUnit, Rental.inventory_unit_id == InventoryUnit.id)
+            .outerjoin(Product, InventoryUnit.product_id == Product.id)
+            .outerjoin(LockerLocation, Rental.pickup_locker_id == LockerLocation.id)
+            .outerjoin(City, LockerLocation.city_id == City.id)
+            .where(*rental_filters)
             .order_by(Rental.created_at.desc())
             .limit(10)
         )
     ).all()
+    now = datetime.now(timezone.utc)
 
     payments = (
         await db.scalars(
@@ -333,7 +372,10 @@ async def get_admin_user(
         "data": {
             "user": _serialize_user_profile(user, city_name),
             "verification": verification_payload,
-            "rentals": [_serialize_rental(r) for r in rentals],
+            "rentals": [
+                _serialize_rental(rental, product, locker, city, now)
+                for rental, product, locker, city in rental_rows
+            ],
             "payments": [_serialize_payment(p) for p in payments],
         }
     }
@@ -353,7 +395,7 @@ async def approve_verification(
     ).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
-    await ensure_user_in_scope(db, franchise_city_id(admin), uid)
+    await ensure_user_in_scope(db, franchise_city_ids(admin), uid)
 
     vr = await _get_pending_verification(db, uid)
     if not vr:
@@ -400,7 +442,7 @@ async def reject_verification(
     ).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
-    await ensure_user_in_scope(db, franchise_city_id(admin), uid)
+    await ensure_user_in_scope(db, franchise_city_ids(admin), uid)
 
     vr = await _get_pending_verification(db, uid)
     if not vr:
@@ -445,7 +487,7 @@ async def block_user(
     ).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
-    await ensure_user_in_scope(db, franchise_city_id(admin), uid)
+    await ensure_user_in_scope(db, franchise_city_ids(admin), uid)
 
     user.is_blocked = True
     reason = payload.reason.strip() if payload and payload.reason else ""

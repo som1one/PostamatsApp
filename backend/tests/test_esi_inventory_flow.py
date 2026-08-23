@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from backend.core.database import Base
 from backend.core.settings import settings
 from backend.models.admin_account import AdminAccount
+from backend.models.admin_account_city import admin_account_cities
 from backend.models.city import City
 from backend.models.enums import (
     InventoryStatus,
@@ -44,6 +45,7 @@ TestSessionLocal = None
 
 TEST_TABLES = [
     AdminAccount.__table__,
+    admin_account_cities,
     City.__table__,
     ProductCategory.__table__,
     Product.__table__,

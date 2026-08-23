@@ -339,6 +339,53 @@ function formatDateTime(value) {
   }).format(date);
 }
 
+// День выдачи бронь хранит как полночь московского дня. Считать его в
+// таймзоне браузера нельзя: на машине западнее Москвы дата съедет на сутки
+// назад, и оператор назовёт клиенту не тот день. Москва — расчётный пояс
+// всего проекта (см. LOCAL_DAY_TZ в backend/utils/reservation_utils.py).
+function formatPickupDate(value) {
+  if (!value) {
+    return "—";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Europe/Moscow",
+  }).format(date);
+}
+
+// Срок брони хранится парой (тип, значение): "day"/3 → «3 дня».
+const RENTAL_DURATION_FORMS = {
+  hour: ["час", "часа", "часов"],
+  day: ["день", "дня", "дней"],
+  week: ["неделя", "недели", "недель"],
+  month: ["месяц", "месяца", "месяцев"],
+};
+
+function formatRentalDuration(durationType, durationValue) {
+  const value = Number(durationValue) || 0;
+  const forms = RENTAL_DURATION_FORMS[String(durationType || "").toLowerCase()];
+  if (!forms || !value) {
+    return value ? `${value} ${durationType || ""}`.trim() : "—";
+  }
+  const mod100 = value % 100;
+  const mod10 = value % 10;
+  let form = forms[2];
+  if (mod100 < 11 || mod100 > 14) {
+    if (mod10 === 1) {
+      form = forms[0];
+    } else if (mod10 >= 2 && mod10 <= 4) {
+      form = forms[1];
+    }
+  }
+  return `${value} ${form}`;
+}
+
 function formatMoney(amount, currency) {
   const cur = currency || "RUB";
   try {
@@ -391,6 +438,18 @@ function renderStatusPill(status) {
     pickup_ready: "\u041a \u0432\u044b\u0434\u0430\u0447\u0435",
     pickup_opened: "\u0412\u044b\u0434\u0430\u0447\u0430",
     overdue: "\u041f\u0440\u043e\u0441\u0440\u043e\u0447\u0435\u043d",
+    // \u0421\u0442\u0430\u0442\u0443\u0441\u044b \u0431\u0440\u043e\u043d\u0438 \u0438 \u043f\u043b\u0430\u0442\u0435\u0436\u0430 \u2014 \u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0430 \u0430\u0440\u0435\u043d\u0434\u044b \u043f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0435\u0442 \u0438 \u0438\u0445.
+    created: "\u0421\u043e\u0437\u0434\u0430\u043d\u0430",
+    awaiting_payment: "\u0416\u0434\u0451\u0442 \u043e\u043f\u043b\u0430\u0442\u044b",
+    payment_authorized: "\u041e\u043f\u043b\u0430\u0447\u0435\u043d\u0430",
+    confirmed: "\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0430",
+    expired: "\u0418\u0441\u0442\u0435\u043a\u043b\u0430",
+    cancelled: "\u041e\u0442\u043c\u0435\u043d\u0435\u043d\u0430",
+    pending: "\u0412 \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0435",
+    authorized: "\u0417\u0430\u0445\u043e\u043b\u0434\u0438\u0440\u043e\u0432\u0430\u043d",
+    captured: "\u0421\u043f\u0438\u0441\u0430\u043d",
+    refunded: "\u0412\u043e\u0437\u0432\u0440\u0430\u0449\u0451\u043d",
+    incident: "\u0418\u043d\u0446\u0438\u0434\u0435\u043d\u0442",
   };
   const label = labels[status] || (status || "unknown").replaceAll("_", " ");
   return `<span class="status-pill status-${status}">${label}</span>`;
@@ -807,8 +866,20 @@ function isFranchiseAdmin() {
   return adminRole() === "franchise";
 }
 
-function franchiseCityId() {
-  return isFranchiseAdmin() ? String(state.admin.cityId || "") : "";
+/** Города текущего франчайзи (пустой массив — не франшиза). */
+function franchiseCityIds() {
+  if (!isFranchiseAdmin()) {
+    return [];
+  }
+  return ((state.admin && state.admin.cities) || []).map((city) => String(city.id));
+}
+
+/** Подпись скоупа: «Псков» или «Псков, Великие Луки». */
+function franchiseCityNames() {
+  return ((state.admin && state.admin.cities) || [])
+    .map((city) => city.name)
+    .filter(Boolean)
+    .join(", ");
 }
 
 /** Прячет разделы и кнопки, недоступные текущей роли. */
@@ -837,9 +908,9 @@ function applyRoleVisibility() {
 
   const badgeScope = document.getElementById("admin-badge-scope");
   if (badgeScope) {
-    const cityName = state.admin && state.admin.cityName;
-    badgeScope.textContent = franchise && cityName ? `Франшиза · ${cityName}` : "";
-    badgeScope.classList.toggle("hidden", !franchise || !cityName);
+    const cityNames = franchiseCityNames();
+    badgeScope.textContent = franchise && cityNames ? `Франшиза · ${cityNames}` : "";
+    badgeScope.classList.toggle("hidden", !franchise || !cityNames);
   }
 
   // Если активный раздел стал недоступен (например, после смены аккаунта),
@@ -1433,14 +1504,25 @@ function renderUserDetailModal() {
     </div>
   `;
 
+  // Строка целиком кликабельна: карточку открывают, когда клиент написал в
+  // поддержку, и оператору нужно провалиться в аренду с первого тапа — на
+  // узком экране колонка с кнопкой уезжает за правый край таблицы.
   const rentalsRows = (d.rentals || [])
     .map(
       (r) => `
-      <tr>
-        <td><code>${escapeHtml(r.id)}</code></td>
-        <td>${renderStatusPill(r.status)}</td>
-        <td>${formatDateTime(r.createdAt)}</td>
-        <td>${formatDateTime(r.plannedEndAt)}</td>
+      <tr class="row-clickable" data-open-rental-from-user="${escapeHtml(r.id)}" title="Открыть аренду">
+        <td>
+          <strong>${escapeHtml(r.productName || "Товар не определён")}</strong>
+          <div class="section-meta">${formatDateTime(r.startsAt || r.createdAt)} — ${formatDateTime(r.plannedEndAt)}</div>
+        </td>
+        <td>
+          ${escapeHtml(r.pickupLockerName || "—")}
+          <div class="section-meta">${escapeHtml(r.cityName || "")}</div>
+        </td>
+        <td>${renderStatusPill(r.status)}${r.isOverdue ? ` <span class="overdue-badge" title="Просрочено">!</span>` : ""}</td>
+        <td class="data-table-col-actions">
+          <button type="button" class="ghost-button table-inline-button" data-open-rental-from-user="${escapeHtml(r.id)}">Открыть</button>
+        </td>
       </tr>
     `,
     )
@@ -1482,7 +1564,7 @@ function renderUserDetailModal() {
       <div class="table-scroll">
         <table class="data-table data-table-compact">
           <thead>
-            <tr><th>ID</th><th>Статус</th><th>Создана</th><th>План окончания</th></tr>
+            <tr><th>Товар и срок</th><th>Постамат</th><th>Статус</th><th class="data-table-col-actions">Аренда</th></tr>
           </thead>
           <tbody>${rentalsRows || `<tr><td colspan="4" class="muted-inline">Нет аренд</td></tr>`}</tbody>
         </table>
@@ -1645,6 +1727,16 @@ async function handleUserDetailClick(event) {
   if (!root) {
     return;
   }
+
+  // Обратный переход к тому, что уже есть в карточке аренды («Открыть
+  // карточку пользователя»): из клиента — в конкретную аренду.
+  const rentalBtn = root.closest("[data-open-rental-from-user]");
+  if (rentalBtn) {
+    const rid = (rentalBtn.getAttribute("data-open-rental-from-user") || "").trim();
+    await openRentalDetail(rid);
+    return;
+  }
+
   const btn = root.closest("[data-user-action]");
   if (!btn || userDetailActionBusy) {
     return;
@@ -2573,9 +2665,13 @@ function renderRentals() {
         ? `<button type="button" class="table-danger-button table-inline-button" data-rental-delete="${escapeHtml(row.id)}">Удалить</button>`
         : "";
       return `
-        <tr>
+        <tr class="row-clickable" data-open-rental="${escapeHtml(row.id)}" title="Открыть аренду">
           <td>
-            <strong>${escapeHtml(row.user?.name || "—")}</strong>
+            ${
+              row.user?.id
+                ? `<button type="button" class="link-button" data-open-user="${escapeHtml(row.user.id)}">${escapeHtml(row.user.name || "—")}</button>`
+                : `<strong>${escapeHtml(row.user?.name || "—")}</strong>`
+            }
             <div class="section-meta">${escapeHtml(row.user?.phone || "")}</div>
           </td>
           <td>${escapeHtml(row.product?.name || "—")}</td>
@@ -2650,30 +2746,80 @@ function renderRentalDetailModal() {
   `
     : "";
 
+  const res = d.reservation;
+  const cell = d.cell;
+  const tl = d.timeline || {};
+  const payments = d.payments || [];
+
+  const paymentsRows = payments
+    .map(
+      (p) => `
+      <tr>
+        <td>${formatDateTime(p.createdAt)}</td>
+        <td>${escapeHtml(p.type)}</td>
+        <td>${renderStatusPill(p.status)}</td>
+        <td>${formatMoney((p.amount || 0) / 100, p.currency)}</td>
+        <td>${p.providerPaymentId ? `<code>${escapeHtml(p.providerPaymentId)}</code>` : "—"}</td>
+        <td>${escapeHtml(p.failureCode || "")}</td>
+      </tr>
+    `,
+    )
+    .join("");
+
+  const userBlock = u
+    ? `<ul class="detail-list">
+        <li><span>Имя</span><strong><button type="button" class="link-button" data-open-user-from-rental="${escapeHtml(u.id)}">${escapeHtml(u.name)}</button></strong></li>
+        <li><span>Телефон</span><strong>${escapeHtml(u.phone)}</strong></li>
+        <li><span>Email</span><strong>${escapeHtml(u.email || "—")}</strong></li>
+        <li><span>Город</span><strong>${escapeHtml(u.cityName || "—")}</strong></li>
+        <li><span>Верификация</span><strong>${renderStatusPill(u.verificationStatus)}</strong></li>
+        <li><span>Регистрация</span><strong>${formatDateTime(u.registeredAt)}</strong></li>
+        <li><span>Последний вход</span><strong>${formatDateTime(u.lastLoginAt)}</strong></li>
+        <li><span>Аренд всего</span><strong>${formatNumber(u.rentalsTotal || 0)}</strong></li>
+        <li><span>Из них завершено</span><strong>${formatNumber(u.rentalsCompleted || 0)}</strong></li>
+        <li><span>Сейчас на руках</span><strong>${formatNumber(u.rentalsActive || 0)}</strong></li>
+        <li><span>Просрочек</span><strong>${formatNumber(u.rentalsOverdue || 0)}</strong></li>
+      </ul>
+      ${u.isBlocked ? `<p class="reject-reason">Заблокирован${u.blockedReason ? `: ${escapeHtml(u.blockedReason)}` : ""}</p>` : ""}
+      <button type="button" class="ghost-button table-inline-button" data-open-user-from-rental="${escapeHtml(u.id)}">Открыть карточку пользователя</button>`
+    : `<p class="muted-inline">—</p>`;
+
+  const reservationBlock = res
+    ? `<ul class="detail-list">
+        <li><span>Оформлена</span><strong>${formatDateTime(res.createdAt)}</strong></li>
+        <li><span>Срок аренды</span><strong>${escapeHtml(formatRentalDuration(res.durationType, res.durationValue))}</strong></li>
+        <li><span>Тариф</span><strong>${escapeHtml(res.pricePlanName || "—")}</strong></li>
+        <li><span>Дата выдачи</span><strong>${res.pickupAt ? formatPickupDate(res.pickupAt) : "сразу"}</strong></li>
+        <li><span>Подтверждена</span><strong>${formatDateTime(res.confirmedAt)}</strong></li>
+        <li><span>Сумма</span><strong>${formatMoney((res.quotedAmount || 0) / 100, res.currency)}</strong></li>
+        <li><span>Статус брони</span><strong>${renderStatusPill(res.status)}</strong></li>
+        <li><span>ID</span><strong><code>${escapeHtml(res.id)}</code></strong></li>
+      </ul>`
+    : `<p class="muted-inline">Аренда создана без брони.</p>`;
+
   rentalDetailBody.innerHTML = `
     <div class="user-detail-grid">
       <div class="detail-block">
         <h4 class="detail-block-title">Статус</h4>
-        <p>${renderStatusPill(r.status)}</p>
+        <p>${renderStatusPill(r.status)}${tl.isOverdue ? ` <span class="overdue-badge" title="Просрочено">!</span>` : ""}</p>
         <ul class="detail-list">
           <li><span>PIN выдачи</span><strong>${escapeHtml(r.pickupPin || "—")}</strong></li>
+          <li><span>Аренда создана</span><strong>${formatDateTime(tl.createdAt)}</strong></li>
           <li><span>Начало</span><strong>${formatDateTime(r.startsAt)}</strong></li>
+          <li><span>Забрать до</span><strong>${formatDateTime(tl.pickupExpiresAt)}</strong></li>
           <li><span>План окончания</span><strong>${formatDateTime(r.plannedEndAt)}</strong></li>
           <li><span>Факт окончания</span><strong>${formatDateTime(r.actualEndAt)}</strong></li>
+          ${tl.overdueStartedAt ? `<li><span>Просрочка с</span><strong>${formatDateTime(tl.overdueStartedAt)}</strong></li>` : ""}
+          ${tl.cancelReason ? `<li><span>Причина снятия</span><strong>${escapeHtml(tl.cancelReason)}</strong></li>` : ""}
         </ul>
       </div>
       <div class="detail-block">
         <h4 class="detail-block-title">Пользователь</h4>
-        ${
-          u
-            ? `<ul class="detail-list">
-          <li><span>Имя</span><strong>${escapeHtml(u.name)}</strong></li>
-          <li><span>Телефон</span><strong>${escapeHtml(u.phone)}</strong></li>
-          <li><span>ID</span><strong><code>${escapeHtml(u.id)}</code></strong></li>
-        </ul>
-        <button type="button" class="ghost-button table-inline-button" data-open-user-from-rental="${escapeHtml(u.id)}">Карточка пользователя</button>`
-            : `<p class="muted-inline">—</p>`
-        }
+        ${userBlock}
+      </div>
+      <div class="detail-block">
+        <h4 class="detail-block-title">Бронь</h4>
+        ${reservationBlock}
       </div>
       <div class="detail-block">
         <h4 class="detail-block-title">Товар и юнит</h4>
@@ -2682,17 +2828,22 @@ function renderRentalDetailModal() {
           <li><span>Юнит</span><strong>${inv ? escapeHtml(inv.id) : "—"}</strong></li>
           <li><span>Статус юнита</span><strong>${inv ? renderStatusPill(inv.status) : "—"}</strong></li>
           <li><span>Серийный №</span><strong>${escapeHtml(inv?.serialNumber || "—")}</strong></li>
+          <li><span>Штрихкод</span><strong>${escapeHtml(inv?.barcode || "—")}</strong></li>
         </ul>
       </div>
       <div class="detail-block">
-        <h4 class="detail-block-title">Постамат выдачи</h4>
+        <h4 class="detail-block-title">Постамат</h4>
         <ul class="detail-list">
-          <li><span>Название</span><strong>${escapeHtml(r.pickupLocker?.name || "—")}</strong></li>
+          <li><span>Выдача</span><strong>${escapeHtml(r.pickupLocker?.name || "—")}</strong></li>
           <li><span>Адрес</span><strong>${escapeHtml(r.pickupLocker?.address || "—")}</strong></li>
+          <li><span>Город</span><strong>${escapeHtml(d.pickupCityName || "—")}</strong></li>
+          <li><span>Ячейка</span><strong>${escapeHtml(cell?.label || cell?.externalCellId || "—")}</strong></li>
+          <li><span>Статус ячейки</span><strong>${cell ? renderStatusPill(cell.status) : "—"}</strong></li>
+          ${d.returnLocker ? `<li><span>Возврат в</span><strong>${escapeHtml(d.returnLocker.name || "—")}</strong></li>` : ""}
         </ul>
       </div>
       <div class="detail-block">
-        <h4 class="detail-block-title">Платёж (сводка)</h4>
+        <h4 class="detail-block-title">Деньги</h4>
         <ul class="detail-list">
           <li><span>Предавторизация</span><strong>${formatMoney((r.paymentSummary?.preauthAmount || 0) / 100, r.paymentSummary?.currency)}</strong></li>
           <li><span>Списано</span><strong>${formatMoney((r.paymentSummary?.capturedAmount || 0) / 100, r.paymentSummary?.currency)}</strong></li>
@@ -2701,6 +2852,17 @@ function renderRentalDetailModal() {
     </div>
     ${operatorBlock}
     ${deleteBlock}
+    <div class="detail-block">
+      <h4 class="detail-block-title">Платежи</h4>
+      <div class="table-scroll">
+        <table class="data-table data-table-compact">
+          <thead>
+            <tr><th>Создан</th><th>Тип</th><th>Статус</th><th>Сумма</th><th>ID в ЮKassa</th><th>Ошибка</th></tr>
+          </thead>
+          <tbody>${paymentsRows || `<tr><td colspan="6" class="muted-inline">Платежей нет</td></tr>`}</tbody>
+        </table>
+      </div>
+    </div>
     <div class="detail-block">
       <h4 class="detail-block-title">События</h4>
       <div class="table-scroll">
@@ -2765,12 +2927,15 @@ async function handleRentalsTableClick(event) {
   if (!root || rentalsTableBusy) {
     return;
   }
-  const openBtn = root.closest("[data-open-rental]");
-  if (openBtn) {
-    const id = (openBtn.getAttribute("data-open-rental") || "").trim();
-    openRentalDetail(id);
+  // Имя арендатора в таблице — ссылка в его карточку. Секцию не меняем:
+  // карточка живёт в модалке, и после закрытия оператор остаётся в аренде.
+  const userBtn = root.closest("[data-open-user]");
+  if (userBtn) {
+    const uid = (userBtn.getAttribute("data-open-user") || "").trim();
+    await openUserDetail(uid);
     return;
   }
+
   const cancelBtn = root.closest("[data-rental-cancel]");
   if (cancelBtn) {
     const id = (cancelBtn.getAttribute("data-rental-cancel") || "").trim();
@@ -2811,6 +2976,16 @@ async function handleRentalsTableClick(event) {
       rentalsTableBusy = false;
       deleteBtn.disabled = false;
     }
+    return;
+  }
+
+  // Проверяется последним: атрибут висит и на кнопке «Открыть», и на всей
+  // строке, поэтому кнопки «Снять»/«Удалить» должны разобраться раньше —
+  // иначе клик по ним всплыл бы до строки и просто открыл карточку.
+  const openBtn = root.closest("[data-open-rental]");
+  if (openBtn) {
+    const id = (openBtn.getAttribute("data-open-rental") || "").trim();
+    openRentalDetail(id);
   }
 }
 
@@ -2825,7 +3000,6 @@ async function handleRentalDetailClick(event) {
   if (userBtn) {
     const uid = (userBtn.getAttribute("data-open-user-from-rental") || "").trim();
     closeModal();
-    setActiveSection("users");
     await openUserDetail(uid);
     return;
   }
@@ -3569,8 +3743,8 @@ async function bootstrapAuthorizedApp() {
 }
 
 async function applyDeepLinkFromQuery() {
-  // Поддерживаем ?section=<name>&user=<uuid>, чтобы Telegram-уведомления
-  // вели сразу в нужный раздел и карточку пользователя.
+  // Поддерживаем ?section=<name>&user=<uuid>&rental=<uuid>, чтобы уведомления
+  // и панель поддержки вели сразу в нужный раздел и в нужную карточку.
   let params;
   try {
     params = new URLSearchParams(window.location.search);
@@ -3601,6 +3775,17 @@ async function applyDeepLinkFromQuery() {
         console.error(error);
       }
     }
+    if (section === "rentals") {
+      // Стартовая загрузка аренды не тянет — без этого кнопка «Открыть
+      // аренды» из уведомления приводила на пустую таблицу.
+      try {
+        populateRentalsCityLockerSelects();
+        syncRentalsFiltersFromDom();
+        await loadRentalsOnly();
+      } catch (error) {
+        console.error(error);
+      }
+    }
     if (section === "feedback" && feedbackSection) {
       try {
         await feedbackSection.open((params.get("item") || "").trim());
@@ -3617,6 +3802,18 @@ async function applyDeepLinkFromQuery() {
     } catch (error) {
       console.error(error);
       showToast("error", "Не удалось открыть карточку пользователя.");
+    }
+  }
+
+  // Аренда — самая узкая цель, поэтому открывается последней и перекрывает
+  // карточку пользователя, если в ссылке заданы обе.
+  const rentalId = (params.get("rental") || "").trim();
+  if (rentalId && UUID_RE.test(rentalId)) {
+    try {
+      await openRentalDetail(rentalId);
+    } catch (error) {
+      console.error(error);
+      showToast("error", "Не удалось открыть аренду.");
     }
   }
 }
@@ -4917,6 +5114,7 @@ if (inventoryServiceSubmit) {
 (function initSubscribersSections() {
   const ERROR_MESSAGES = {
     USERNAME_REQUIRED: "Юзернейм обязателен.",
+    CITY_REQUIRED: "Выберите город подписчика.",
     USERNAME_INVALID: "Юзернейм должен быть 5–32 символа: латиница, цифры, _.",
     SUBSCRIBER_ALREADY_EXISTS: "Подписчик с таким юзернеймом уже есть.",
     SUBSCRIBER_NOT_FOUND: "Подписчик не найден.",
@@ -4958,6 +5156,8 @@ if (inventoryServiceSubmit) {
     const form = document.getElementById(`${prefix}-form`);
     const usernameInput = document.getElementById(`${prefix}-username`);
     const noteInput = document.getElementById(`${prefix}-note`);
+    const cityField = document.getElementById(`${prefix}-city-field`);
+    const citySelect = document.getElementById(`${prefix}-city`);
     const resyncButton = document.getElementById(`${prefix}-resync`);
     const webhookButton = document.getElementById(`${prefix}-webhook`);
 
@@ -5017,7 +5217,32 @@ if (inventoryServiceSubmit) {
         .join("");
     }
 
+    /** Франшизе с несколькими городами нужно указать, чей это подписчик. */
+    function syncCityField() {
+      if (!cityField || !citySelect) {
+        return;
+      }
+      const ownCityIds = franchiseCityIds();
+      const needsChoice = ownCityIds.length > 1;
+      cityField.classList.toggle("hidden", !needsChoice);
+      if (!needsChoice) {
+        citySelect.innerHTML = "";
+        return;
+      }
+      const previous = citySelect.value;
+      citySelect.innerHTML = (state.admin.cities || [])
+        .map(
+          (city) =>
+            `<option value="${escapeHtml(String(city.id))}">${escapeHtml(city.name)}</option>`,
+        )
+        .join("");
+      if (previous && ownCityIds.includes(previous)) {
+        citySelect.value = previous;
+      }
+    }
+
     async function loadAll() {
+      syncCityField();
       try {
         const payload = await authorizedRequest(endpoint);
         renderRows(payload.data?.items || []);
@@ -5035,11 +5260,24 @@ if (inventoryServiceSubmit) {
         return;
       }
       const note = (noteInput?.value || "").trim();
+      const cityId =
+        cityField && !cityField.classList.contains("hidden") && citySelect
+          ? citySelect.value
+          : null;
+      if (cityField && !cityField.classList.contains("hidden") && !cityId) {
+        showToast("error", ERROR_MESSAGES.CITY_REQUIRED);
+        return;
+      }
       try {
         await authorizedRequest(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, note: note || null, isEnabled: true }),
+          body: JSON.stringify({
+            username,
+            note: note || null,
+            isEnabled: true,
+            cityId,
+          }),
         });
         if (usernameInput) usernameInput.value = "";
         if (noteInput) noteInput.value = "";
@@ -5180,7 +5418,11 @@ if (inventoryServiceSubmit) {
   const createModal = document.getElementById("franchise-modal");
   const createForm = document.getElementById("franchise-form");
   const createName = document.getElementById("franchise-create-name");
-  const createCity = document.getElementById("franchise-create-city");
+  const createCities = document.getElementById("franchise-create-cities");
+  const citiesModal = document.getElementById("franchise-cities-modal");
+  const citiesForm = document.getElementById("franchise-cities-form");
+  const citiesTarget = document.getElementById("franchise-cities-target");
+  const editCities = document.getElementById("franchise-edit-cities");
   const createLogin = document.getElementById("franchise-create-login");
   const createPassword = document.getElementById("franchise-create-password");
   const generateButton = document.getElementById("franchise-generate-password");
@@ -5199,6 +5441,7 @@ if (inventoryServiceSubmit) {
 
   let franchises = [];
   let passwordTargetId = "";
+  let citiesTargetId = "";
   let isSubmitting = false;
 
   const PASSWORD_ALPHABET = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -5231,34 +5474,46 @@ if (inventoryServiceSubmit) {
     return slug ? `${slug}-partner` : "";
   }
 
-  function populateCitySelect() {
-    if (!createCity) {
+  /** Рисует чекбоксы городов; selected — какие отметить. */
+  function renderCityChecklist(container, selected) {
+    if (!container) {
       return;
     }
-    const previous = createCity.value;
-    createCity.innerHTML = "";
+    const chosen = new Set((selected || []).map((value) => String(value)));
     const cities = state.cities || [];
     if (!cities.length) {
-      const option = document.createElement("option");
-      option.value = "";
-      option.textContent = "Сначала добавьте город";
-      createCity.appendChild(option);
+      container.innerHTML = `<p class="muted-inline">Сначала добавьте город.</p>`;
       return;
     }
-    cities.forEach((city) => {
-      const option = document.createElement("option");
-      option.value = city.id;
-      option.textContent = city.name;
-      createCity.appendChild(option);
-    });
-    if (previous && cities.some((city) => String(city.id) === String(previous))) {
-      createCity.value = previous;
+    container.innerHTML = cities
+      .map(
+        (city) => `
+          <label class="city-checklist-item">
+            <input type="checkbox" value="${escapeHtml(String(city.id))}"${
+              chosen.has(String(city.id)) ? " checked" : ""
+            } />
+            <span>${escapeHtml(city.name)}</span>
+          </label>`,
+      )
+      .join("");
+  }
+
+  function checkedCityIds(container) {
+    if (!container) {
+      return [];
     }
+    return Array.from(container.querySelectorAll("input[type=checkbox]"))
+      .filter((input) => input.checked)
+      .map((input) => input.value);
   }
 
   function cityNameById(cityId) {
     const city = (state.cities || []).find((item) => String(item.id) === String(cityId));
     return city ? city.name : "";
+  }
+
+  function cityNamesOf(item) {
+    return ((item && item.cities) || []).map((city) => city.name).join(", ");
   }
 
   function renderFranchises() {
@@ -5285,10 +5540,12 @@ if (inventoryServiceSubmit) {
               <div class="section-meta">Выдан ${formatDate(item.createdAt)}</div>
             </td>
             <td><code>${escapeHtml(item.login)}</code></td>
-            <td>${escapeHtml(item.cityName || "—")}</td>
+            <td>${escapeHtml(cityNamesOf(item) || "—")}</td>
             <td>${access}</td>
             <td>${item.lastLoginAt ? formatDateTime(item.lastLoginAt) : "—"}</td>
             <td class="data-table-col-actions">
+              <button type="button" class="ghost-button table-inline-button"
+                data-franchise-cities="${escapeHtml(item.id)}">Города</button>
               <button type="button" class="ghost-button table-inline-button"
                 data-franchise-stats="${escapeHtml(item.id)}">Статистика</button>
               <button type="button" class="ghost-button table-inline-button"
@@ -5320,12 +5577,12 @@ if (inventoryServiceSubmit) {
       return;
     }
     createForm.reset();
-    populateCitySelect();
+    renderCityChecklist(createCities, []);
     if (createPassword) {
       createPassword.value = generatePassword();
     }
     if (createLogin) {
-      createLogin.value = suggestLogin(cityNameById(createCity && createCity.value));
+      createLogin.value = "";
       createLogin.dataset.userEdited = "0";
     }
     createModal.classList.remove("hidden");
@@ -5338,12 +5595,12 @@ if (inventoryServiceSubmit) {
       return;
     }
     const name = String((createName && createName.value) || "").trim();
-    const cityId = String((createCity && createCity.value) || "");
+    const cityIds = checkedCityIds(createCities);
     const login = String((createLogin && createLogin.value) || "").trim().toLowerCase();
     const password = String((createPassword && createPassword.value) || "");
 
-    if (!name || !cityId || !login) {
-      showToast("error", "Заполните название, город и логин.");
+    if (!name || !cityIds.length || !login) {
+      showToast("error", "Заполните название, отметьте города и укажите логин.");
       return;
     }
     if (password.length < 8) {
@@ -5358,7 +5615,7 @@ if (inventoryServiceSubmit) {
       await authorizedRequest("/api/admin/franchises", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, login, password, cityId }),
+        body: JSON.stringify({ name, login, password, cityIds }),
       });
       closeModal();
       // Пароль показываем один раз — в базе лежит только его хеш.
@@ -5370,6 +5627,53 @@ if (inventoryServiceSubmit) {
     } finally {
       isSubmitting = false;
       setModalSubmitting(false, submitButton);
+    }
+  }
+
+  function openCitiesModal(franchiseId) {
+    const item = franchises.find((row) => row.id === franchiseId);
+    if (!item || !citiesModal) {
+      return;
+    }
+    citiesTargetId = franchiseId;
+    if (citiesTarget) {
+      citiesTarget.textContent = `${item.name} · ${item.login}`;
+    }
+    renderCityChecklist(editCities, ((item.cities) || []).map((city) => city.id));
+    modalBackdrop.classList.remove("hidden");
+    citiesModal.classList.remove("hidden");
+  }
+
+  async function submitCities(event) {
+    event.preventDefault();
+    if (!citiesTargetId || isSubmitting) {
+      return;
+    }
+    const cityIds = checkedCityIds(editCities);
+    if (!cityIds.length) {
+      showToast("error", "Отметьте хотя бы один город.");
+      return;
+    }
+    const targetId = citiesTargetId;
+    isSubmitting = true;
+    const submitButton = citiesForm.querySelector('button[type="submit"]');
+    setModalSubmitting(true, submitButton);
+    try {
+      await authorizedRequest(`/api/admin/franchises/${encodeURIComponent(targetId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cityIds }),
+      });
+      closeModal();
+      showToast("success", "Города обновлены, сессии франшизы закрыты.");
+      await loadFranchises();
+    } catch (error) {
+      console.error(error);
+      showToast("error", error.message || "Не удалось обновить города");
+    } finally {
+      isSubmitting = false;
+      setModalSubmitting(false, submitButton);
+      citiesTargetId = "";
     }
   }
 
@@ -5481,7 +5785,9 @@ if (inventoryServiceSubmit) {
       return;
     }
     if (statsTitle) {
-      statsTitle.textContent = `${franchise.name} · ${franchise.cityName || "город не задан"}`;
+      statsTitle.textContent = `${franchise.name} · ${
+        cityNamesOf(franchise) || "города не заданы"
+      }`;
     }
     const days = stats.windowDays || 30;
     const blocks = [
@@ -5558,6 +5864,12 @@ if (inventoryServiceSubmit) {
       return;
     }
 
+    const citiesId = attributeFromClick(target, "data-franchise-cities");
+    if (citiesId) {
+      openCitiesModal(citiesId);
+      return;
+    }
+
     const passwordId = attributeFromClick(target, "data-franchise-password");
     if (passwordId) {
       openPasswordModal(passwordId);
@@ -5596,17 +5908,24 @@ if (inventoryServiceSubmit) {
       }
     });
   }
-  if (createCity) {
-    createCity.addEventListener("change", () => {
-      if (createLogin && createLogin.dataset.userEdited !== "1") {
-        createLogin.value = suggestLogin(cityNameById(createCity.value));
+  if (createCities) {
+    // Логин подсказываем по первому отмеченному городу, пока его не
+    // правили руками: у мультигородской франшизы всё равно нужен один.
+    createCities.addEventListener("change", () => {
+      if (!createLogin || createLogin.dataset.userEdited === "1") {
+        return;
       }
+      const [firstCityId] = checkedCityIds(createCities);
+      createLogin.value = firstCityId ? suggestLogin(cityNameById(firstCityId)) : "";
     });
   }
   if (createLogin) {
     createLogin.addEventListener("input", () => {
       createLogin.dataset.userEdited = createLogin.value ? "1" : "0";
     });
+  }
+  if (citiesForm) {
+    citiesForm.addEventListener("submit", submitCities);
   }
   if (refreshButton) {
     refreshButton.addEventListener("click", loadFranchises);

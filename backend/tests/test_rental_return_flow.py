@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from backend.core.database import Base
 from backend.core.settings import settings
 from backend.models.admin_account import AdminAccount
+from backend.models.admin_account_city import admin_account_cities
 from backend.models.city import City
 from backend.models.enums import (
     InventoryStatus,
@@ -45,6 +46,7 @@ TEST_TABLES = [
     Product.__table__,
     User.__table__,
     AdminAccount.__table__,
+    admin_account_cities,
     MediaFile.__table__,
     LockerLocation.__table__,
     LockerCell.__table__,

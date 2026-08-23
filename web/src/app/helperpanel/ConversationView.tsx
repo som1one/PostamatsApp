@@ -43,6 +43,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
+  ExternalLink,
+  MapPin,
   Phone,
   RotateCcw,
   Send,
@@ -684,12 +686,33 @@ function ClientInfoPanel({ card }: { card: ClientInfoCard | null }) {
                 <div className="cv-activity-name">
                   {item.productName ?? "Без названия"}
                 </div>
+                {item.lockerName ? (
+                  <div className="cv-activity-place">
+                    <MapPin size={13} aria-hidden="true" />
+                    {item.cityName
+                      ? `${item.lockerName}, ${item.cityName}`
+                      : item.lockerName}
+                  </div>
+                ) : null}
                 <div className="cv-activity-meta">
                   <span className="cv-activity-status">{item.status}</span>
                   <span>
                     {formatDate(item.startsAt)} — {formatDate(item.plannedEndAt)}
                   </span>
                 </div>
+                {/* Ссылка в админку: PIN, ячейка, платежи и события живут
+                    там, и без перехода оператор отвечает клиенту вслепую. */}
+                {item.adminUrl ? (
+                  <a
+                    className="cv-activity-link"
+                    href={item.adminUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Открыть аренду
+                    <ExternalLink size={13} aria-hidden="true" />
+                  </a>
+                ) : null}
               </div>
             ))}
           </div>

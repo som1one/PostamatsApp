@@ -9,7 +9,7 @@ from backend.models.city import City
 from backend.models.locker_location import LockerLocation
 from backend.models.user import User
 from backend.routers.admin.auth import get_current_admin
-from backend.utils.admin_scope import franchise_city_id, user_in_city_clause
+from backend.utils.admin_scope import franchise_city_ids, user_in_city_clause
 
 
 router = APIRouter(prefix="/api/admin/dashboard", tags=["admin-dashboard"])
@@ -46,15 +46,15 @@ async def get_dashboard_overview(
     db: AsyncSession = Depends(get_db),
 ):
     admin, _ = await get_current_admin(request, db)
-    scope_city_id = franchise_city_id(admin)
+    scope_city_ids = franchise_city_ids(admin)
 
-    # Франшиза считает только свой город: пользователей города, его
-    # постаматы и сам город как единицу географии.
-    user_filters = [user_in_city_clause(scope_city_id)] if scope_city_id else []
+    # Франшиза считает только свои города: их пользователей, их постаматы
+    # и сами города как единицы географии.
+    user_filters = [user_in_city_clause(scope_city_ids)] if scope_city_ids else []
     locker_filters = (
-        [LockerLocation.city_id == scope_city_id] if scope_city_id else []
+        [LockerLocation.city_id.in_(scope_city_ids)] if scope_city_ids else []
     )
-    city_filters = [City.id == scope_city_id] if scope_city_id else []
+    city_filters = [City.id.in_(scope_city_ids)] if scope_city_ids else []
 
     total_users = await db.scalar(select(func.count(User.id)).where(*user_filters)) or 0
     total_cities = await db.scalar(select(func.count(City.id)).where(*city_filters)) or 0

@@ -146,6 +146,9 @@ def _map_client_info_card(card: ClientInfoCardData) -> ClientInfoCard:
                 status=rental.status,
                 startsAt=rental.starts_at,
                 plannedEndAt=rental.planned_end_at,
+                lockerName=rental.locker_name,
+                cityName=rental.city_name,
+                adminUrl=rental.admin_url,
             )
             for rental in card.recent_rentals
         ],

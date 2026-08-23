@@ -18,14 +18,17 @@ from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
 from backend.models.payment import Payment
+from backend.models.price_plan import PricePlan
 from backend.models.product import Product
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
+from backend.models.reservation import Reservation
 from backend.models.user import User
 from backend.routers.admin.auth import get_current_admin
 from backend.utils.admin_audit import record_admin_audit
-from backend.utils.admin_scope import ensure_rental_in_scope, franchise_city_id
-from backend.utils.rental_serialization import serialize_rental_detail
+from backend.utils.admin_scope import ensure_rental_in_scope, franchise_city_ids
+from backend.utils.lockers_utils import price_plan_to_minor_units
+from backend.utils.rental_serialization import rental_is_overdue, serialize_rental_detail
 
 router = APIRouter(prefix="/api/admin/rentals", tags=["admin-rentals"])
 
@@ -57,11 +60,137 @@ def _user_display_name(user: User) -> str:
 
 
 def _is_overdue_row(rental: Rental, now: datetime) -> bool:
-    if rental.status == RentalStatus.OVERDUE:
-        return True
-    if rental.status == RentalStatus.ACTIVE and rental.planned_end_at:
-        return rental.planned_end_at < now
-    return False
+    # Одна и та же формула нужна и в списке аренд, и в карточке пользователя,
+    # поэтому живёт в utils, а не тут.
+    return rental_is_overdue(rental, now)
+
+
+def _minor_units(amount, currency: str | None = "RUB") -> int:
+    return price_plan_to_minor_units(amount, currency or "RUB") if amount is not None else 0
+
+
+def _iso(value: datetime | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+async def _serialize_rental_user_card(db: AsyncSession, user: User) -> dict:
+    """Профиль арендатора прямо в карточке аренды.
+
+    Оператору почти всегда нужно не «кто это», а «можно ли ему доверять»:
+    сколько у него аренд, есть ли просрочки, верифицирован ли, не заблокирован.
+    Раньше здесь были только имя и телефон, за остальным приходилось уходить
+    в раздел пользователей и искать руками.
+    """
+    city_name = None
+    if user.preferred_city_id:
+        city = await db.get(City, user.preferred_city_id)
+        city_name = city.name if city else None
+
+    counts = (
+        await db.execute(
+            select(Rental.status, func.count(Rental.id))
+            .where(Rental.user_id == user.id)
+            .group_by(Rental.status)
+        )
+    ).all()
+    by_status = {status: count for status, count in counts}
+
+    return {
+        "id": str(user.id),
+        "phone": user.phone,
+        "name": _user_display_name(user),
+        "email": user.email,
+        "cityName": city_name,
+        "verificationStatus": user.verification_status.value,
+        "isBlocked": user.is_blocked,
+        "blockedReason": user.blocked_reason,
+        "registeredAt": _iso(user.created_at),
+        "lastLoginAt": _iso(user.last_login_at),
+        "rentalsTotal": sum(by_status.values()),
+        "rentalsCompleted": by_status.get(RentalStatus.COMPLETED, 0),
+        "rentalsActive": by_status.get(RentalStatus.ACTIVE, 0)
+        + by_status.get(RentalStatus.PICKUP_READY, 0)
+        + by_status.get(RentalStatus.PICKUP_OPENED, 0),
+        "rentalsOverdue": by_status.get(RentalStatus.OVERDUE, 0),
+        "rentalsIncident": by_status.get(RentalStatus.INCIDENT, 0),
+    }
+
+
+async def _serialize_rental_reservation(db: AsyncSession, rental: Rental) -> dict | None:
+    """Условия, на которых аренду оформили: срок, дата выдачи, цена."""
+    if not rental.reservation_id:
+        return None
+    res = await db.get(Reservation, rental.reservation_id)
+    if res is None:
+        return None
+
+    plan = await db.get(PricePlan, res.price_plan_id) if res.price_plan_id else None
+    currency = plan.currency if plan else "RUB"
+    return {
+        "id": str(res.id),
+        "status": res.status.value,
+        "createdAt": _iso(res.created_at),
+        "pickupAt": _iso(res.pickup_at),
+        "expiresAt": _iso(res.expires_at),
+        "confirmedAt": _iso(res.confirmed_at),
+        "cancelledAt": _iso(res.cancelled_at),
+        "cancelReason": res.cancel_reason,
+        "durationType": res.duration_type,
+        "durationValue": res.duration_value,
+        "quotedAmount": _minor_units(res.quoted_amount, currency),
+        "preauthAmount": _minor_units(res.preauth_amount, currency),
+        "currency": currency,
+        "pricePlanName": plan.name if plan else None,
+    }
+
+
+async def _serialize_rental_payments(db: AsyncSession, rental: Rental) -> list[dict]:
+    """Все платежи по аренде, а не только две суммы в сводке.
+
+    Идентификатор на стороне ЮKassa нужен, чтобы оператор мог за секунду
+    найти платёж в личном кабинете — например, когда клиент утверждает, что
+    деньги списаны, а у нас платёж висит.
+    """
+    conditions = []
+    if rental.reservation_id:
+        conditions.append(Payment.reservation_id == rental.reservation_id)
+    conditions.append(Payment.rental_id == rental.id)
+
+    stmt = (
+        select(Payment)
+        .where(or_(*conditions))
+        .order_by(Payment.created_at.asc())
+    )
+    return [
+        {
+            "id": str(p.id),
+            "providerPaymentId": p.provider_payment_id,
+            "type": p.type.value,
+            "status": p.status.value,
+            "amount": _minor_units(p.amount, p.currency),
+            "currency": p.currency,
+            "createdAt": _iso(p.created_at),
+            "processedAt": _iso(p.processed_at),
+            "failureCode": p.failure_code,
+            "failureMessage": p.failure_message,
+        }
+        for p in (await db.scalars(stmt)).all()
+    ]
+
+
+async def _serialize_rental_cell(db: AsyncSession, unit: InventoryUnit | None) -> dict | None:
+    if unit is None or unit.locker_cell_id is None:
+        return None
+    cell = await db.get(LockerCell, unit.locker_cell_id)
+    if cell is None:
+        return None
+    return {
+        "id": str(cell.id),
+        "label": cell.label,
+        "externalCellId": cell.external_cell_id,
+        "status": cell.status.value,
+        "supportsReturn": cell.supports_return,
+    }
 
 
 async def _release_unit_and_cell(db: AsyncSession, rental: Rental) -> None:
@@ -91,7 +220,7 @@ async def list_rentals(
     limit: int = Query(50, ge=1, le=200),
 ):
     admin, _ = await get_current_admin(request, db)
-    scope_city_id = franchise_city_id(admin)
+    scope_city_ids = franchise_city_ids(admin)
 
     filters: list = []
     if status:
@@ -101,9 +230,9 @@ async def list_rentals(
             raise HTTPException(status_code=400, detail="INVALID_STATUS_FILTER") from None
         filters.append(Rental.status == st)
 
-    if scope_city_id is not None:
+    if scope_city_ids is not None:
         # Город франшизы жёстче любого фильтра из запроса.
-        filters.append(LockerLocation.city_id == scope_city_id)
+        filters.append(LockerLocation.city_id.in_(scope_city_ids))
     elif city_id is not None:
         filters.append(LockerLocation.city_id == city_id)
 
@@ -193,22 +322,24 @@ async def get_rental(
     rental = await db.get(Rental, rid)
     if rental is None:
         raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
-    await ensure_rental_in_scope(db, franchise_city_id(admin), rental)
+    await ensure_rental_in_scope(db, franchise_city_ids(admin), rental)
 
     user = await db.get(User, rental.user_id)
     unit = await db.get(InventoryUnit, rental.inventory_unit_id)
     product = await db.get(Product, unit.product_id) if unit and unit.product_id else None
-
-    detail = await serialize_rental_detail(db, rental)
-    detail["user"] = (
-        {
-            "id": str(user.id),
-            "phone": user.phone,
-            "name": _user_display_name(user),
-        }
-        if user
+    return_locker = (
+        await db.get(LockerLocation, rental.return_locker_id)
+        if rental.return_locker_id
         else None
     )
+    pickup_city = None
+    pickup_locker = await db.get(LockerLocation, rental.pickup_locker_id)
+    if pickup_locker is not None and pickup_locker.city_id:
+        city = await db.get(City, pickup_locker.city_id)
+        pickup_city = city.name if city else None
+
+    detail = await serialize_rental_detail(db, rental)
+    detail["user"] = await _serialize_rental_user_card(db, user) if user else None
     detail["inventoryUnit"] = (
         {
             "id": str(unit.id),
@@ -220,6 +351,29 @@ async def get_rental(
         else None
     )
     detail["productId"] = str(product.id) if product else None
+    detail["reservation"] = await _serialize_rental_reservation(db, rental)
+    detail["payments"] = await _serialize_rental_payments(db, rental)
+    detail["cell"] = await _serialize_rental_cell(db, unit)
+    detail["pickupCityName"] = pickup_city
+    detail["returnLocker"] = (
+        {
+            "id": str(return_locker.id),
+            "name": return_locker.name,
+            "address": return_locker.address,
+        }
+        if return_locker
+        else None
+    )
+    # Собственные сроки аренды: сводка сверху карточки отвечает на «что с ней
+    # сейчас», а эти поля — на «что уже произошло и когда».
+    detail["timeline"] = {
+        "createdAt": _iso(rental.created_at),
+        "pickupExpiresAt": _iso(rental.pickup_expires_at),
+        "overdueStartedAt": _iso(rental.overdue_started_at),
+        "completedAt": _iso(rental.completed_at),
+        "cancelReason": rental.cancel_reason,
+        "isOverdue": _is_overdue_row(rental, datetime.now(timezone.utc)),
+    }
 
     return {"data": detail}
 
@@ -235,7 +389,7 @@ async def cancel_rental(
     rental = await db.get(Rental, rid)
     if rental is None:
         raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
-    await ensure_rental_in_scope(db, franchise_city_id(admin), rental)
+    await ensure_rental_in_scope(db, franchise_city_ids(admin), rental)
     if rental.status in _NO_CANCEL_RENTAL:
         raise HTTPException(status_code=409, detail="RENTAL_NOT_CANCELLABLE")
 
@@ -296,7 +450,7 @@ async def force_complete_rental(
     rental = await db.get(Rental, rid)
     if rental is None:
         raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
-    await ensure_rental_in_scope(db, franchise_city_id(admin), rental)
+    await ensure_rental_in_scope(db, franchise_city_ids(admin), rental)
     if rental.status in (RentalStatus.COMPLETED, RentalStatus.CANCELLED):
         raise HTTPException(status_code=409, detail="RENTAL_NOT_FORCE_COMPLETABLE")
 
@@ -357,7 +511,7 @@ async def delete_rental(
     rental = await db.get(Rental, rid)
     if rental is None:
         raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
-    await ensure_rental_in_scope(db, franchise_city_id(admin), rental)
+    await ensure_rental_in_scope(db, franchise_city_ids(admin), rental)
     if rental.status not in _TERMINAL_RENTAL:
         raise HTTPException(status_code=409, detail="RENTAL_NOT_DELETABLE")
 

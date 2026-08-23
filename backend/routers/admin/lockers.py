@@ -31,7 +31,7 @@ from backend.utils.admin_audit import record_admin_audit
 from backend.utils.admin_scope import (
     ensure_city_in_scope,
     ensure_locker_in_scope,
-    franchise_city_id,
+    franchise_city_ids,
 )
 from backend.utils.esi_client import (
     EsiDiscoveryError,
@@ -174,11 +174,11 @@ async def list_admin_lockers(
     db: AsyncSession = Depends(get_db),
 ):
     admin, _ = await get_current_admin(request, db)
-    scope_city_id = franchise_city_id(admin)
+    scope_city_ids = franchise_city_ids(admin)
 
     stmt = select(LockerLocation).order_by(LockerLocation.created_at.desc())
-    if scope_city_id is not None:
-        stmt = stmt.where(LockerLocation.city_id == scope_city_id)
+    if scope_city_ids is not None:
+        stmt = stmt.where(LockerLocation.city_id.in_(scope_city_ids))
     lockers = (await db.scalars(stmt)).all()
     locker_ids = [locker.id for locker in lockers]
     counts = await load_locker_availability_counts(db, locker_ids)
@@ -212,11 +212,17 @@ async def list_external_locker_candidates(
     db: AsyncSession = Depends(get_db),
 ):
     admin, _ = await get_current_admin(request, db)
-    scope_city_id = franchise_city_id(admin)
-    # Франшиза ищет кандидатов только в своём городе, даже если фронт
-    # прислал другой cityId (или не прислал вовсе).
-    if scope_city_id is not None:
-        cityId = scope_city_id
+    scope_city_ids = franchise_city_ids(admin)
+    # Франшиза ищет кандидатов только в своих городах: чужой cityId
+    # заменяем своим, а если городов несколько — просим выбрать, иначе
+    # поиск ушёл бы по всей сети.
+    if scope_city_ids is not None:
+        if cityId is None:
+            if len(scope_city_ids) > 1:
+                raise HTTPException(status_code=400, detail="Выберите город")
+            cityId = scope_city_ids[0]
+        else:
+            ensure_city_in_scope(scope_city_ids, cityId)
 
     city_name = None
     if cityId is not None:
@@ -242,8 +248,8 @@ async def create_admin_locker(
     db: AsyncSession = Depends(get_db),
 ):
     admin, _ = await get_current_admin(request, db)
-    scope_city_id = franchise_city_id(admin)
-    ensure_city_in_scope(scope_city_id, payload.cityId)
+    scope_city_ids = franchise_city_ids(admin)
+    ensure_city_in_scope(scope_city_ids, payload.cityId)
 
     city = await db.get(City, payload.cityId)
     if city is None:
@@ -330,7 +336,7 @@ async def admin_open_cell(
     ).scalar_one_or_none()
     if locker is None:
         raise HTTPException(status_code=404, detail="Постамат не найден")
-    await ensure_locker_in_scope(db, franchise_city_id(admin), locker)
+    await ensure_locker_in_scope(db, franchise_city_ids(admin), locker)
 
     try:
         await admin_trigger_open_cell(db, locker_id=locker_id, cell_id=payload.cellId)
@@ -370,7 +376,7 @@ async def admin_create_locker_cell(
     ).scalar_one_or_none()
     if locker is None:
         raise HTTPException(status_code=404, detail="Постамат не найден")
-    await ensure_locker_in_scope(db, franchise_city_id(admin), locker)
+    await ensure_locker_in_scope(db, franchise_city_ids(admin), locker)
 
     label = payload.label.strip() if payload.label else None
     ext = payload.externalCellId.strip() if payload.externalCellId else None
@@ -421,7 +427,7 @@ async def admin_update_locker_cell(
     ).scalar_one_or_none()
     if cell is None:
         raise HTTPException(status_code=404, detail="Ячейка не найдена")
-    await ensure_locker_in_scope(db, franchise_city_id(admin), locker_id)
+    await ensure_locker_in_scope(db, franchise_city_ids(admin), locker_id)
 
     data = payload.model_dump(exclude_unset=True)
     if "label" in data and data["label"] is not None:
@@ -473,7 +479,7 @@ async def admin_assign_inventory_unit(
     cell = await db.get(LockerCell, cell_id)
     if locker is None or cell is None or cell.locker_id != locker_id:
         raise HTTPException(status_code=404, detail="CELL_NOT_FOUND")
-    await ensure_locker_in_scope(db, franchise_city_id(admin), locker)
+    await ensure_locker_in_scope(db, franchise_city_ids(admin), locker)
 
     unit = await db.get(InventoryUnit, payload.inventoryUnitId)
     if unit is None:
@@ -560,7 +566,7 @@ async def admin_unassign_inventory_unit(
     cell = await db.get(LockerCell, cell_id)
     if locker is None or cell is None or cell.locker_id != locker_id:
         raise HTTPException(status_code=404, detail="CELL_NOT_FOUND")
-    await ensure_locker_in_scope(db, franchise_city_id(admin), locker)
+    await ensure_locker_in_scope(db, franchise_city_ids(admin), locker)
 
     unit = (
         await db.execute(select(InventoryUnit).where(InventoryUnit.locker_cell_id == cell.id))
@@ -626,7 +632,7 @@ async def get_admin_locker(
     ).scalar_one_or_none()
     if locker is None:
         raise HTTPException(status_code=404, detail="Постамат не найден")
-    await ensure_locker_in_scope(db, franchise_city_id(admin), locker)
+    await ensure_locker_in_scope(db, franchise_city_ids(admin), locker)
 
     city = await db.get(City, locker.city_id)
     city_name = city.name if city else None
@@ -804,14 +810,14 @@ async def update_admin_locker(
     ).scalar_one_or_none()
     if locker is None:
         raise HTTPException(status_code=404, detail="Постамат не найден")
-    scope_city_id = franchise_city_id(admin)
-    await ensure_locker_in_scope(db, scope_city_id, locker)
+    scope_city_ids = franchise_city_ids(admin)
+    await ensure_locker_in_scope(db, scope_city_ids, locker)
 
     data = payload.model_dump(exclude_unset=True)
 
     if "cityId" in data:
         # Франшиза не может увести свой постамат в чужой город.
-        ensure_city_in_scope(scope_city_id, data["cityId"])
+        ensure_city_in_scope(scope_city_ids, data["cityId"])
         city = await db.get(City, data["cityId"])
         if city is None:
             raise HTTPException(status_code=404, detail="Город не найден")
@@ -910,7 +916,7 @@ async def _perform_admin_locker_delete(
     ).scalar_one_or_none()
     if locker is None:
         raise HTTPException(status_code=404, detail="Постамат не найден")
-    await ensure_locker_in_scope(db, franchise_city_id(admin), locker)
+    await ensure_locker_in_scope(db, franchise_city_ids(admin), locker)
 
     res_count = await db.scalar(
         select(func.count()).select_from(Reservation).where(Reservation.locker_id == locker_id)
