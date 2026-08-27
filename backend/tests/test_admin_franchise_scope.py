@@ -23,6 +23,7 @@ from backend.core.database import Base
 from backend.models.admin_account import AdminAccount
 from backend.models.admin_account_city import admin_account_cities
 from backend.models.admin_audit_event import AdminAuditEvent
+from backend.models.bonus_transaction import BonusTransaction
 from backend.models.admin_auth_session import AdminAuthSession
 from backend.models.city import City
 from backend.models.enums import (
@@ -99,6 +100,8 @@ TEST_TABLES = [
     Reservation.__table__,
     Rental.__table__,
     Payment.__table__,
+    # Карточка пользователя отдаёт бонусный баланс — без таблицы запрос падает.
+    BonusTransaction.__table__,
     TelegramAdminSubscriber.__table__,
     MaxAdminSubscriber.__table__,
 ]

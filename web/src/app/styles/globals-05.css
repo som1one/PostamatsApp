@@ -237,6 +237,25 @@
   color: var(--text-soft);
   font-size: 14px;
   line-height: 1.55;
+}.checkout-bonus {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--surface-muted);
+}.checkout-bonus-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}.checkout-bonus-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}.checkout-bonus .checkout-caption {
+  font-size: 13px;
 }.checkout-primary-button {
   width: 100%;
   min-height: 52px;

@@ -66,6 +66,13 @@ from backend.utils.inventory_confirmation_notifications import (
     notify_inventory_awaiting_confirmation,
 )
 from backend.utils.products_utils import load_media_files_by_ids, public_media_url
+from backend.utils.bonus_ledger import (
+    get_balance as get_bonus_balance,
+    list_transactions as list_bonus_transactions,
+    release_bonus_spend,
+    serialize_bonus_transaction,
+)
+from backend.utils.lockers_utils import price_plan_to_minor_units
 from backend.utils.rental_return_flow import ReturnRequestError, start_rental_return
 from backend.utils.rental_serialization import serialize_rental_detail, serialize_rental_list_item
 from backend.utils.reservation_utils import (
@@ -379,6 +386,34 @@ async def get_verification_request(
     }
 
 
+@router.get("/bonuses")
+async def get_my_bonuses(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """Баланс бонусов и история операций для личного кабинета."""
+
+    user = await get_current_client_user(request, db)
+
+    balance = await get_bonus_balance(db, user.id)
+    transactions, total = await list_bonus_transactions(
+        db, user_id=user.id, page=page, limit=limit
+    )
+
+    return {
+        "data": {
+            "balance": price_plan_to_minor_units(balance, "RUB"),
+            "currency": "RUB",
+            "accrualPercent": float(settings.BONUS_ACCRUAL_PERCENT),
+            "maxOrderSharePercent": float(settings.BONUS_MAX_ORDER_SHARE_PERCENT),
+            "transactions": [serialize_bonus_transaction(tx) for tx in transactions],
+        },
+        "meta": {"page": page, "limit": limit, "total": total},
+    }
+
+
 @router.get("/reservations")
 async def list_my_reservations(
     request: Request,
@@ -573,6 +608,9 @@ async def cancel_my_reservation(
                 .where(Payment.id == payment_id)
                 .values(status=final_payment_status, processed_at=now)
             )
+
+        # Деньги ушли обратно — возвращаем и бонусы, списанные за эту бронь.
+        await release_bonus_spend(db, reservation_id=reservation.id)
 
         await db.execute(
             update(InventoryUnit)
@@ -828,6 +866,8 @@ async def cancel_rental_before_pickup(
             )
 
         if reservation is not None:
+            # Деньги ушли обратно — возвращаем и бонусы, списанные за бронь.
+            await release_bonus_spend(db, reservation_id=reservation.id)
             reservation.status = ReservationStatus.CANCELLED
             reservation.cancelled_at = now
             reservation.cancel_reason = "cancelled_before_pickup"

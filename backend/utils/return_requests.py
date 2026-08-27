@@ -18,6 +18,7 @@ from backend.models.locker_location import LockerLocation
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
 from backend.models.return_request import ReturnRequest
+from backend.utils.bonus_ledger import accrue_rental_bonus
 from backend.utils.inventory_tracking import add_inventory_movement
 
 ACTIVE_RETURN_REQUEST_STATUSES: tuple[ReturnRequestStatus, ...] = (
@@ -210,4 +211,9 @@ async def complete_return_request(
             },
         )
     )
+
+    # Бонусы за заказ начисляем именно здесь — аренда закрылась, товар у нас,
+    # отзывать начисление уже не придётся.
+    await accrue_rental_bonus(db, rental=rental)
+
     return rental, unit

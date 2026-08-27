@@ -231,10 +231,36 @@ export type PaymentSummary = {
 
 export type PreauthResponse = {
   payment: PaymentSummary;
+  /** Сколько бонусов реально списали в счёт заказа, в минорных единицах. */
+  bonusApplied?: number;
   confirmation?: {
     type?: string;
     confirmationUrl?: string | null;
   };
+};
+
+/** Операция бонусного счёта. `amount` знаковый: «−» — списание. */
+export type BonusTransaction = {
+  id: string;
+  type:
+    | "order_accrual"
+    | "order_spend"
+    | "order_spend_refund"
+    | "admin_accrual"
+    | "admin_withdrawal";
+  amount: number;
+  comment?: string | null;
+  rentalId?: string | null;
+  reservationId?: string | null;
+  createdAt?: string | null;
+};
+
+export type BonusAccount = {
+  balance: number;
+  currency: string;
+  accrualPercent: number;
+  maxOrderSharePercent: number;
+  transactions: BonusTransaction[];
 };
 
 export type PresignUploadResponse = {
@@ -303,6 +329,10 @@ export type RentalDetail = {
   paymentSummary: {
     preauthAmount: number;
     capturedAmount: number;
+    /** Списано бонусами по этому заказу, в минорных единицах. */
+    bonusSpent: number;
+    /** Начислено бонусами за завершённую аренду, в минорных единицах. */
+    bonusAccrued: number;
     currency: string;
   };
   events: Array<{

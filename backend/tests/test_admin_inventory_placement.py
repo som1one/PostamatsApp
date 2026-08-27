@@ -13,6 +13,7 @@ from backend.models.admin_account import AdminAccount
 from backend.models.admin_account_city import admin_account_cities
 from backend.models.admin_audit_event import AdminAuditEvent
 from backend.models.admin_user import AdminUser
+from backend.models.bonus_transaction import BonusTransaction
 from backend.models.city import City
 from backend.models.enums import AdminRole, InventoryStatus, LockerCellStatus, LockerStatus, VerificationStatus, RentalStatus, RentalEventSource
 from backend.models.inventory_movement import InventoryMovement
@@ -60,6 +61,8 @@ TEST_TABLES = [
     PricePlan.__table__,
     Rental.__table__,
     RentalEvent.__table__,
+    # Подтверждение готовности закрывает аренду и начисляет бонусы.
+    BonusTransaction.__table__,
 ]
 
 

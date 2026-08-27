@@ -26,6 +26,7 @@ from backend.schemas.admin_panel_schemas import (
 )
 from backend.utils.admin_audit import record_admin_audit
 from backend.utils.admin_scope import ensure_locker_in_scope, franchise_city_ids
+from backend.utils.bonus_ledger import accrue_rental_bonus
 from backend.utils.esi_client import (
     EsiDiscoveryError,
     EsiOpenError,
@@ -722,6 +723,9 @@ async def confirm_inventory_ready(
                 },
             )
         )
+        # Товар вернулся и подтверждён оператором — для клиента заказ
+        # завершён, начисляем бонусы той же идемпотентной утилитой.
+        await accrue_rental_bonus(db, rental=rental)
     record_admin_audit(
         db,
         admin_account_id=admin.id,

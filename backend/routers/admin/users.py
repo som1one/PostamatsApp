@@ -22,15 +22,37 @@ from backend.utils.admin_audit import record_admin_audit
 from backend.utils.admin_scope import (
     ensure_user_in_scope,
     franchise_city_ids,
+    is_franchise,
+    require_not_franchise,
     user_in_city_clause,
 )
+from backend.utils.bonus_ledger import (
+    BonusError,
+    admin_adjust as adjust_bonus_balance,
+    get_balance as get_bonus_balance,
+    list_transactions as list_bonus_transactions,
+    serialize_bonus_transaction,
+)
+from backend.utils.lockers_utils import price_plan_to_minor_units
 from backend.utils.rental_serialization import rental_is_overdue
 from backend.utils.document_numbers import normalize_document_number
-from backend.schemas.admin_panel_schemas import AdminBlockUserPayload, AdminRejectVerificationPayload
+from backend.schemas.admin_panel_schemas import (
+    AdminBlockUserPayload,
+    AdminBonusAdjustPayload,
+    AdminRejectVerificationPayload,
+)
 from backend.utils.phone_utils import normalize_phone_for_storage
 from backend.utils.products_utils import public_media_url
 
 router = APIRouter(prefix="/api/admin/users", tags=["admin-users"])
+
+# Коды из bonus_ledger — техничные, в админке нужен человеческий текст.
+_BONUS_ERROR_MESSAGES = {
+    "BONUS_AMOUNT_INVALID": "Некорректная сумма: списывать и начислять можно целыми рублями",
+    "BONUS_COMMENT_REQUIRED": "Укажите основание операции",
+    "BONUS_INSUFFICIENT_BALANCE": "У клиента недостаточно бонусов для списания",
+    "BONUS_DIRECTION_INVALID": "Неизвестное направление операции",
+}
 
 
 def _parse_user_id_param(user_id: str) -> UUID:
@@ -368,6 +390,11 @@ async def get_admin_user(
         )
     ).all()
 
+    # Бонусы кладём в тот же ответ, что и остальную карточку: отдельный
+    # запрос ради одного числа и списка на 20 строк ничего не выигрывает.
+    bonus_balance = await get_bonus_balance(db, uid)
+    bonus_transactions, _ = await list_bonus_transactions(db, user_id=uid, page=1, limit=20)
+
     return {
         "data": {
             "user": _serialize_user_profile(user, city_name),
@@ -377,6 +404,14 @@ async def get_admin_user(
                 for rental, product, locker, city in rental_rows
             ],
             "payments": [_serialize_payment(p) for p in payments],
+            "bonus": {
+                "balance": price_plan_to_minor_units(bonus_balance, "RUB"),
+                "currency": "RUB",
+                "canAdjust": not is_franchise(admin),
+                "transactions": [
+                    serialize_bonus_transaction(tx) for tx in bonus_transactions
+                ],
+            },
         }
     }
 
@@ -470,6 +505,71 @@ async def reject_verification(
         raise
 
     return {"data": {"message": "Верификация отклонена"}}
+
+
+@router.post("/{user_id}/bonuses")
+async def adjust_user_bonuses(
+    request: Request,
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    payload: AdminBonusAdjustPayload = Body(...),
+):
+    """Ручное начисление или списание бонусов.
+
+    Франшизе недоступно: бонусы — деньги всей сети, а не одного города,
+    поэтому раздавать их партнёр не может, хотя баланс клиента видит.
+    """
+    admin, _ = await get_current_admin(request, db)
+    require_not_franchise(admin)
+
+    uid = _parse_user_id_param(user_id)
+    user = (
+        await db.execute(select(User).where(User.id == uid))
+    ).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    await ensure_user_in_scope(db, franchise_city_ids(admin), uid)
+
+    try:
+        applied, balance = await adjust_bonus_balance(
+            db,
+            user_id=uid,
+            amount=Decimal(payload.amount) / Decimal("100"),
+            direction=payload.direction,
+            admin_account_id=admin.id,
+            comment=payload.comment,
+        )
+    except BonusError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=_BONUS_ERROR_MESSAGES.get(exc.code, exc.code))
+
+    try:
+        record_admin_audit(
+            db,
+            admin_account_id=admin.id,
+            action="user.bonus_adjust",
+            request=request,
+            resource_type="user",
+            resource_id=uid,
+            payload={
+                "direction": payload.direction,
+                "amount": payload.amount,
+                "comment": payload.comment,
+            },
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+    verb = "начислены" if payload.direction == "accrue" else "списаны"
+    return {
+        "data": {
+            "message": f"Бонусы {verb}",
+            "balance": price_plan_to_minor_units(balance, "RUB"),
+            "applied": price_plan_to_minor_units(applied, "RUB"),
+        }
+    }
 
 
 @router.post("/{user_id}/block")

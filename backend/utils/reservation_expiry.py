@@ -22,6 +22,7 @@ from backend.models.enums import (
 )
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.reservation import Reservation
+from backend.utils.bonus_ledger import release_bonus_spend
 from backend.utils.payment_flow import release_reservation_payment
 from backend.utils.payment_reconcile import (
     reconcile_pending_payments,
@@ -78,6 +79,13 @@ async def expire_stale_reservations() -> None:
                     InventoryStatus.RESERVED,
                 ):
                     inventory_unit.status = InventoryStatus.AVAILABLE
+
+                # Ветка неоплаченной брони (клиент ушёл со страницы ЮKassa и не
+                # вернулся) до `release_reservation_payment` не доходит, а
+                # бонусы списаны ещё при создании платежа — возвращаем здесь.
+                # Утилита идемпотентна, так что для оплаченной ветки, где
+                # возврат уже случился, это no-op.
+                await release_bonus_spend(db, reservation_id=reservation.id)
 
                 reservation.status = ReservationStatus.EXPIRED
                 reservation.cancel_reason = "expired_by_scheduler"

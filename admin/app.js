@@ -1437,6 +1437,76 @@ function docLinkRow(label, url) {
   return `<span class="muted-inline">нет публичной ссылки</span>`;
 }
 
+const BONUS_TYPE_LABELS = {
+  order_accrual: "Начисление за аренду",
+  order_spend: "Оплата заказа бонусами",
+  order_spend_refund: "Возврат за отменённый заказ",
+  admin_accrual: "Начисление вручную",
+  admin_withdrawal: "Списание вручную",
+};
+
+/** Бонусный счёт клиента: баланс, ручные операции и история. */
+function renderUserBonusBlock(bonus) {
+  if (!bonus) {
+    return "";
+  }
+
+  const rows = (bonus.transactions || [])
+    .map((t) => {
+      const rubles = (Number(t.amount) || 0) / 100;
+      const sign = rubles < 0 ? "−" : "+";
+      return `
+      <tr>
+        <td>${formatDateTime(t.createdAt)}</td>
+        <td>${escapeHtml(BONUS_TYPE_LABELS[t.type] || t.type)}</td>
+        <td>${sign}${formatMoney(Math.abs(rubles), "RUB")}</td>
+        <td>${escapeHtml(t.comment || "—")}</td>
+      </tr>
+    `;
+    })
+    .join("");
+
+  // Франшизе баланс показываем, но раздавать бонусы она не может: это деньги
+  // всей сети, а не одного города. Бэкенд отвечает 403, здесь просто не
+  // рисуем форму, чтобы кнопка не вела в отказ.
+  const adjustForm = bonus.canAdjust
+    ? `
+      <div class="user-detail-action-row">
+        <label class="field">
+          <span>Сумма, ₽</span>
+          <input id="user-bonus-amount" type="number" min="1" step="1" placeholder="500" />
+        </label>
+      </div>
+      <label class="field">
+        <span>Основание (видно клиенту в истории)</span>
+        <input id="user-bonus-comment" type="text" placeholder="Например: компенсация за задержку" />
+      </label>
+      <div class="user-detail-action-row">
+        <button type="button" class="primary-button" data-user-action="bonus-accrue">Начислить</button>
+        <button type="button" class="table-danger-button" data-user-action="bonus-withdraw">Списать</button>
+      </div>
+    `
+    : `<p class="muted-inline">Начисление и списание бонусов доступно администраторам сети.</p>`;
+
+  return `
+    <div class="detail-block">
+      <h4 class="detail-block-title">Бонусы</h4>
+      <ul class="detail-list">
+        <li><span>Баланс</span><strong>${formatMoney((Number(bonus.balance) || 0) / 100, bonus.currency)}</strong></li>
+      </ul>
+      ${adjustForm}
+      <div class="table-scroll">
+        <table class="data-table data-table-compact">
+          <thead>
+            <tr><th>Дата</th><th>Операция</th><th>Сумма</th><th>Основание</th></tr>
+          </thead>
+          <tbody>${rows || `<tr><td colspan="4" class="muted-inline">Операций нет</td></tr>`}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 function renderUserDetailModal() {
   if (!userDetailBody || !userDetailModalTitle) {
     return;
@@ -1542,6 +1612,8 @@ function renderUserDetailModal() {
     )
     .join("");
 
+  const bonusBlock = renderUserBonusBlock(d.bonus);
+
   userDetailBody.innerHTML = `
     <div class="user-detail-grid">
       <div class="detail-block">
@@ -1559,6 +1631,7 @@ function renderUserDetailModal() {
       ${moderationBlock}
       ${blockBlock}
     </div>
+    ${bonusBlock}
     <div class="detail-block">
       <h4 class="detail-block-title">Последние аренды</h4>
       <div class="table-scroll">
@@ -1768,6 +1841,32 @@ async function handleUserDetailClick(event) {
         body: JSON.stringify({ reason }),
       });
       showToast("success", "Верификация отклонена.");
+      await reloadUserContext();
+    } else if (action === "bonus-accrue" || action === "bonus-withdraw") {
+      const direction = action === "bonus-accrue" ? "accrue" : "withdraw";
+      const amountEl = document.getElementById("user-bonus-amount");
+      const commentEl = document.getElementById("user-bonus-comment");
+      const rubles = Math.floor(Number(amountEl && amountEl.value));
+      const comment = (commentEl && commentEl.value ? commentEl.value : "").trim();
+      if (!Number.isFinite(rubles) || rubles <= 0) {
+        showToast("error", "Укажите сумму в рублях — целым числом больше нуля.");
+        return;
+      }
+      if (!comment) {
+        showToast("error", "Укажите основание операции.");
+        return;
+      }
+      const verb = direction === "accrue" ? "Начислить" : "Списать";
+      if (!window.confirm(`${verb} ${rubles} ₽ бонусами? Клиент увидит операцию в истории.`)) {
+        return;
+      }
+      await authorizedRequest(`/api/admin/users/${safeId}/bonuses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Сумма в API — в минорных единицах, как и все остальные деньги.
+        body: JSON.stringify({ amount: rubles * 100, direction, comment }),
+      });
+      showToast("success", direction === "accrue" ? "Бонусы начислены." : "Бонусы списаны.");
       await reloadUserContext();
     } else if (action === "block") {
       if (!window.confirm("Заблокировать пользователя? Он не сможет пользоваться сервисом.")) {

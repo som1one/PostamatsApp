@@ -27,6 +27,7 @@ from backend.models.user import User
 from backend.routers.admin.auth import get_current_admin
 from backend.utils.admin_audit import record_admin_audit
 from backend.utils.admin_scope import ensure_rental_in_scope, franchise_city_ids
+from backend.utils.bonus_ledger import accrue_rental_bonus
 from backend.utils.lockers_utils import price_plan_to_minor_units
 from backend.utils.rental_serialization import rental_is_overdue, serialize_rental_detail
 
@@ -472,6 +473,11 @@ async def force_complete_rental(
             payload_json=None,
         )
     )
+
+    # Аренду закрыл оператор, но для клиента она всё равно завершилась —
+    # бонусы начисляем так же, как при штатном возврате.
+    await accrue_rental_bonus(db, rental=rental)
+
     try:
         record_admin_audit(
             db,

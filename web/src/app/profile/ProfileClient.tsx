@@ -3,20 +3,23 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, FileCheck2, LogOut, PackageCheck, UserRound } from "lucide-react";
+import { CheckCircle2, FileCheck2, Gift, LogOut, PackageCheck, UserRound } from "lucide-react";
 import { PageChrome } from "@/components/PageChrome";
 import { PageHeader } from "@/components/PageHeader";
 import { RequireAuth } from "@/components/RequireAuth";
 import { StatusPill } from "@/components/StatusPill";
 import { Surface } from "@/components/Surface";
 import {
+  fetchBonusAccount,
   fetchMe,
   fetchVerification,
   logoutSession,
   updateMe,
 } from "@/shared/api/endpoints";
-import type { AppUser, VerificationState } from "@/shared/api/types";
+import type { AppUser, BonusAccount, VerificationState } from "@/shared/api/types";
 import { useAuth } from "@/shared/auth/auth-context";
+import { bonusTransactionLabel } from "@/shared/bonuses";
+import { formatDate, formatMoney } from "@/shared/format";
 
 type ProfileFormState = {
   firstName: string;
@@ -54,6 +57,7 @@ function ProfileContent() {
   const { clearSession } = useAuth();
   const [user, setUser] = useState<AppUser | null>(null);
   const [verification, setVerification] = useState<VerificationState | null>(null);
+  const [bonus, setBonus] = useState<BonusAccount | null>(null);
   const [form, setForm] = useState<ProfileFormState>({
     firstName: "",
     lastName: "",
@@ -68,13 +72,20 @@ function ProfileContent() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([fetchMe(), fetchVerification()])
-      .then(([me, kyc]) => {
+    Promise.all([
+      fetchMe(),
+      fetchVerification(),
+      // Бонусы — не критичная часть профиля: если эндпоинт недоступен, панель
+      // просто не покажется, а анкета и верификация должны загрузиться.
+      fetchBonusAccount().catch(() => null),
+    ])
+      .then(([me, kyc, bonusAccount]) => {
         if (!active) {
           return;
         }
         setUser(me);
         setVerification(kyc);
+        setBonus(bonusAccount);
         setForm(toProfileForm(me));
       })
       .catch((err: unknown) => {
@@ -155,6 +166,8 @@ function ProfileContent() {
       />
 
       {error ? <div className="alert alert-danger">{error}</div> : null}
+
+      <BonusPanel bonus={bonus} />
 
       <div className="layout-split">
         <Surface className="detail-panel">
@@ -265,6 +278,50 @@ function ProfileContent() {
         </Surface>
       </div>
     </>
+  );
+}
+
+/**
+ * Бонусный счёт. Панель скрыта, пока на счету пусто и операций не было —
+ * новому клиенту нечего в ней смотреть, а место она занимает заметное.
+ */
+function BonusPanel({ bonus }: { bonus: BonusAccount | null }) {
+  if (!bonus || (bonus.balance <= 0 && bonus.transactions.length === 0)) {
+    return null;
+  }
+
+  return (
+    <Surface className="detail-panel">
+      <div className="card-row">
+        <span className="icon-badge">
+          <Gift size={20} />
+        </span>
+      </div>
+      <div>
+        <p className="eyebrow">Бонусы</p>
+        <h2 className="section-title">{formatMoney(bonus.balance, bonus.currency)}</h2>
+        <p className="muted small">
+          {bonus.accrualPercent}% возвращается бонусами после каждой завершённой аренды.
+          Бонусами можно оплатить до {bonus.maxOrderSharePercent}% следующего заказа.
+        </p>
+      </div>
+      {bonus.transactions.length ? (
+        <div className="meta-list">
+          {bonus.transactions.map((transaction) => (
+            <div className="meta-line" key={transaction.id}>
+              <span>
+                {bonusTransactionLabel(transaction)}
+                {transaction.createdAt ? ` · ${formatDate(transaction.createdAt)}` : ""}
+              </span>
+              <strong>
+                {transaction.amount > 0 ? "+" : "−"}
+                {formatMoney(Math.abs(transaction.amount), bonus.currency)}
+              </strong>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </Surface>
   );
 }
 

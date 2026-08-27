@@ -11,6 +11,7 @@ from backend.core.database import Base
 from backend.core.settings import settings
 from backend.models.admin_account import AdminAccount
 from backend.models.admin_account_city import admin_account_cities
+from backend.models.bonus_transaction import BonusTransaction
 from backend.models.city import City
 from backend.models.enums import (
     InventoryStatus,
@@ -62,6 +63,8 @@ TEST_TABLES = [
     ReturnRequest.__table__,
     InventoryMovement.__table__,
     EsiEventLog.__table__,
+    # Завершение возврата начисляет бонусы — без таблицы запрос падает.
+    BonusTransaction.__table__,
 ]
 
 

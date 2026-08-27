@@ -48,7 +48,7 @@ import type {
   UpcomingReservation,
 } from "@/shared/api/types";
 import { buildRescheduleProductHref } from "@/shared/checkout/reschedule";
-import { formatCountRu, formatDateTime } from "@/shared/format";
+import { formatCountRu, formatDateTime, formatMoney } from "@/shared/format";
 import { resolvePublicAssetUrl } from "@/shared/media";
 import { isRentalFinished } from "@/shared/rentalStatus";
 
@@ -787,6 +787,29 @@ function OrderDetailContent({ id }: { id: string }) {
                   <div className="meta-line">
                     <span>Фактическое окончание</span>
                     <strong>{formatDateTime(order.data.actualEndAt)}</strong>
+                  </div>
+                ) : null}
+                {order.detail?.paymentSummary?.bonusSpent ? (
+                  <div className="meta-line">
+                    <span>Оплачено бонусами</span>
+                    <strong>
+                      {formatMoney(
+                        order.detail.paymentSummary.bonusSpent,
+                        order.detail.paymentSummary.currency,
+                      )}
+                    </strong>
+                  </div>
+                ) : null}
+                {order.detail?.paymentSummary?.bonusAccrued ? (
+                  <div className="meta-line">
+                    <span>Начислено бонусов</span>
+                    <strong>
+                      +
+                      {formatMoney(
+                        order.detail.paymentSummary.bonusAccrued,
+                        order.detail.paymentSummary.currency,
+                      )}
+                    </strong>
                   </div>
                 ) : null}
                 {(() => {

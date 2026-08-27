@@ -12,6 +12,7 @@ from backend.models.rental_event import RentalEvent
 from backend.models.enums import PaymentStatus, PaymentType, RentalStatus
 from backend.models.product_filter import ProductFilter
 from backend.models.reservation import Reservation
+from backend.utils.bonus_ledger import bonus_accrued_for_rental, bonus_spent_for_reservation
 from backend.utils.return_requests import get_active_return_request_for_rental, serialize_return_request_payload
 from backend.utils.lockers_utils import price_plan_to_minor_units
 from backend.utils.products_utils import load_media_files_by_ids, public_media_url
@@ -121,9 +122,17 @@ async def serialize_rental_detail(db: AsyncSession, rental: Rental) -> dict:
     payment_summary = {
         "preauthAmount": 0,
         "capturedAmount": 0,
+        "bonusSpent": 0,
+        "bonusAccrued": 0,
         "currency": "RUB",
     }
+    payment_summary["bonusAccrued"] = price_plan_to_minor_units(
+        await bonus_accrued_for_rental(db, rental.id), "RUB"
+    )
     if rental.reservation_id:
+        payment_summary["bonusSpent"] = price_plan_to_minor_units(
+            await bonus_spent_for_reservation(db, rental.reservation_id), "RUB"
+        )
         pay_stmt = (
             select(Payment)
             .where(Payment.reservation_id == rental.reservation_id)

@@ -13,7 +13,14 @@ from backend.models.payment import Payment
 from backend.models.payment_event import PaymentEvent
 from backend.models.reservation import Reservation
 from backend.models.user import User
+from backend.utils.bonus_ledger import (
+    ZERO as ZERO_BONUS,
+    BonusError,
+    apply_bonus_spend,
+    release_bonus_spend,
+)
 from backend.utils.lockers_utils import price_plan_to_minor_units
+from backend.utils.product_filters import minor_to_major_decimal
 from backend.utils.reservation_utils import (
     calculate_paid_reservation_expires_at,
     ensure_utc,
@@ -50,6 +57,10 @@ async def release_reservation_payment(
 
     False — деньги вернуть не удалось; вызывающий не должен закрывать бронь
     или аренду, чтобы клиент не остался и без вещи, и без денег.
+
+    Бонусы, списанные в счёт этой брони, возвращаются вместе с деньгами — но
+    только на успешных ветках: при неудачном возврате вызывающий откатывает
+    транзакцию и повторит тик, и бонусы не должны вернуться раньше денег.
     """
     payment = (
         await db.scalars(
@@ -63,6 +74,7 @@ async def release_reservation_payment(
         )
     ).first()
     if payment is None or not payment.provider_payment_id:
+        await release_bonus_spend(db, reservation_id=reservation_id)
         return True
 
     is_captured = payment.status == PaymentStatus.CAPTURED
@@ -78,6 +90,7 @@ async def release_reservation_payment(
             await cancel_yookassa_payment(payment.provider_payment_id)
             payment.status = PaymentStatus.CANCELLED
         payment.processed_at = now
+        await release_bonus_spend(db, reservation_id=reservation_id)
         return True
     except Exception:
         logger.exception(
@@ -117,6 +130,7 @@ async def create_preauth_for_reservation(
     user: User,
     reservation: Reservation,
     return_url: str | None = None,
+    bonus_amount_minor: int | None = None,
 ) -> dict:
     from fastapi import HTTPException
 
@@ -127,6 +141,22 @@ async def create_preauth_for_reservation(
         raise HTTPException(status_code=409, detail="RESERVATION_EXPIRED")
 
     await ensure_no_active_payment_for_reservation(db, reservation.id)
+
+    # Бонусы списываем до создания платежа: сумма к списанию с карты — это
+    # уже уменьшенный `preauth_amount`. Потолок в 90% гарантирует, что
+    # картой всегда останется оплатить хотя бы десятую часть заказа.
+    bonus_applied = ZERO_BONUS
+    if bonus_amount_minor:
+        try:
+            bonus_applied = await apply_bonus_spend(
+                db,
+                user=user,
+                reservation=reservation,
+                amount=minor_to_major_decimal(int(bonus_amount_minor)),
+            )
+        except BonusError as exc:
+            await db.rollback()
+            raise HTTPException(status_code=409, detail=exc.code) from exc
 
     amount = reservation.preauth_amount or reservation.quoted_amount
     currency = "RUB"
@@ -188,6 +218,7 @@ async def create_preauth_for_reservation(
             "amount": amount_minor,
             "currency": payment.currency,
         },
+        "bonusApplied": price_plan_to_minor_units(bonus_applied, currency),
         "confirmation": {
             "type": yk.get("confirmation_type", "redirect"),
             "confirmationUrl": yk.get("confirmation_url"),

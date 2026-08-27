@@ -45,6 +45,7 @@ async def payments_preauth(
         user=user,
         reservation=reservation,
         return_url=payload.returnUrl,
+        bonus_amount_minor=payload.bonusAmount,
     )
     return {"data": out}
 

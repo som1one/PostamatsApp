@@ -12,6 +12,7 @@ import { Surface } from "@/components/Surface";
 import {
   createPaymentPreauth,
   createReservation,
+  fetchBonusAccount,
   fetchMe,
   fetchMyReservations,
   fetchProduct,
@@ -22,10 +23,12 @@ import { writePendingCheckout } from "@/shared/checkout/pending";
 import { ApiError } from "@/shared/api/client";
 import type {
   AppUser,
+  BonusAccount,
   PricingQuote,
   ProductDetail,
   ReservationSummary,
 } from "@/shared/api/types";
+import { BONUS_MINOR_STEP, clampBonusInput, maxBonusSpend } from "@/shared/bonuses";
 import { formatDate, formatMoney, pluralizeRu } from "@/shared/format";
 
 export function CheckoutClient() {
@@ -52,6 +55,9 @@ function CheckoutContent() {
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [pricing, setPricing] = useState<PricingQuote | null>(null);
   const [reservation, setReservation] = useState<ReservationSummary | null>(null);
+  const [bonus, setBonus] = useState<BonusAccount | null>(null);
+  const [useBonus, setUseBonus] = useState(false);
+  const [bonusInput, setBonusInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState("");
@@ -61,6 +67,18 @@ function CheckoutContent() {
     () => product?.availableLockers.find((locker) => locker.lockerId === lockerId),
     [lockerId, product],
   );
+
+  const bonusLimit = useMemo(() => {
+    if (!bonus || !pricing) {
+      return 0;
+    }
+    return maxBonusSpend(bonus.balance, pricing.totalAmount, bonus.maxOrderSharePercent);
+  }, [bonus, pricing]);
+
+  // Сколько бонусов уйдёт в оплату. Обрезаем по потолку прямо здесь, чтобы
+  // итог в карточке всегда совпадал с тем, что примет бэкенд.
+  const bonusToSpend = useBonus ? clampBonusInput(Number(bonusInput), bonusLimit) : 0;
+  const cardAmount = Math.max((pricing?.totalAmount ?? 0) - bonusToSpend, 0);
 
   const durationLabel = useMemo(() => {
     const forms =
@@ -83,14 +101,18 @@ function CheckoutContent() {
       fetchMe(),
       fetchProduct(productId),
       fetchProductPricing(productId, lockerId, durationType, durationValue),
+      // Бонусы не должны блокировать оформление: если счёт не загрузился,
+      // клиент просто платит полную сумму картой.
+      fetchBonusAccount().catch(() => null),
     ])
-      .then(([me, item, price]) => {
+      .then(([me, item, price, bonusAccount]) => {
         if (!active) {
           return;
         }
         setUser(me);
         setProduct(item);
         setPricing(price);
+        setBonus(bonusAccount);
       })
       .catch((err: unknown) => {
         if (active) {
@@ -160,6 +182,7 @@ function CheckoutContent() {
       setBusyLabel("Переходим к оплате");
       const preauth = await createPaymentPreauth({
         reservationId: currentReservation.id,
+        bonusAmount: bonusToSpend || undefined,
       });
 
       // Сохраняем данные для проверки статуса оплаты при возврате
@@ -183,6 +206,15 @@ function CheckoutContent() {
           // Оплата по этой брони уже прошла — переходим к заказам.
           router.push("/profile/orders");
           return;
+        } else if (err.code === "BONUS_AMOUNT_INVALID") {
+          // Баланс изменился между загрузкой страницы и оплатой — перечитываем
+          // счёт, чтобы клиент увидел актуальный потолок списания.
+          setError(
+            "Бонусный счёт изменился. Проверьте сумму списания и попробуйте ещё раз.",
+          );
+          fetchBonusAccount()
+            .then(setBonus)
+            .catch(() => undefined);
         } else if (err.code === "LOCKER_OFFLINE") {
           setError(
             "Постамат сейчас офлайн. Попробуйте чуть позже — в ночные часы устройство может уходить в режим обслуживания.",
@@ -319,10 +351,9 @@ function CheckoutContent() {
         <aside className="surface detail-panel checkout-payment-card">
           <div className="checkout-payment-header">
             <p className="eyebrow">К оплате</p>
-            <h2 className="section-title">{formatMoney(pricing?.totalAmount, pricing?.currency)}</h2>
+            <h2 className="section-title">{formatMoney(cardAmount, pricing?.currency)}</h2>
             <p className="checkout-caption">
-              Предавторизация {formatMoney(pricing?.preauthAmount, pricing?.currency)}. Ячейка на
-              этом шаге не откроется.
+              Оплата картой. Ячейка на этом шаге не откроется.
             </p>
           </div>
 
@@ -331,11 +362,54 @@ function CheckoutContent() {
               <span className="muted">Аренда</span>
               <strong>{formatMoney(pricing?.totalAmount, pricing?.currency)}</strong>
             </div>
+            {bonusToSpend > 0 ? (
+              <div className="summary-line">
+                <span className="muted">Оплата бонусами</span>
+                <strong>−{formatMoney(bonusToSpend, pricing?.currency)}</strong>
+              </div>
+            ) : null}
             <div className="summary-line">
-              <span className="muted">Резерв на карте</span>
-              <strong>{formatMoney(pricing?.preauthAmount, pricing?.currency)}</strong>
+              <span className="muted">К оплате картой</span>
+              <strong>{formatMoney(cardAmount, pricing?.currency)}</strong>
             </div>
           </div>
+
+          {bonusLimit > 0 ? (
+            <div className="checkout-bonus">
+              <label className="checkout-bonus-toggle">
+                <input
+                  type="checkbox"
+                  checked={useBonus}
+                  onChange={(event) => {
+                    const next = event.target.checked;
+                    setUseBonus(next);
+                    // По умолчанию списываем максимум — за этим сюда и приходят.
+                    setBonusInput(next ? String(bonusLimit / BONUS_MINOR_STEP) : "");
+                  }}
+                />
+                <span>Списать бонусы</span>
+              </label>
+              {useBonus ? (
+                <label className="field">
+                  <span>Сколько списать, ₽</span>
+                  <input
+                    className="input"
+                    type="number"
+                    min={0}
+                    max={bonusLimit / BONUS_MINOR_STEP}
+                    step={1}
+                    value={bonusInput}
+                    onChange={(event) => setBonusInput(event.target.value)}
+                  />
+                </label>
+              ) : null}
+              <p className="checkout-caption">
+                Доступно {formatMoney(bonus?.balance, pricing?.currency)}. По этому заказу
+                можно списать до {formatMoney(bonusLimit, pricing?.currency)} —
+                бонусами оплачивается не более {bonus?.maxOrderSharePercent}% суммы.
+              </p>
+            </div>
+          ) : null}
 
           <button
             className="button button-primary checkout-primary-button"
@@ -343,7 +417,9 @@ function CheckoutContent() {
             onClick={handleCheckout}
             disabled={busy}
           >
-            {busy ? busyLabel || "Подтверждаем" : "Оплатить"}
+            {busy
+              ? busyLabel || "Подтверждаем"
+              : `Оплатить ${formatMoney(cardAmount, pricing?.currency)}`}
           </button>
         </aside>
 

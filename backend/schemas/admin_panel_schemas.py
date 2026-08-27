@@ -30,6 +30,23 @@ class AdminBlockUserPayload(BaseModel):
     reason: str | None = Field(default=None, max_length=500, description="Причина блокировки")
 
 
+class AdminBonusAdjustPayload(BaseModel):
+    """Ручная бонусная операция.
+
+    Направление отдельным полем, а не знаком суммы: так оператор не начислит
+    случайно вместо того, чтобы списать.
+    """
+
+    amount: int = Field(..., gt=0, description="Сумма в минорных единицах (копейках)")
+    direction: Literal["accrue", "withdraw"] = Field(..., description="Начислить или списать")
+    comment: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Обязательное основание операции — видно клиенту в истории",
+    )
+
+
 class AdminCreateLockerPayload(BaseModel):
     cityId: UUID = Field(..., description="Parent city id")
     name: str = Field(..., min_length=1, description="Locker display name")

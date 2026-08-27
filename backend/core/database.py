@@ -184,6 +184,7 @@ async def init_db():
         "backend.models.admin_user",
         "backend.models.auth_session",
         "backend.models.auth_verification_session",
+        "backend.models.bonus_transaction",
         "backend.models.city",
         "backend.models.condition_report",
         "backend.models.condition_report_photo",

@@ -1,4 +1,5 @@
 import os
+from decimal import Decimal
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -124,6 +125,15 @@ class Settings:
         self.YOOKASSA_DEV_STUB = _as_bool(
             ENV_VALUES.get("YOOKASSA_DEV_STUB"),
             not (self.YOOKASSA_SHOP_ID and self.YOOKASSA_SECRET_KEY),
+        )
+
+        # Бонусная программа. Начисляем процент от суммы, оплаченной деньгами
+        # (бонусы не порождают бонусы), списать бонусами можно не больше
+        # заданной доли заказа — остаток всегда уходит в ЮKassa, поэтому
+        # платежа на 0 ₽ в системе не бывает.
+        self.BONUS_ACCRUAL_PERCENT = Decimal(ENV_VALUES.get("BONUS_ACCRUAL_PERCENT", "7"))
+        self.BONUS_MAX_ORDER_SHARE_PERCENT = Decimal(
+            ENV_VALUES.get("BONUS_MAX_ORDER_SHARE_PERCENT", "90")
         )
 
         # ESI (postamats)

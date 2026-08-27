@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PreauthPayload(BaseModel):
@@ -9,6 +9,9 @@ class PreauthPayload(BaseModel):
     paymentMethodId: UUID | None = None
     paymentToken: str | None = None
     returnUrl: str | None = None
+    # Сколько бонусов списать в счёт заказа, в минорных единицах (как все
+    # суммы в API). Потолок — доля заказа из настроек, проверяется на бэке.
+    bonusAmount: int | None = Field(default=None, ge=0)
 
 
 class YooKassaWebhookBody(BaseModel):

@@ -139,6 +139,20 @@ class PaymentStatus(str, Enum):
     REFUNDED = "refunded"
 
 
+class BonusTransactionType(str, Enum):
+    """Операции бонусного счёта. Знак суммы задаётся типом, а не полем.
+
+    ``ORDER_SPEND`` и ``ADMIN_WITHDRAWAL`` пишутся с отрицательной суммой,
+    остальные — с положительной. Баланс = SUM(amount).
+    """
+
+    ORDER_ACCRUAL = "order_accrual"
+    ORDER_SPEND = "order_spend"
+    ORDER_SPEND_REFUND = "order_spend_refund"
+    ADMIN_ACCRUAL = "admin_accrual"
+    ADMIN_WITHDRAWAL = "admin_withdrawal"
+
+
 class RentalStatus(str, Enum):
     PICKUP_READY = "pickup_ready"
     PICKUP_OPENED = "pickup_opened"

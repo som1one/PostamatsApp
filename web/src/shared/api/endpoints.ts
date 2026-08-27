@@ -1,6 +1,7 @@
 import { requestEnvelope, requestJson, requestWithAuth } from "./client";
 import type {
   AppUser,
+  BonusAccount,
   City,
   ConfirmCodeResponse,
   FeaturedProduct,
@@ -390,11 +391,17 @@ export async function fetchReservation(reservationId: string) {
 export async function createPaymentPreauth(payload: {
   reservationId: string;
   returnUrl?: string;
+  /** Сколько бонусов списать в счёт заказа, в минорных единицах. */
+  bonusAmount?: number;
 }) {
   return requestWithAuth<PreauthResponse>("/payments/preauth", {
     method: "POST",
     body: payload,
   });
+}
+
+export async function fetchBonusAccount() {
+  return requestWithAuth<BonusAccount>("/me/bonuses");
 }
 
 export async function fetchPayment(paymentId: string) {
