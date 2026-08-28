@@ -28,7 +28,12 @@ import type {
   ProductDetail,
   ReservationSummary,
 } from "@/shared/api/types";
-import { BONUS_MINOR_STEP, clampBonusInput, maxBonusSpend } from "@/shared/bonuses";
+import {
+  BONUS_MINOR_STEP,
+  clampBonusInput,
+  estimateBonusAccrual,
+  maxBonusSpend,
+} from "@/shared/bonuses";
 import { formatDate, formatMoney, pluralizeRu } from "@/shared/format";
 
 export function CheckoutClient() {
@@ -79,6 +84,8 @@ function CheckoutContent() {
   // итог в карточке всегда совпадал с тем, что примет бэкенд.
   const bonusToSpend = useBonus ? clampBonusInput(Number(bonusInput), bonusLimit) : 0;
   const cardAmount = Math.max((pricing?.totalAmount ?? 0) - bonusToSpend, 0);
+  // Возврат считаем от суммы, которая уйдёт картой, — как и на бэкенде.
+  const bonusAccrual = bonus ? estimateBonusAccrual(cardAmount, bonus.accrualPercent) : 0;
 
   const durationLabel = useMemo(() => {
     const forms =
@@ -374,40 +381,59 @@ function CheckoutContent() {
             </div>
           </div>
 
-          {bonusLimit > 0 ? (
+          {/* Блок показываем и при нулевом балансе: списывать нечего, но
+              именно здесь клиент решает платить — и должен узнать, что
+              часть суммы вернётся бонусами на следующую аренду. */}
+          {bonus ? (
             <div className="checkout-bonus">
-              <label className="checkout-bonus-toggle">
-                <input
-                  type="checkbox"
-                  checked={useBonus}
-                  onChange={(event) => {
-                    const next = event.target.checked;
-                    setUseBonus(next);
-                    // По умолчанию списываем максимум — за этим сюда и приходят.
-                    setBonusInput(next ? String(bonusLimit / BONUS_MINOR_STEP) : "");
-                  }}
-                />
-                <span>Списать бонусы</span>
-              </label>
-              {useBonus ? (
-                <label className="field">
-                  <span>Сколько списать, ₽</span>
-                  <input
-                    className="input"
-                    type="number"
-                    min={0}
-                    max={bonusLimit / BONUS_MINOR_STEP}
-                    step={1}
-                    value={bonusInput}
-                    onChange={(event) => setBonusInput(event.target.value)}
-                  />
-                </label>
+              {bonusLimit > 0 ? (
+                <>
+                  <label className="checkout-bonus-toggle">
+                    <input
+                      type="checkbox"
+                      checked={useBonus}
+                      onChange={(event) => {
+                        const next = event.target.checked;
+                        setUseBonus(next);
+                        // По умолчанию списываем максимум — за этим сюда и приходят.
+                        setBonusInput(next ? String(bonusLimit / BONUS_MINOR_STEP) : "");
+                      }}
+                    />
+                    <span>Списать бонусы</span>
+                  </label>
+                  {useBonus ? (
+                    <label className="field">
+                      <span>Сколько списать, ₽</span>
+                      <input
+                        className="input"
+                        type="number"
+                        min={0}
+                        max={bonusLimit / BONUS_MINOR_STEP}
+                        step={1}
+                        value={bonusInput}
+                        onChange={(event) => setBonusInput(event.target.value)}
+                      />
+                    </label>
+                  ) : null}
+                  <p className="checkout-caption">
+                    Доступно {formatMoney(bonus.balance, pricing?.currency)}. По этому заказу
+                    можно списать до {formatMoney(bonusLimit, pricing?.currency)} —
+                    бонусами оплачивается не более {bonus.maxOrderSharePercent}% суммы.
+                  </p>
+                </>
+              ) : (
+                <p className="checkout-caption checkout-bonus-empty">
+                  <span className="checkout-bonus-title">Оплата бонусами</span>
+                  Бонусов на счету пока нет — этот заказ оплачивается картой. Следующий
+                  можно будет оплатить бонусами до {bonus.maxOrderSharePercent}% суммы.
+                </p>
+              )}
+              {bonusAccrual > 0 ? (
+                <p className="checkout-caption checkout-bonus-accrual">
+                  Вернём {formatMoney(bonusAccrual, pricing?.currency)} бонусами после
+                  того, как вы вернёте вещь.
+                </p>
               ) : null}
-              <p className="checkout-caption">
-                Доступно {formatMoney(bonus?.balance, pricing?.currency)}. По этому заказу
-                можно списать до {formatMoney(bonusLimit, pricing?.currency)} —
-                бонусами оплачивается не более {bonus?.maxOrderSharePercent}% суммы.
-              </p>
             </div>
           ) : null}
 

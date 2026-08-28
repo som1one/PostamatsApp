@@ -264,7 +264,18 @@
   accent-color: var(--primary);
   cursor: pointer;
 }.checkout-bonus .checkout-caption {
+  margin: 0;
   font-size: 13px;
+}.checkout-bonus-title {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text);
+  font-weight: 700;
+}.checkout-bonus-accrual {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--primary);
+  font-weight: 600;
 }.checkout-primary-button {
   width: 100%;
   min-height: 52px;

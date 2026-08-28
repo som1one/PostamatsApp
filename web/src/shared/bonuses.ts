@@ -33,6 +33,16 @@ export function maxBonusSpend(
   return Math.floor(cap / BONUS_MINOR_STEP) * BONUS_MINOR_STEP;
 }
 
+/**
+ * Сколько бонусов вернётся за заказ. Считается от суммы, которая уйдёт
+ * картой, а не от цены заказа: бонусы не порождают бонусы. Повторяет
+ * `accrue_rental_bonus` на бэкенде, включая округление вниз до рубля.
+ */
+export function estimateBonusAccrual(cardAmountMinor: number, accrualPercent: number) {
+  const raw = (Math.max(cardAmountMinor, 0) * accrualPercent) / 100;
+  return Math.floor(raw / BONUS_MINOR_STEP) * BONUS_MINOR_STEP;
+}
+
 /** Значение поля ввода (целые рубли) → минорные единицы, с обрезкой по потолку. */
 export function clampBonusInput(rubles: number, maxMinor: number) {
   if (!Number.isFinite(rubles) || rubles <= 0) {
