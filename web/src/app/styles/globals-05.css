@@ -237,6 +237,15 @@
   color: var(--text-soft);
   font-size: 14px;
   line-height: 1.55;
+}.bonus-panel {
+  padding: 22px 24px;
+  gap: 16px;
+}
+/* Панель во всю ширину страницы, а текст и строки истории в ней — нет:
+   без ограничения описание растягивается одной строкой на 1150px, а в
+   `meta-line` подпись и сумма разлетаются по разным краям карточки. */
+.bonus-panel > * {
+  max-width: 720px;
 }.checkout-bonus {
   display: grid;
   gap: 10px;

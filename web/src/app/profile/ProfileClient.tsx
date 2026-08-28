@@ -298,7 +298,7 @@ function BonusPanel({ bonus }: { bonus: BonusAccount | null }) {
   }
 
   return (
-    <Surface className="detail-panel">
+    <Surface className="detail-panel bonus-panel">
       <div className="card-row">
         <span className="icon-badge">
           <Gift size={20} />
