@@ -77,7 +77,12 @@ function ProfileContent() {
       fetchVerification(),
       // Бонусы — не критичная часть профиля: если эндпоинт недоступен, панель
       // просто не покажется, а анкета и верификация должны загрузиться.
-      fetchBonusAccount().catch(() => null),
+      // Ошибку всё же пишем в консоль — иначе пропавшая панель выглядит как
+      // «фича не выкатилась», и искать причину не по чему.
+      fetchBonusAccount().catch((err: unknown) => {
+        console.warn("Не удалось загрузить бонусный счёт", err);
+        return null;
+      }),
     ])
       .then(([me, kyc, bonusAccount]) => {
         if (!active) {
@@ -283,10 +288,12 @@ function ProfileContent() {
 
 /**
  * Бонусный счёт. Панель скрыта, пока на счету пусто и операций не было —
- * новому клиенту нечего в ней смотреть, а место она занимает заметное.
+ * Панель видна и при нулевом балансе: для клиента без бонусов это
+ * единственное место, где он вообще узнает про 7% возврата, — прятать её
+ * значит прятать саму программу. Скрываем только если счёт не загрузился.
  */
 function BonusPanel({ bonus }: { bonus: BonusAccount | null }) {
-  if (!bonus || (bonus.balance <= 0 && bonus.transactions.length === 0)) {
+  if (!bonus) {
     return null;
   }
 
@@ -301,8 +308,9 @@ function BonusPanel({ bonus }: { bonus: BonusAccount | null }) {
         <p className="eyebrow">Бонусы</p>
         <h2 className="section-title">{formatMoney(bonus.balance, bonus.currency)}</h2>
         <p className="muted small">
-          {bonus.accrualPercent}% возвращается бонусами после каждой завершённой аренды.
-          Бонусами можно оплатить до {bonus.maxOrderSharePercent}% следующего заказа.
+          {bonus.balance > 0
+            ? `${bonus.accrualPercent}% возвращается бонусами после каждой завершённой аренды. Бонусами можно оплатить до ${bonus.maxOrderSharePercent}% следующего заказа.`
+            : `Бонусов пока нет. ${bonus.accrualPercent}% от суммы аренды вернётся на счёт после того, как вы вернёте вещь, — ими можно оплатить до ${bonus.maxOrderSharePercent}% следующего заказа.`}
         </p>
       </div>
       {bonus.transactions.length ? (
