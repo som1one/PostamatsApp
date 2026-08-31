@@ -56,7 +56,10 @@ async def reconcile_pending_payments() -> None:
         stmt = (
             select(Payment)
             .where(
-                Payment.type == PaymentType.PREAUTH,
+                # EXTRA_CHARGE — оплата продления аренды: её тоже нужно
+                # доводить без вебхука, иначе срок не сдвинется у клиентов,
+                # которые оплатили через СБП и не вернулись на сайт.
+                Payment.type.in_((PaymentType.PREAUTH, PaymentType.EXTRA_CHARGE)),
                 Payment.status.in_(_UNSETTLED_STATUSES),
                 Payment.provider_payment_id.is_not(None),
                 Payment.created_at <= cutoff_new,

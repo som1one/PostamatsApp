@@ -12,6 +12,7 @@ from backend.models.enums import (
     InventoryStatus,
     LockerCellStatus,
     PaymentStatus,
+    PaymentType,
     RentalEventSource,
     RentalStatus,
     ReservationStatus,
@@ -43,6 +44,7 @@ from backend.utils.return_requests import (
 from backend.schemas.me_schemas import (
     CreateVerificationRequest,
     DeleteVerificationRequest,
+    RentalExtendPayload,
     RentalReturnRequestPayload,
     UpdateMePayload,
 )
@@ -52,7 +54,13 @@ from backend.utils.payment_reconcile import (
     reconcile_reservation_payments,
     resolve_payment_before_release,
 )
-from backend.utils.yookassa_service import cancel_yookassa_payment, refund_yookassa_payment
+from backend.utils.yookassa_service import (
+    cancel_yookassa_payment,
+    create_yookassa_preauth_payment,
+    refund_yookassa_payment,
+)
+from backend.utils.payment_flow import serialize_payment_for_user
+from backend.utils.product_filters import minor_to_major_decimal
 from backend.utils.me_utils import (
     UPDATE_ME_FIELD_MAP,
     VerificationFileResolveError,
@@ -73,6 +81,13 @@ from backend.utils.bonus_ledger import (
     serialize_bonus_transaction,
 )
 from backend.utils.lockers_utils import price_plan_to_minor_units
+from backend.utils.rental_extension import (
+    EXTENDABLE_STATUSES,
+    EXTENSION_REQUESTED_EVENT,
+    get_extension_barrier,
+    list_extension_options,
+    resolve_extension_price,
+)
 from backend.utils.rental_return_flow import ReturnRequestError, start_rental_return
 from backend.utils.rental_serialization import serialize_rental_detail, serialize_rental_list_item
 from backend.utils.reservation_utils import (
@@ -763,6 +778,174 @@ async def request_rental_return(
         raise HTTPException(status_code=mapped[0], detail=mapped[1]) from exc
 
     return {"data": {"return": result}}
+
+
+async def _get_extendable_rental(
+    rental_id: UUID,
+    request: Request,
+    db: AsyncSession,
+) -> tuple[User, Rental]:
+    user = await get_current_client_user(request, db)
+
+    rental = await db.get(Rental, rental_id)
+    if rental is None:
+        raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
+    if rental.user_id != user.id:
+        raise HTTPException(status_code=403, detail="RENTAL_FORBIDDEN")
+    if rental.status not in EXTENDABLE_STATUSES:
+        raise HTTPException(status_code=409, detail="RENTAL_NOT_EXTENDABLE")
+    return user, rental
+
+
+@router.get("/rentals/{rental_id}/extension-options")
+async def rental_extension_options(
+    rental_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Варианты продления аренды: тарифы товара + потолок по следующей брони.
+
+    Продление не трогает постамат: команда в ESI отсюда не уходит.
+    """
+    _, rental = await _get_extendable_rental(rental_id, request, db)
+
+    unit = await db.get(InventoryUnit, rental.inventory_unit_id)
+    if unit is None or unit.product_id is None:
+        raise HTTPException(status_code=409, detail="RENTAL_NOT_EXTENDABLE")
+
+    extension = await list_extension_options(db, rental, unit.product_id)
+    return {"data": {"extension": extension}}
+
+
+@router.post("/rentals/{rental_id}/extend")
+async def extend_rental(
+    rental_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    payload: RentalExtendPayload = Body(...),
+):
+    """Создаёт платёж ЮKassa на продление аренды.
+
+    Срок аренды сдвигается НЕ здесь, а после подтверждения оплаты (вебхук,
+    поллинг GET /payments/{id} или фоновая сверка) — см.
+    backend.utils.rental_extension. Никакие команды в постамат не уходят:
+    товар уже у клиента, ячейка в продлении не участвует.
+    """
+    user, rental = await _get_extendable_rental(rental_id, request, db)
+
+    unit = await db.get(InventoryUnit, rental.inventory_unit_id)
+    if unit is None or unit.product_id is None:
+        raise HTTPException(status_code=409, detail="RENTAL_NOT_EXTENDABLE")
+
+    plan, amount_minor, currency = await resolve_extension_price(
+        db, unit.product_id, payload.durationType, payload.durationValue
+    )
+    if plan is None or amount_minor <= 0:
+        raise HTTPException(status_code=404, detail="PRICE_PLAN_NOT_FOUND")
+
+    base_end = ensure_utc(rental.planned_end_at)
+    new_end = calculate_planned_end_at(
+        base_end, payload.durationType, payload.durationValue
+    )
+    barrier = await get_extension_barrier(db, rental)
+    if barrier is not None and new_end > barrier:
+        # Дальше начала следующей брони продлить нельзя (обещание из FAQ).
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "EXTENSION_CONFLICT",
+                "maxEndAt": barrier.isoformat(),
+            },
+        )
+
+    payment = Payment(
+        user_id=user.id,
+        reservation_id=None,
+        rental_id=rental.id,
+        provider="yookassa",
+        provider_payment_id=None,
+        type=PaymentType.EXTRA_CHARGE,
+        status=PaymentStatus.PENDING,
+        amount=minor_to_major_decimal(amount_minor),
+        currency=currency,
+    )
+    db.add(payment)
+    await db.flush()
+
+    resolved_return_url = (
+        payload.returnUrl
+        or (
+            f"{settings.WEB_APP_ORIGIN}/profile/orders/{rental.id}"
+            if settings.WEB_APP_ORIGIN
+            else None
+        )
+        or settings.YOOKASSA_RETURN_URL
+        or "https://example.com/payment-return"
+    )
+    # Возвращаем клиента сразу с id платежа: страница заказа по нему
+    # поллит GET /payments/{id}, который и доводит продление до конца.
+    separator = "&" if "?" in resolved_return_url else "?"
+    resolved_return_url = (
+        f"{resolved_return_url}{separator}extensionPaymentId={payment.id}"
+    )
+
+    metadata = {
+        "internal_payment_id": str(payment.id),
+        "rental_id": str(rental.id),
+        "user_id": str(user.id),
+        "purpose": "rental_extension",
+    }
+    try:
+        yk = await create_yookassa_preauth_payment(
+            amount_value=payment.amount,
+            currency=currency,
+            return_url=resolved_return_url,
+            metadata=metadata,
+        )
+    except Exception as exc:
+        await db.rollback()
+        logger.exception("YooKassa extension payment failed for rental %s", rental.id)
+        raise HTTPException(status_code=502, detail="YOOKASSA_REQUEST_FAILED") from exc
+
+    payment.provider_payment_id = yk["provider_payment_id"]
+    db.add(
+        RentalEvent(
+            rental_id=rental.id,
+            event_type=EXTENSION_REQUESTED_EVENT,
+            from_status=rental.status,
+            to_status=rental.status,
+            source=RentalEventSource.USER,
+            payload_json={
+                "paymentId": str(payment.id),
+                "durationType": payload.durationType,
+                "durationValue": payload.durationValue,
+                "amountMinor": amount_minor,
+                "currency": currency,
+                "requestedEndAt": new_end.isoformat(),
+            },
+        )
+    )
+
+    try:
+        await db.commit()
+        await db.refresh(payment)
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="EXTENSION_REQUEST_FAILED") from exc
+
+    return {
+        "data": {
+            "extension": {
+                "rentalId": str(rental.id),
+                "newEndAt": new_end.isoformat(),
+            },
+            "payment": serialize_payment_for_user(payment),
+            "confirmation": {
+                "type": yk.get("confirmation_type", "redirect"),
+                "confirmationUrl": yk.get("confirmation_url"),
+            },
+        }
+    }
 
 
 @router.post("/rentals/{rental_id}/cancel-before-pickup")

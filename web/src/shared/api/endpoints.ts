@@ -14,6 +14,8 @@ import type {
   ProductDetail,
   ProductListItem,
   RentalDetail,
+  RentalExtensionOptions,
+  RentalExtensionStart,
   RentalListItem,
   RequestCodeResponse,
   ReservationQuote,
@@ -489,6 +491,23 @@ export async function requestRentalReturn(rentalId: string, lockerId?: string) {
   }>(`/me/rentals/${rentalId}/return-request`, {
     method: "POST",
     body: lockerId ? { lockerId } : {},
+  });
+}
+
+export async function fetchRentalExtensionOptions(rentalId: string) {
+  const data = await requestWithAuth<{ extension: RentalExtensionOptions }>(
+    `/me/rentals/${rentalId}/extension-options`,
+  );
+  return data.extension;
+}
+
+export async function extendRental(
+  rentalId: string,
+  payload: { durationType: string; durationValue: number; returnUrl?: string },
+) {
+  return requestWithAuth<RentalExtensionStart>(`/me/rentals/${rentalId}/extend`, {
+    method: "POST",
+    body: payload,
   });
 }
 

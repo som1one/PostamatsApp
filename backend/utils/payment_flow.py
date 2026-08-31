@@ -8,7 +8,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.settings import settings
-from backend.models.enums import PaymentStatus, PaymentType, ReservationStatus
+from backend.models.enums import (
+    PaymentStatus,
+    PaymentType,
+    RentalEventSource,
+    ReservationStatus,
+)
 from backend.models.payment import Payment
 from backend.models.payment_event import PaymentEvent
 from backend.models.reservation import Reservation
@@ -285,12 +290,16 @@ async def apply_payment_status_transition(
 
     Возвращает True, если что-то изменилось.
     """
-    if new_status is None or payment.type != PaymentType.PREAUTH:
+    if new_status is None or payment.type not in (
+        PaymentType.PREAUTH,
+        PaymentType.EXTRA_CHARGE,
+    ):
         return False
     if payment.status == new_status:
-        # Статус тот же, но бронь могла отстать (например, вебхук успел
-        # обновить платёж до того, как появилась связь с бронью).
-        return await _sync_reservation_with_payment(db, payment, now=now)
+        # Статус тот же, но бронь/аренда могли отстать (например, вебхук
+        # успел обновить платёж до того, как появилась связь с бронью).
+        changed = await _sync_reservation_with_payment(db, payment, now=now)
+        return await _sync_rental_extension_with_payment(db, payment, now=now) or changed
     if payment.status in _SETTLED_PAYMENT_STATUSES:
         return False
     if new_status == PaymentStatus.PENDING:
@@ -304,6 +313,7 @@ async def apply_payment_status_transition(
         payment.failure_code = failure_code
 
     await _sync_reservation_with_payment(db, payment, now=resolved_now)
+    await _sync_rental_extension_with_payment(db, payment, now=resolved_now)
     return True
 
 
@@ -329,6 +339,29 @@ async def _sync_reservation_with_payment(
     # иначе шедулер отменит её вместе с деньгами клиента.
     res.expires_at = calculate_paid_reservation_expires_at(res)
     return True
+
+
+async def _sync_rental_extension_with_payment(
+    db: AsyncSession,
+    payment: Payment,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    """Оплаченный платёж продления → сдвиг ``planned_end_at`` аренды.
+
+    Ячейки постамата не трогаются: продление — чисто «бумажная» операция
+    (см. backend.utils.rental_extension).
+    """
+    if payment.status not in PAID_PAYMENT_STATUSES or not payment.rental_id:
+        return False
+    from backend.utils.rental_extension import apply_rental_extension_for_payment
+
+    return await apply_rental_extension_for_payment(
+        db,
+        payment,
+        source=RentalEventSource.PAYMENT_WEBHOOK,
+        now=now,
+    )
 
 
 async def sync_payment_with_provider(

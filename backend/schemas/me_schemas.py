@@ -13,6 +13,16 @@ class RentalReturnRequestPayload(BaseModel):
     lockerId: UUID | None = Field(default=None, description="Постамат для возврата")
 
 
+class RentalExtendPayload(BaseModel):
+    """Тело для продления аренды: выбранный тариф + куда вернуть после оплаты."""
+
+    durationType: str = Field(..., description="Тип длительности тарифа (day/week/…)")
+    durationValue: int = Field(..., ge=1, le=365, description="Значение длительности")
+    returnUrl: str | None = Field(
+        default=None, description="URL возврата из ЮKassa после оплаты"
+    )
+
+
 class UpdateMePayload(BaseModel):
     firstName: str | None = Field(None, description="First name")
     lastName: str | None = Field(None, description="Last name")

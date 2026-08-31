@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowLeftRight,
+  CalendarPlus,
   CheckCircle2,
   Clock3,
   ImageIcon,
@@ -27,13 +28,17 @@ import { Surface } from "@/components/Surface";
 import { YandexMap } from "@/components/YandexMap";
 import { ApiError } from "@/shared/api/client";
 import {
+  authorizePaymentDevStub,
   cancelRentalBeforePickup,
   cancelReservation,
   confirmRentalPickup,
   confirmRentalReturn,
   confirmReservation,
+  extendRental,
   fetchAllLockers,
   fetchMyReservations,
+  fetchPayment,
+  fetchRentalExtensionOptions,
   fetchReservation,
   fetchRental,
   fetchRentals,
@@ -43,6 +48,8 @@ import {
 import type {
   Locker,
   RentalDetail,
+  RentalExtensionOption,
+  RentalExtensionOptions,
   RentalListItem,
   ReservationSummary,
   UpcomingReservation,
@@ -55,6 +62,9 @@ import { isRentalFinished } from "@/shared/rentalStatus";
 type OrderData =
   | { type: "reservation"; data: UpcomingReservation; detail?: ReservationSummary | null }
   | { type: "rental"; data: RentalListItem; detail?: RentalDetail };
+
+const DEV_PAYMENT_BYPASS_ENABLED =
+  process.env.NEXT_PUBLIC_ENABLE_DEV_PAYMENT_BYPASS === "true";
 
 function formatDurationLabel(diffMs: number) {
   const totalMinutes = Math.max(1, Math.ceil(Math.abs(diffMs) / 60_000));
@@ -245,6 +255,15 @@ function OrderDetailContent({ id }: { id: string }) {
   // Cancel rental before pickup (starts tomorrow+)
   const [showCancelRentalDialog, setShowCancelRentalDialog] = useState(false);
   const [returnPin, setReturnPin] = useState<string | null>(null);
+  // ── Продление аренды ───────────────────────────────────────
+  const [showExtendDialog, setShowExtendDialog] = useState(false);
+  const [extensionOptions, setExtensionOptions] = useState<RentalExtensionOptions | null>(null);
+  const [extensionLoading, setExtensionLoading] = useState(false);
+  const [extensionError, setExtensionError] = useState("");
+  const [selectedExtension, setSelectedExtension] = useState<RentalExtensionOption | null>(null);
+  const [extendBusy, setExtendBusy] = useState(false);
+  // id платежа продления, оплату которого ждём (после возврата из ЮKassa).
+  const [extensionPaymentId, setExtensionPaymentId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -328,6 +347,148 @@ function OrderDetailContent({ id }: { id: string }) {
   useEffect(() => {
     returnLockerIdRef.current = returnLockerId;
   }, [returnLockerId]);
+
+  // Возврат из ЮKassa после оплаты продления (?extensionPaymentId=...) и
+  // переход из списка заказов с просьбой сразу открыть диалог (?extend=1).
+  // window.location вместо useSearchParams — чтобы не оборачивать страницу
+  // в Suspense ради одного параметра.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentId = params.get("extensionPaymentId");
+    if (paymentId) {
+      setExtensionPaymentId(paymentId);
+    }
+    if (params.get("extend") === "1") {
+      setShowExtendDialog(true);
+    }
+    if (paymentId || params.get("extend")) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
+
+  // Варианты продления загружаются при каждом открытии диалога: потолок
+  // по следующей брони мог измениться, пока страница была открыта.
+  useEffect(() => {
+    if (!showExtendDialog) {
+      return;
+    }
+    let cancelled = false;
+    setExtensionLoading(true);
+    setExtensionError("");
+    setSelectedExtension(null);
+    fetchRentalExtensionOptions(id)
+      .then((extension) => {
+        if (cancelled) return;
+        setExtensionOptions(extension);
+        setSelectedExtension(extension.options.find((option) => option.available) || null);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (err instanceof ApiError && err.code === "RENTAL_NOT_EXTENDABLE") {
+          setExtensionError("Эту аренду сейчас нельзя продлить.");
+        } else {
+          setExtensionError(
+            err instanceof Error ? err.message : "Не удалось загрузить варианты продления",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setExtensionLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showExtendDialog, id]);
+
+  // Ждём подтверждения оплаты продления. Сам GET /payments/{id} на бэке
+  // сверяется с ЮKassa и после успешной оплаты сдвигает срок аренды.
+  useEffect(() => {
+    if (!extensionPaymentId) {
+      return;
+    }
+    let cancelled = false;
+    let attempts = 0;
+    setMessage("Проверяем оплату продления…");
+    setError("");
+    const poll = async () => {
+      if (cancelled) return;
+      attempts += 1;
+      try {
+        const payment = await fetchPayment(extensionPaymentId);
+        if (cancelled) return;
+        if (["authorized", "captured"].includes(payment.status)) {
+          setExtensionPaymentId(null);
+          setMessage("Оплата прошла — аренда продлена.");
+          await load();
+          return;
+        }
+        if (["failed", "cancelled"].includes(payment.status)) {
+          setExtensionPaymentId(null);
+          setMessage("");
+          setError("Оплата продления не прошла. Попробуйте ещё раз.");
+          return;
+        }
+      } catch {
+        // Сеть мигнула — следующая попытка через таймаут.
+      }
+      if (attempts >= 60) {
+        setExtensionPaymentId(null);
+        setMessage("");
+        setError(
+          "Не дождались подтверждения оплаты. Если деньги списались, срок продлится автоматически в течение пары минут — обновите страницу.",
+        );
+        return;
+      }
+      window.setTimeout(poll, 3000);
+    };
+    void poll();
+    return () => {
+      cancelled = true;
+    };
+  }, [extensionPaymentId, load]);
+
+  async function handleExtend() {
+    if (!selectedExtension) return;
+    setExtendBusy(true);
+    setExtensionError("");
+    try {
+      const result = await extendRental(id, {
+        durationType: selectedExtension.durationType,
+        durationValue: selectedExtension.durationValue,
+        returnUrl: `${window.location.origin}/profile/orders/${id}`,
+      });
+      if (DEV_PAYMENT_BYPASS_ENABLED) {
+        await authorizePaymentDevStub(result.payment.id);
+        setShowExtendDialog(false);
+        setMessage(`Аренда продлена до ${formatDateTime(result.extension.newEndAt)}.`);
+        await load();
+        return;
+      }
+      const confirmationUrl = result.confirmation?.confirmationUrl;
+      if (confirmationUrl) {
+        window.location.href = confirmationUrl;
+        return;
+      }
+      setShowExtendDialog(false);
+      setExtensionPaymentId(result.payment.id);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "EXTENSION_CONFLICT") {
+        setExtensionError(
+          "Продлить на этот срок нельзя: вещь уже забронирована следующим клиентом. Выберите срок покороче.",
+        );
+      } else if (err instanceof ApiError && err.code === "PRICE_PLAN_NOT_FOUND") {
+        setExtensionError("Для этого срока нет тарифа. Выберите другой вариант.");
+      } else if (err instanceof ApiError && err.code === "RENTAL_NOT_EXTENDABLE") {
+        setExtensionError("Эту аренду сейчас нельзя продлить.");
+      } else {
+        setExtensionError(
+          err instanceof Error ? err.message : "Не удалось оформить продление",
+        );
+      }
+    } finally {
+      setExtendBusy(false);
+    }
+  }
 
   function askReturnConfirm(rentalId: string): Promise<boolean> {
     return new Promise((resolve) => {
@@ -950,6 +1111,20 @@ function OrderDetailContent({ id }: { id: string }) {
               </button>
             ) : null}
 
+            {/* Extend rental — после показа PIN, рядом с возвратом. Ячейку
+                постамата продление не открывает: вещь остаётся у клиента. */}
+            {!isReservation && ["active", "overdue"].includes(order.data.status) ? (
+              <button
+                className="button button-primary"
+                type="button"
+                disabled={busy || extendBusy}
+                onClick={() => setShowExtendDialog(true)}
+              >
+                <CalendarPlus size={18} />
+                Продлить аренду
+              </button>
+            ) : null}
+
             {/* Return rental */}
             {!isReservation && ["active", "overdue"].includes(order.data.status) ? (
               <button
@@ -1024,6 +1199,122 @@ function OrderDetailContent({ id }: { id: string }) {
           </div>
         </Surface>
       </div>
+
+      {/* Extend rental dialog: выбор срока → оплата ЮKassa. Срок сдвинется
+          после подтверждения оплаты; постамат в этом флоу не участвует. */}
+      {showExtendDialog ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-box">
+            <div className="modal-icon">
+              <CalendarPlus size={28} />
+            </div>
+            <h2 className="modal-title">Продлить аренду</h2>
+            {extensionLoading ? (
+              <p className="modal-text">Загружаем варианты…</p>
+            ) : extensionOptions && extensionOptions.options.length > 0 ? (
+              <>
+                <p className="modal-text">
+                  Выбранный срок добавится к текущему окончанию аренды. Вещь остаётся у
+                  вас — идти к постамату не нужно.
+                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    margin: "12px 0",
+                    textAlign: "left",
+                  }}
+                >
+                  {extensionOptions.options.map((option) => {
+                    const key = `${option.durationType}-${option.durationValue}`;
+                    const selected =
+                      selectedExtension?.durationType === option.durationType &&
+                      selectedExtension?.durationValue === option.durationValue;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        disabled={!option.available || extendBusy}
+                        onClick={() => setSelectedExtension(option)}
+                        style={{
+                          padding: "10px 14px",
+                          borderRadius: 12,
+                          border: selected
+                            ? "2px solid var(--primary, #c40404)"
+                            : "1px solid var(--border, #e2e2e2)",
+                          background: "transparent",
+                          opacity: option.available ? 1 : 0.45,
+                          cursor: option.available ? "pointer" : "not-allowed",
+                          textAlign: "left",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "baseline",
+                          gap: 12,
+                        }}
+                      >
+                        <span>
+                          <strong>{option.name || `${option.durationValue} ${option.durationType}`}</strong>
+                          <span className="muted small" style={{ display: "block" }}>
+                            {option.available
+                              ? `до ${formatDateTime(option.newEndAt)}`
+                              : "занято следующей бронью"}
+                          </span>
+                        </span>
+                        <strong style={{ whiteSpace: "nowrap" }}>
+                          {formatMoney(option.amount, option.currency)}
+                        </strong>
+                      </button>
+                    );
+                  })}
+                </div>
+                {extensionOptions.maxEndAt &&
+                extensionOptions.options.some((option) => !option.available) ? (
+                  <p className="muted small">
+                    Продлить можно максимум до {formatDateTime(extensionOptions.maxEndAt)} —
+                    дальше вещь уже забронирована следующим клиентом.
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <p className="modal-text">Вариантов продления сейчас нет.</p>
+            )}
+            {extensionError ? (
+              <p className="modal-text" style={{ color: "var(--danger, #dd362d)" }}>
+                {extensionError}
+              </p>
+            ) : null}
+            <div className="modal-actions">
+              <div className="modal-actions-row">
+                <button
+                  className="button button-primary"
+                  type="button"
+                  style={{ width: "100%" }}
+                  disabled={extendBusy || extensionLoading || !selectedExtension}
+                  onClick={handleExtend}
+                >
+                  {extendBusy
+                    ? "Оформляем…"
+                    : selectedExtension
+                      ? `Оплатить ${formatMoney(selectedExtension.amount, selectedExtension.currency)}`
+                      : "Оплатить"}
+                </button>
+              </div>
+              <div className="modal-back">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExtendDialog(false);
+                    setExtensionError("");
+                  }}
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Get PIN confirmation modal — confirms the user is at the locker */}
       {showGetPinDialog ? (

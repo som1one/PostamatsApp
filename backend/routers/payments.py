@@ -96,7 +96,7 @@ async def authorize_payment_dev_stub(
         raise HTTPException(status_code=404, detail="PAYMENT_NOT_FOUND")
     if payment.user_id != user.id:
         raise HTTPException(status_code=403, detail="PAYMENT_FORBIDDEN")
-    if payment.type != PaymentType.PREAUTH:
+    if payment.type not in (PaymentType.PREAUTH, PaymentType.EXTRA_CHARGE):
         raise HTTPException(status_code=409, detail="PAYMENT_NOT_AUTHORIZABLE")
 
     if payment.status in (PaymentStatus.AUTHORIZED, PaymentStatus.CAPTURED):
@@ -113,6 +113,16 @@ async def authorize_payment_dev_stub(
         if reservation is not None and reservation.status == ReservationStatus.AWAITING_PAYMENT:
             reservation.status = ReservationStatus.PAYMENT_AUTHORIZED
             reservation.expires_at = calculate_paid_reservation_expires_at(reservation)
+
+    if payment.rental_id:
+        # Dev-оплата продления аренды: применяем сдвиг срока сразу, без
+        # ожидания вебхука/сверки. Постамат не трогается.
+        from backend.models.enums import RentalEventSource
+        from backend.utils.rental_extension import apply_rental_extension_for_payment
+
+        await apply_rental_extension_for_payment(
+            db, payment, source=RentalEventSource.USER, now=now
+        )
 
     try:
         await db.commit()

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  CalendarPlus,
   CheckCircle2,
   Clock3,
   CreditCard,
@@ -482,8 +483,23 @@ function RentalsContent() {
                         ) : null}
                         {canReturn ? (
                           <div className="card-actions" onClick={(e) => e.stopPropagation()}>
+                            {/* Продление живёт на странице заказа (?extend=1
+                                сразу открывает диалог). Ячейку постамата оно
+                                не открывает — вещь остаётся у клиента. */}
                             <button
                               className="button button-primary button-sm"
+                              type="button"
+                              disabled={busy}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/profile/orders/${rental.id}?extend=1`);
+                              }}
+                            >
+                              <CalendarPlus size={15} />
+                              Продлить
+                            </button>
+                            <button
+                              className="button button-secondary button-sm"
                               type="button"
                               disabled={busy}
                               onClick={(e) => handleReturnRental(rental, e)}

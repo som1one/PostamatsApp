@@ -346,6 +346,42 @@ export type RentalDetail = {
   reservationId?: string | null;
 };
 
+/** Один вариант продления аренды: тариф товара + новый срок окончания. */
+export type RentalExtensionOption = {
+  durationType: string;
+  durationValue: number;
+  name?: string | null;
+  /** Стоимость продления в минорных единицах. */
+  amount: number;
+  currency: string;
+  /** Каким станет плановое окончание после продления. */
+  newEndAt: string;
+  /** false — не влезает до начала следующей брони на эту вещь. */
+  available: boolean;
+};
+
+export type RentalExtensionOptions = {
+  rentalId: string;
+  status: string;
+  currentEndAt: string | null;
+  /** Начало следующей брони: продлить можно только до этого момента. */
+  maxEndAt?: string | null;
+  options: RentalExtensionOption[];
+};
+
+/** Ответ POST /me/rentals/{id}/extend: платёж создан, срок сдвинется после оплаты. */
+export type RentalExtensionStart = {
+  extension: {
+    rentalId: string;
+    newEndAt: string;
+  };
+  payment: PaymentSummary;
+  confirmation?: {
+    type?: string;
+    confirmationUrl?: string | null;
+  };
+};
+
 /** Ответ `/api/geo/visitor` — на нём держится плашка «выключите VPN». */
 export type VisitorGeo = {
   /** Двухбуквенный код страны или null, если определить не удалось. */
