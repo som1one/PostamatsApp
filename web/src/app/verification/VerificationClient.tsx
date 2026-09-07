@@ -15,7 +15,12 @@ import {
   fetchVerification,
   presignUpload,
 } from "@/shared/api/endpoints";
-import { apiBaseUrl } from "@/shared/api/client";
+import {
+  FILE_TOO_LARGE_MESSAGE,
+  MAX_UPLOAD_BYTES,
+  compressImageForUpload,
+  putPresignedFile,
+} from "@/shared/imageUpload";
 import type { AppUser, VerificationState } from "@/shared/api/types";
 
 type UploadKind = "verification_front" | "verification_back" | "verification_selfie";
@@ -59,6 +64,7 @@ function VerificationContent() {
   const [selfie, setSelfie] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [stage, setStage] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<Notice | null>(null);
   const [error, setError] = useState("");
@@ -99,24 +105,21 @@ function VerificationContent() {
     };
   }, []);
 
-  async function uploadFile(file: File, kind: UploadKind) {
+  async function uploadFile(original: File, kind: UploadKind) {
+    // Ужимаем до presign: бэкенд сверяет заявленный fileSize с лимитом, а тело
+    // PUT должно совпадать с тем, что мы объявили.
+    const file = await compressImageForUpload(original);
+    if (file.size > MAX_UPLOAD_BYTES) {
+      throw new Error(FILE_TOO_LARGE_MESSAGE);
+    }
+
     const presign = await presignUpload({
       fileName: file.name,
       mimeType: file.type || "image/jpeg",
       fileSize: file.size,
       kind,
     });
-    const targetUrl = /^https?:\/\//i.test(presign.uploadUrl)
-      ? presign.uploadUrl
-      : `${apiBaseUrl()}${presign.uploadUrl.startsWith("/") ? "" : "/"}${presign.uploadUrl}`;
-    const uploadResponse = await fetch(targetUrl, {
-      method: presign.method || "PUT",
-      headers: presign.headers,
-      body: file,
-    });
-    if (!uploadResponse.ok) {
-      throw new Error("Не удалось загрузить файл");
-    }
+    await putPresignedFile(presign, file);
     return {
       fileKey: presign.fileKey,
       kind: kindMap[kind],
@@ -135,15 +138,25 @@ function VerificationContent() {
       return;
     }
 
+    const queue: Array<[File, UploadKind]> = [
+      [front, "verification_front"],
+      ...(back ? ([[back, "verification_back"]] as Array<[File, UploadKind]>) : []),
+      [selfie, "verification_selfie"],
+    ];
+
     setSubmitting(true);
     setMessage(null);
     setError("");
     try {
-      const files = [
-        await uploadFile(front, "verification_front"),
-        ...(back ? [await uploadFile(back, "verification_back")] : []),
-        await uploadFile(selfie, "verification_selfie"),
-      ];
+      // Грузим по одному и показываем, на каком снимке стоим: на мобильном
+      // интернете отправка идёт десятки секунд, и без подсказки форма выглядит
+      // зависшей.
+      const files: Array<{ fileKey: string; kind: VerificationFileKind }> = [];
+      for (const [file, kind] of queue) {
+        setStage(`Отправляем фото ${files.length + 1} из ${queue.length}`);
+        files.push(await uploadFile(file, kind));
+      }
+      setStage("Сохраняем заявку");
       const next = await createVerification({
         ...form,
         documentName: form.documentType === "other" ? form.documentName.trim() : undefined,
@@ -166,6 +179,10 @@ function VerificationContent() {
           setError("Укажите название документа.");
         } else if (err.message === "DOCUMENT_NUMBER_ALREADY_EXISTS") {
           setError("Документ с таким номером уже существует в системе.");
+        } else if (err.message === "FILE_TOO_LARGE") {
+          setError(FILE_TOO_LARGE_MESSAGE);
+        } else if (err.message === "INVALID_MIME_TYPE") {
+          setError("Такой формат не подходит. Загрузите фото в JPG, PNG или WEBP.");
         } else {
           setError(err.message);
         }
@@ -174,6 +191,7 @@ function VerificationContent() {
       }
     } finally {
       setSubmitting(false);
+      setStage("");
     }
   }
 
@@ -429,7 +447,7 @@ function VerificationContent() {
               <FileInput label="Оборотная сторона" file={back} onChange={setBack} />
               <FileInput label="Селфи" file={selfie} onChange={setSelfie} required />
               <button className="button button-primary" type="submit" disabled={submitting}>
-                {submitting ? "Отправляем" : "Отправить на проверку"}
+                {submitting ? stage || "Отправляем" : "Отправить на проверку"}
               </button>
               {isRejected ? (
                 <button

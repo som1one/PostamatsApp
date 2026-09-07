@@ -13,6 +13,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from backend.core.database import close_db, init_db
+from backend.core.error_middleware import InternalErrorResponseMiddleware
 from backend.core.redis import close_redis, init_redis
 from backend.core.settings import settings
 from backend.routers.admin.audit import router as admin_audit_router
@@ -91,6 +92,10 @@ rental_overdue_stop_event: threading.Event | None = None
 esi_reconcile_worker: threading.Thread | None = None
 esi_reconcile_stop_event: threading.Event | None = None
 
+# Порядок важен: add_middleware кладёт слой наружу предыдущих, поэтому обработчик
+# 500 добавляем первым — он должен оказаться ВНУТРИ CORS, иначе ответ уйдёт без
+# Access-Control-Allow-Origin и в браузере превратится в «Failed to fetch».
+app.add_middleware(InternalErrorResponseMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ALLOWED_ORIGINS,
