@@ -47,16 +47,13 @@ docker compose "${COMPOSE_ARGS[@]}" build web
 docker compose "${COMPOSE_ARGS[@]}" run --rm migrate
 docker compose "${COMPOSE_ARGS[@]}" up -d
 
-# Caddyfile прилетает в контейнер bind-mount'ом, поэтому `up -d` не пересоздаёт
-# caddy, когда поменялся только конфиг, — правки доменов иначе не доезжают.
-# Просим Caddy перечитать конфиг сам (без разрыва соединений); если reload не
-# прошёл (контейнер только поднялся, админ-API ещё не готов) — перезапускаем.
-echo "[deploy] reloading caddy config"
-if ! docker compose "${COMPOSE_ARGS[@]}" exec -T caddy \
-  caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile; then
-  echo "[deploy] WARNING: caddy reload failed, restarting container" >&2
-  docker compose "${COMPOSE_ARGS[@]}" restart caddy
-fi
+# Caddyfile смонтирован в контейнер одиночным файлом, а `git reset --hard`
+# подменяет его новым inode — работающий контейнер продолжает видеть старую
+# версию файла, и `caddy reload` честно отвечает "config is unchanged".
+# Поэтому правки доменов доезжают только через пересоздание контейнера.
+# Это дёшево: сертификаты лежат в volume caddy_data и переживают рестарт.
+echo "[deploy] recreating caddy to pick up Caddyfile changes"
+docker compose "${COMPOSE_ARGS[@]}" up -d --force-recreate caddy
 
 # Разовая миграция постаматов в боевую конфигурацию.
 # Скрипт идемпотентный: повторные деплои просто приводят каждую точку
