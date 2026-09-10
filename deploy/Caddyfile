@@ -7,6 +7,15 @@ www.{$APP_DOMAIN} {
 	redir https://{$APP_DOMAIN}{uri} permanent
 }
 
+# Кириллическое зеркало напрокатберу.рф (punycode). Домен привязан к сайту и
+# A-записи уже смотрят на этот VPS, поэтому без своего блока Caddy не выпускал
+# на него сертификат: по :80 отдавался 308 на https, а там падал TLS-хендшейк.
+# Отдаём 301 на канонический домен, а не проксируем: у сайта один canonical
+# (SITE_CONFIG.url, sitemap, robots), и CORS бэкенда знает только naprokatberu.ru.
+xn--80aadqwqihjftp.xn--p1ai, www.xn--80aadqwqihjftp.xn--p1ai {
+	redir https://{$APP_DOMAIN}{uri} permanent
+}
+
 {$API_DOMAIN} {
 	encode zstd gzip
 	reverse_proxy backend:8000
