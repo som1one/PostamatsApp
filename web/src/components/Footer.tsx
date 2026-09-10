@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Mail, MessageCircle, User } from "lucide-react";
+import { FooterSocial } from "@/components/FooterSocial";
 
 export function Footer() {
   return (
@@ -27,19 +28,10 @@ export function Footer() {
           <Link href="/terms-rental">Условия аренды товаров</Link>
           <Link href="/privacy">Политика конфиденциальности</Link>
           <Link href="/profile">Личный кабинет</Link>
-          <a href="https://vk.ru/naprokatberu" target="_blank" rel="noreferrer" className="footer-social-item">
-            <span className="footer-social-icon">
-              <Image className="footer-social-img footer-social-img-vk" src="/vk-icon.svg" alt="" width={28} height={28} />
-            </span>
-            <span>ВКонтакте</span>
-          </a>
-          <span className="footer-social-item">
-            <span className="footer-social-icon">
-              <Image className="footer-social-img" src="/max-icon.png" alt="" width={28} height={28} />
-            </span>
-            <span>Макс</span>
-          </span>
         </nav>
+      </div>
+      <div className="container footer-social-strip">
+        <FooterSocial />
       </div>
       <div className="container footer-bottom">
         <span>© naprokatberu, 2026</span>

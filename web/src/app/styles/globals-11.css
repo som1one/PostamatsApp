@@ -43,6 +43,64 @@
    видимый квадрат совпал по размеру; transform не влияет на раскладку. */
 .footer-social-img-vk {
   transform: scale(1.33);
+}
+/* Соцсети живут отдельным рядом под колонками подвала: так иконки не
+   налезают друг на друга и не путаются со ссылками на документы. */
+.footer-social-strip {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 14px;
+}
+.footer-social-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.footer-social-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--muted);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+/* У «Макса» пока нет публичной ссылки — это не кликабельный элемент. */
+span.footer-social-btn {
+  cursor: default;
+}
+.footer-social-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+.footer-social-btn .footer-social-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
+}
+.footer-contact-modal {
+  max-width: 460px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+.footer-contact-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.footer-contact-form {
+  display: grid;
+  gap: 12px;
 }.footer-brand {
   gap: 10px;
   margin-bottom: 2px;

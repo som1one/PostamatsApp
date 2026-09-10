@@ -133,7 +133,7 @@
   .hero-service-media-frame {
     width: 100%;
     max-width: none;
-    border-radius: 0;
+    border-radius: 12px;
     transform: none;
   }
 

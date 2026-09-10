@@ -66,17 +66,34 @@
   justify-content: flex-start;
   min-width: 0;
 }.hero-service-media-frame {
+  position: relative;
   width: min(100%, 340px);
   aspect-ratio: 1054 / 1492;
   overflow: hidden;
+  /* Скруглять надо и рамку, и картинку внутри: острые углы постамата
+     делали его похожим на вставленную «наклейку», а не на часть страницы. */
   border: 1px solid rgba(234, 223, 206, 0.95);
-  border-radius: 0;
+  border-radius: 24px;
   background: linear-gradient(180deg, rgba(255, 252, 248, 0.98), rgba(255, 247, 240, 0.96));
-  box-shadow: 0 22px 44px rgba(63, 42, 24, 0.16);
+  /* Мягкая многослойная тень вместо одной жёсткой: даёт объём и «сажает»
+     постамат на фон. */
+  box-shadow:
+    0 1px 2px rgba(63, 42, 24, 0.06),
+    0 8px 18px rgba(63, 42, 24, 0.1),
+    0 28px 56px rgba(63, 42, 24, 0.14);
+}.hero-service-media-frame::after {
+  /* Тонкий внутренний блик по краю — снимает эффект «плоской вырезки». */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.34);
+  pointer-events: none;
 }.hero-service-media-image {
   display: block;
   width: 100%;
   height: 100%;
+  border-radius: inherit;
   object-fit: cover;
   object-position: center top;
 }.hero-service-description {
@@ -364,7 +381,9 @@
   }
 
   .hero-service-media-frame {
-    transform: translateX(20px);
+    /* Без сдвига вправо: раньше правый край постамата подрезался краем
+       hero-панели, и скруглённые углы там просто не было видно. */
+    transform: none;
   }
 
   .workflow-band {
