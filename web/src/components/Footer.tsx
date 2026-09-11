@@ -34,7 +34,7 @@ export function Footer() {
         <FooterSocial />
       </div>
       <div className="container footer-bottom">
-        <span>© naprokatberu, 2026</span>
+        <span>© naprokatberu, 2020</span>
         <span className="footer-bottom-note">Аренда техники и вещей по понятному цифровому сценарию.</span>
       </div>
       <div className="container footer-legal" aria-label="Реквизиты">

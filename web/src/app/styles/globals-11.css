@@ -50,6 +50,8 @@
   display: flex;
   justify-content: flex-start;
   padding-top: 14px;
+  /* Зазор до линии над копирайтом: без него кнопки лежали прямо на ней. */
+  padding-bottom: 12px;
 }
 .footer-social-row {
   display: flex;
