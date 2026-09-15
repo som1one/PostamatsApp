@@ -32,7 +32,6 @@ import {
   cancelRentalBeforePickup,
   cancelReservation,
   confirmRentalPickup,
-  confirmRentalReturn,
   confirmReservation,
   extendRental,
   fetchAllLockers,
@@ -58,6 +57,12 @@ import { buildRescheduleProductHref } from "@/shared/checkout/reschedule";
 import { formatCountRu, formatDateTime, formatMoney } from "@/shared/format";
 import { resolvePublicAssetUrl } from "@/shared/media";
 import { isRentalFinished } from "@/shared/rentalStatus";
+import { ReturnFlow } from "./ReturnFlow";
+import {
+  applyConfirmReturnResult,
+  mergeRentalDetailIntoListItem,
+  type ConfirmReturnResult,
+} from "./returnFlowState";
 
 type OrderData =
   | { type: "reservation"; data: UpcomingReservation; detail?: ReservationSummary | null }
@@ -236,12 +241,10 @@ function OrderDetailContent({ id }: { id: string }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [returnConfirmId, setReturnConfirmId] = useState<string | null>(null);
   // Подтверждение открытия ячейки: пользователь должен быть рядом с
   // постаматом. Кнопка «Открыть» в подтверждении загорается через 3 с.
   const [openConfirmId, setOpenConfirmId] = useState<string | null>(null);
   const [openCountdown, setOpenCountdown] = useState(0);
-  const confirmResolveRef = useRef<((ok: boolean) => void) | null>(null);
   const [returnLockers, setReturnLockers] = useState<Locker[]>([]);
   const [returnLockerId, setReturnLockerId] = useState("");
   const returnLockerIdRef = useRef("");
@@ -254,7 +257,14 @@ function OrderDetailContent({ id }: { id: string }) {
   const [showGetPinDialog, setShowGetPinDialog] = useState(false);
   // Cancel rental before pickup (starts tomorrow+)
   const [showCancelRentalDialog, setShowCancelRentalDialog] = useState(false);
-  const [returnPin, setReturnPin] = useState<string | null>(null);
+  // Ответ return-request: запасной источник PIN и ячейки, пока список аренд
+  // не догнал. Основной источник — returnRequest с бэка (переживает перезагрузку).
+  const [returnStart, setReturnStart] = useState<{
+    pin?: string | null;
+    cellLabel?: string | null;
+    lockerName?: string | null;
+    expiresAt?: string | null;
+  } | null>(null);
   // ── Продление аренды ───────────────────────────────────────
   const [showExtendDialog, setShowExtendDialog] = useState(false);
   const [extensionOptions, setExtensionOptions] = useState<RentalExtensionOptions | null>(null);
@@ -265,9 +275,14 @@ function OrderDetailContent({ id }: { id: string }) {
   // id платежа продления, оплату которого ждём (после возврата из ЮKassa).
   const [extensionPaymentId, setExtensionPaymentId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  // silent — обновить данные без экрана загрузки: иначе степпер возврата
+  // размонтируется посреди съёмки, а квитанция мигнёт.
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    if (!silent) {
+      setLoading(true);
+      setError("");
+    }
     try {
       // Try to find as rental first (has detail endpoint)
       try {
@@ -297,6 +312,10 @@ function OrderDetailContent({ id }: { id: string }) {
         return;
       } catch {
         // Not a rental, try reservation
+        if (silent) {
+          // Тихое обновление аренды: сеть мигнула — оставляем то, что уже на экране.
+          return;
+        }
       }
 
       const reservations = await fetchMyReservations();
@@ -490,30 +509,40 @@ function OrderDetailContent({ id }: { id: string }) {
     }
   }
 
-  function askReturnConfirm(rentalId: string): Promise<boolean> {
-    return new Promise((resolve) => {
-      confirmResolveRef.current = resolve;
-      setReturnConfirmId(rentalId);
-    });
-  }
-
-  function handleConfirmReturn(ok: boolean) {
-    setReturnConfirmId(null);
-    confirmResolveRef.current?.(ok);
-    confirmResolveRef.current = null;
-  }
-
   async function handleReturn(rentalId: string) {
     setBusy(true);
     setMessage("");
     setError("");
     try {
       const result = await requestRentalReturn(rentalId);
-      if (result.return.pin) {
-        setReturnPin(result.return.pin);
-      }
-      setMessage(result.return.instructions || "Ячейка открыта. Положите товар и закройте дверцу.");
-      await load();
+      // Бэкенд отдаёт заявку целиком (постамат, срок кода), тип знает не всё.
+      const started = result.return as typeof result.return & {
+        lockerName?: string | null;
+        expiresAt?: string | null;
+      };
+      setReturnStart({
+        pin: started.pin,
+        cellLabel: started.cellLabel,
+        lockerName: started.lockerName,
+        expiresAt: started.expiresAt,
+      });
+      // Ячейка уже зарезервирована и PIN выдан — показываем степпер сразу, не
+      // дожидаясь перечитывания заказа: на слабой сети у постамата оно может
+      // не пройти, а опрос степпера догонит статус сам.
+      setOrder((current) =>
+        current && current.type === "rental" && current.data.id === rentalId
+          ? {
+              type: "rental",
+              data: { ...current.data, status: "return_in_progress" },
+              detail: current.detail
+                ? { ...current.detail, status: "return_in_progress" }
+                : current.detail,
+            }
+          : current,
+      );
+      // Инструкцию с бэка («…и закройте дверцу») наверх не выводим: дальше ведёт
+      // степпер возврата, а дверцу закрывать можно только после фото.
+      await load({ silent: true });
     } catch (err) {
       if (err instanceof ApiError && err.code === "LOCKER_OFFLINE") {
         setError("Постамат сейчас офлайн. Попробуйте позже.");
@@ -666,26 +695,50 @@ function OrderDetailContent({ id }: { id: string }) {
     }
   }
 
-  async function handleConfirmReturnDone(rentalId: string) {
-    setBusy(true);
-    setMessage("");
-    setError("");
-    try {
-      await confirmRentalReturn(rentalId);
-      setMessage("Возврат принят. Спасибо!");
-      await load();
-    } catch (err) {
-      if (err instanceof ApiError && err.code === "RENTAL_NOT_RETURNING") {
-        setError("Сначала оформите возврат и подождите, пока ячейка откроется.");
-      } else if (err instanceof ApiError && err.code === "RETURN_REQUEST_NOT_FOUND") {
-        setError("Активная заявка на возврат не найдена. Оформите возврат заново.");
-      } else {
-        setError(err instanceof Error ? err.message : "Не удалось подтвердить возврат");
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
+  // ── Возврат с фото (ReturnFlow) ─────────────────────────────
+  // Опрос во время возврата: статус и отчёт берём из свежего detail.
+  const handleReturnDetail = useCallback((rentalDetail: RentalDetail) => {
+    setOrder((current) =>
+      current && current.type === "rental" && current.data.id === rentalDetail.id
+        ? {
+            type: "rental",
+            data: mergeRentalDetailIntoListItem(current.data, rentalDetail),
+            detail: rentalDetail,
+          }
+        : current,
+    );
+  }, []);
+
+  // Ответ confirm-return применяем сразу (квитанция на месте степпера), а
+  // бонусы и фактическое окончание догружаем тихо.
+  const handleReturnConfirmed = useCallback(
+    (result: ConfirmReturnResult) => {
+      setOrder((current) => {
+        if (!current || current.type !== "rental") {
+          return current;
+        }
+        const data = applyConfirmReturnResult(current.data, result);
+        return {
+          type: "rental",
+          data,
+          detail: current.detail
+            ? {
+                ...current.detail,
+                status: data.status,
+                returnRequest: data.returnRequest,
+                returnReport: data.returnReport,
+              }
+            : current.detail,
+        };
+      });
+      void load({ silent: true });
+    },
+    [load],
+  );
+
+  const refreshReturnSilently = useCallback(() => {
+    void load({ silent: true });
+  }, [load]);
 
   // Called when user clicks cancel button
   function handleCancelClick(reservationId: string, status: string) {
@@ -814,6 +867,21 @@ function OrderDetailContent({ id }: { id: string }) {
       <div className="order-detail-layout">
         {/* Main info panel */}
         <Surface className="detail-panel order-detail-card">
+          {/* Возврат с фото: у постамата клиенту нужен PIN и камера, а не
+              обложка товара — поэтому блок первым в карточке. После
+              подтверждения на его месте остаётся квитанция возврата. */}
+          {!isReservation ? (
+            <ReturnFlow
+              key={order.data.id}
+              rental={order.data}
+              detail={order.detail}
+              localRequest={returnStart}
+              onDetail={handleReturnDetail}
+              onConfirmed={handleReturnConfirmed}
+              onRefresh={refreshReturnSilently}
+            />
+          ) : null}
+
           <div className="product-cover" style={{ borderRadius: 16, maxHeight: 320 }}>
             {coverUrl ? (
               <img src={coverUrl || undefined} alt={productName} />
@@ -975,7 +1043,8 @@ function OrderDetailContent({ id }: { id: string }) {
                 ) : null}
                 {(() => {
                   const meta = computeOrderDeadlineMeta(order.data, nowMs);
-                  if (!meta) return null;
+                  // Во время возврата всё сказано в степпере — плашка только дублирует.
+                  if (!meta || order.data.status === "return_in_progress") return null;
                   return (
                     <div className={`rental-deadline rental-deadline-${meta.tone}`}>
                       <meta.Icon size={16} />
@@ -1136,46 +1205,6 @@ function OrderDetailContent({ id }: { id: string }) {
                 <RotateCcw size={18} />
                 Оформить возврат
               </button>
-            ) : null}
-
-            {/* Confirm return — once locker is opened we wait for the user to confirm */}
-            {!isReservation && order.data.status === "return_in_progress" ? (
-              <>
-                {returnPin ? (
-                  <div className="pickup-pin-display" style={{ padding: "16px", backgroundColor: "#f0fdf4", borderRadius: "12px", border: "1px solid #bbf7d0", textAlign: "center", marginBottom: "16px" }}>
-                    <div style={{ fontSize: "13px", color: "#166534", marginBottom: "4px" }}>PIN для возврата:</div>
-                    <div style={{ fontSize: "32px", fontWeight: "bold", fontFamily: "monospace", color: "#15803d", display: "inline-flex", alignItems: "center", gap: "12px" }}>
-                      {returnPin}
-                      <button
-                        type="button"
-                        className="button button-ghost button-sm"
-                        style={{ padding: "6px", minHeight: "unset", minWidth: "unset", borderRadius: "8px", color: "#15803d" }}
-                        onClick={() => {
-                          navigator.clipboard.writeText(returnPin);
-                          setPinCopied(true);
-                          setTimeout(() => setPinCopied(false), 2000);
-                        }}
-                        title="Скопировать PIN-код"
-                      >
-                        <Copy size={20} />
-                      </button>
-                    </div>
-                    {pinCopied ? <div style={{ fontSize: "12px", color: "#166534", marginTop: "4px" }}>Скопировано ✓</div> : null}
-                  </div>
-                ) : null}
-                <p className="muted detail-actions-hint">
-                  Подойдите к постамату, введите PIN-код и положите товар в ячейку. Закройте дверцу и нажмите «Я вернул товар».
-                </p>
-                <button
-                  className="button button-primary"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => handleConfirmReturnDone(order.data.id)}
-                >
-                  <CheckCircle2 size={18} />
-                  Я вернул товар
-                </button>
-              </>
             ) : null}
 
             {/* Cancelled due to pickup expired */}

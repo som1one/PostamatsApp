@@ -30,6 +30,11 @@ from backend.utils.admin_scope import ensure_rental_in_scope, franchise_city_ids
 from backend.utils.bonus_ledger import accrue_rental_bonus
 from backend.utils.lockers_utils import price_plan_to_minor_units
 from backend.utils.rental_serialization import rental_is_overdue, serialize_rental_detail
+from backend.utils.return_photos import (
+    load_latest_returned_rentals,
+    load_return_report_views,
+    serialize_admin_return_report,
+)
 
 router = APIRouter(prefix="/api/admin/rentals", tags=["admin-rentals"])
 
@@ -187,6 +192,9 @@ async def _serialize_rental_cell(db: AsyncSession, unit: InventoryUnit | None) -
         return None
     return {
         "id": str(cell.id),
+        # Постамат ячейки: кнопка «Забрать на ремонт в «Размещении»» ведёт
+        # прямо в его сетку — возврат мог уйти не в постамат выдачи.
+        "lockerId": str(cell.locker_id),
         "label": cell.label,
         "externalCellId": cell.external_cell_id,
         "status": cell.status.value,
@@ -339,7 +347,10 @@ async def get_rental(
         city = await db.get(City, pickup_locker.city_id)
         pickup_city = city.name if city else None
 
-    detail = await serialize_rental_detail(db, rental)
+    # Отчёт о возврате грузим один раз: он нужен и клиентскому returnReport
+    # внутри data.rental, и операторскому data.returnReport ниже.
+    return_report_view = (await load_return_report_views(db, [rental.id]))[rental.id]
+    detail = await serialize_rental_detail(db, rental, return_report_view=return_report_view)
     detail["user"] = await _serialize_rental_user_card(db, user) if user else None
     detail["inventoryUnit"] = (
         {
@@ -375,6 +386,20 @@ async def get_rental(
         "cancelReason": rental.cancel_reason,
         "isOverdue": _is_overdue_row(rental, datetime.now(timezone.utc)),
     }
+    # Проверку предлагаем только на карточке того возврата, которого юнит
+    # сейчас ждёт: у старой аренды того же юнита inventoryUnit.status тоже
+    # «На проверке», но её фото к нынешнему состоянию вещи отношения не имеют.
+    pending_review = False
+    if unit is not None and unit.status == InventoryStatus.AWAITING_CONFIRMATION:
+        latest_returned = (await load_latest_returned_rentals(db, [unit.id])).get(unit.id)
+        pending_review = latest_returned is not None and latest_returned.id == rental.id
+    # Фото, которые клиент снял в открытой ячейке. null — аренда через
+    # постамат не возвращалась; expected без фото — вернули, но не сфотографировали.
+    detail["returnReport"] = serialize_admin_return_report(
+        rental,
+        return_report_view,
+        pending_review=pending_review,
+    )
 
     return {"data": detail}
 

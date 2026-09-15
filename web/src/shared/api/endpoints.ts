@@ -20,6 +20,7 @@ import type {
   RequestCodeResponse,
   ReservationQuote,
   ReservationSummary,
+  ReturnReport,
   UpcomingReservation,
   VerificationState,
   VisitorGeo,
@@ -538,11 +539,30 @@ export async function confirmRentalPickup(rentalId: string) {
   );
 }
 
-export async function confirmRentalReturn(rentalId: string) {
-  return requestWithAuth<{ rental: { id: string; status: string } }>(
-    `/me/rentals/${rentalId}/confirm-return`,
-    { method: "POST" },
-  );
+/** kind для /uploads/presign: фото вещи в ячейке при возврате. */
+export const RETURN_PHOTO_UPLOAD_KIND = "condition_photo_after";
+
+export type ConfirmRentalReturnPayload = {
+  /** fileId из presign с kind RETURN_PHOTO_UPLOAD_KIND, уже залитые PUT-ом. */
+  photoFileIds?: string[];
+  note?: string;
+};
+
+/**
+ * Подтверждает возврат вместе с фото. Если дверца уже завершила возврат,
+ * тот же вызов досылает фото к завершённой аренде, пока canAttachPhotos.
+ */
+export async function confirmRentalReturn(
+  rentalId: string,
+  payload: ConfirmRentalReturnPayload = {},
+) {
+  return requestWithAuth<{
+    rental: { id: string; status: string };
+    returnReport?: ReturnReport | null;
+  }>(`/me/rentals/${rentalId}/confirm-return`, {
+    method: "POST",
+    body: payload,
+  });
 }
 
 export async function fetchVisitorGeo() {

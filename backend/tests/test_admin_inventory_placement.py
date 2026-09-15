@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timezone, timedelta
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
 
 from fastapi import Request
@@ -15,19 +15,35 @@ from backend.models.admin_audit_event import AdminAuditEvent
 from backend.models.admin_user import AdminUser
 from backend.models.bonus_transaction import BonusTransaction
 from backend.models.city import City
-from backend.models.enums import AdminRole, InventoryStatus, LockerCellStatus, LockerStatus, VerificationStatus, RentalStatus, RentalEventSource
+from backend.models.condition_report import ConditionReport
+from backend.models.condition_report_photo import ConditionReportPhoto
+from backend.models.enums import (
+    AdminRole,
+    ConditionReportType,
+    InventoryStatus,
+    LockerCellStatus,
+    LockerStatus,
+    MediaFileKind,
+    RentalEventSource,
+    RentalStatus,
+    ReturnRequestStatus,
+    VerificationStatus,
+)
 from backend.models.inventory_movement import InventoryMovement
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
+from backend.models.media_file import MediaFile
 from backend.models.product import Product
 from backend.models.product_category import ProductCategory
 from backend.models.user import User
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
 from backend.models.reservation import Reservation
+from backend.models.return_request import ReturnRequest
 from backend.models.price_plan import PricePlan
 from backend.routers.admin import inventory as inventory_router
+from backend.utils import return_photos as return_photos_utils
 from backend.schemas.admin_panel_schemas import (
     AdminConfirmInventoryReadyPayload,
     AdminPlaceProductInCellPayload,
@@ -63,6 +79,11 @@ TEST_TABLES = [
     RentalEvent.__table__,
     # Подтверждение готовности закрывает аренду и начисляет бонусы.
     BonusTransaction.__table__,
+    # Сетка ячеек показывает последний возврат юнитов «На проверке» с фото.
+    ReturnRequest.__table__,
+    MediaFile.__table__,
+    ConditionReport.__table__,
+    ConditionReportPhoto.__table__,
 ]
 
 
@@ -385,6 +406,53 @@ class AdminInventoryPlacementTests(unittest.IsolatedAsyncioTestCase):
             ).all()
             self.assertEqual(len(audits), 1)
 
+    async def test_confirm_ready_never_touches_the_locker(self):
+        """«Всё в порядке» из карточки аренды: только статус юнита, без ESI.
+
+        Ячейку не открываем и её статус не меняем — вещь остаётся внутри.
+        """
+        async with TestSessionLocal() as db:
+            await inventory_router.place_product_in_cell(
+                _make_request(),
+                self.cell_id,
+                AdminPlaceProductInCellPayload(productId=self.product_id),
+                db,
+            )
+        async with TestSessionLocal() as db:
+            unit = (
+                await db.execute(
+                    select(InventoryUnit).where(InventoryUnit.locker_cell_id == self.cell_id)
+                )
+            ).scalar_one()
+            unit.status = InventoryStatus.AWAITING_CONFIRMATION
+            cell = await db.get(LockerCell, self.cell_id)
+            cell_status_before = cell.status
+            await db.commit()
+            unit_id = unit.id
+
+        open_cell = AsyncMock(side_effect=AssertionError("confirm-ready не должен открывать ячейку"))
+        sync_cell = AsyncMock(side_effect=AssertionError("confirm-ready не должен ходить в ESI"))
+        with patch.object(inventory_router, "admin_trigger_open_cell", new=open_cell), patch.object(
+            inventory_router, "sync_cell_state", new=sync_cell
+        ):
+            async with TestSessionLocal() as db:
+                await inventory_router.confirm_inventory_ready(
+                    _make_request(),
+                    AdminConfirmInventoryReadyPayload(
+                        inventoryUnitId=unit_id, comment="Проверено по фото возврата"
+                    ),
+                    db,
+                )
+
+        open_cell.assert_not_awaited()
+        sync_cell.assert_not_awaited()
+        async with TestSessionLocal() as db:
+            cell = await db.get(LockerCell, self.cell_id)
+            unit = await db.get(InventoryUnit, unit_id)
+        self.assertEqual(cell.status, cell_status_before)
+        self.assertEqual(unit.locker_cell_id, self.cell_id)
+        self.assertEqual(unit.status, InventoryStatus.AVAILABLE)
+
     async def test_confirm_ready_rejects_wrong_status(self):
         async with TestSessionLocal() as db:
             await inventory_router.place_product_in_cell(
@@ -619,6 +687,271 @@ class AdminInventoryPlacementTests(unittest.IsolatedAsyncioTestCase):
             ).all()
             self.assertEqual(len(events), 1)
             self.assertEqual(events[0].event_type, "rental_completed_by_admin_confirm_ready")
+
+    # --- Последний возврат в сетке ячеек ----------------------------------
+
+    def _add_returned_rental(
+        self,
+        db,
+        *,
+        unit: InventoryUnit,
+        cell: LockerCell,
+        user: User,
+        completed_at: datetime,
+        photo_sort_orders: list[int] | None = None,
+        note: str | None = None,
+    ) -> tuple[Rental, list[MediaFile]]:
+        """Аренда, которую клиент вернул через постамат (и, может быть, сфотографировал).
+
+        Возвращает аренду и фото в том порядке, в котором их снял клиент.
+        """
+        rental = Rental(
+            id=uuid4(),
+            user_id=user.id,
+            inventory_unit_id=unit.id,
+            pickup_locker_id=self.locker_id,
+            return_locker_id=self.locker_id,
+            status=RentalStatus.COMPLETED,
+            starts_at=completed_at - timedelta(days=1),
+            planned_end_at=completed_at,
+            completed_at=completed_at,
+        )
+        request = ReturnRequest(
+            id=uuid4(),
+            rental_id=rental.id,
+            locker_id=self.locker_id,
+            cell_id=cell.id,
+            pin="1234",
+            status=ReturnRequestStatus.COMPLETED,
+            requested_at=completed_at - timedelta(minutes=3),
+            deadline_at=completed_at + timedelta(minutes=27),
+            completed_at=completed_at,
+        )
+        db.add_all([rental, request])
+        if photo_sort_orders is None:
+            return rental, []
+
+        report = ConditionReport(
+            id=uuid4(),
+            inventory_unit_id=unit.id,
+            rental_id=rental.id,
+            report_type=ConditionReportType.AFTER_RETURN,
+            note=note,
+            created_by_user_id=user.id,
+        )
+        files = [
+            MediaFile(
+                id=uuid4(),
+                storage_provider="filesystem",
+                bucket="filesystem-private",
+                file_key=f"condition/2026/09/14/{uuid4().hex}-cell.jpg",
+                mime_type="image/jpeg",
+                file_size=90_000,
+                kind=MediaFileKind.CONDITION_PHOTO_AFTER,
+                uploaded_by_user_id=user.id,
+                created_at=completed_at,
+            )
+            for _ in photo_sort_orders
+        ]
+        db.add_all([report, *files])
+        db.add_all(
+            [
+                ConditionReportPhoto(
+                    id=uuid4(),
+                    condition_report_id=report.id,
+                    file_id=media.id,
+                    sort_order=sort_order,
+                )
+                for media, sort_order in zip(files, photo_sort_orders)
+            ]
+        )
+        ordered = [media for _, media in sorted(zip(photo_sort_orders, files), key=lambda p: p[0])]
+        return rental, ordered
+
+    async def test_cells_carry_last_return_for_awaiting_units(self):
+        now = datetime.now(timezone.utc)
+        async with TestSessionLocal() as db:
+            cells = {
+                label: LockerCell(
+                    id=uuid4(),
+                    locker_id=self.locker_id,
+                    label=label,
+                    external_cell_id=label,
+                    status=LockerCellStatus.OCCUPIED,
+                    supports_return=True,
+                )
+                for label in ("B1", "B2", "B3")
+            }
+            units = {
+                "B1": InventoryUnit(
+                    id=uuid4(),
+                    product_id=self.product_id,
+                    locker_cell_id=cells["B1"].id,
+                    status=InventoryStatus.AWAITING_CONFIRMATION,
+                ),
+                "B2": InventoryUnit(
+                    id=uuid4(),
+                    product_id=self.product_id,
+                    locker_cell_id=cells["B2"].id,
+                    status=InventoryStatus.AWAITING_CONFIRMATION,
+                ),
+                # Уже проверенный юнит: его старый возврат с фото в сетке не нужен.
+                "B3": InventoryUnit(
+                    id=uuid4(),
+                    product_id=self.product_id,
+                    locker_cell_id=cells["B3"].id,
+                    status=InventoryStatus.AVAILABLE,
+                ),
+            }
+            anna = User(
+                id=uuid4(),
+                phone="+79990000101",
+                first_name="Анна",
+                last_name="Петрова",
+                verification_status=VerificationStatus.APPROVED,
+            )
+            nameless = User(
+                id=uuid4(),
+                phone="+79990000102",
+                verification_status=VerificationStatus.APPROVED,
+            )
+            db.add_all([*cells.values(), *units.values(), anna, nameless])
+            await db.flush()
+
+            # У B1 два возврата: позавчерашний и свежий — показываем свежий.
+            self._add_returned_rental(
+                db,
+                unit=units["B1"],
+                cell=cells["B1"],
+                user=nameless,
+                completed_at=now - timedelta(days=2),
+                photo_sort_orders=[0],
+                note="старый возврат",
+            )
+            fresh_rental, fresh_photos = self._add_returned_rental(
+                db,
+                unit=units["B1"],
+                cell=cells["B1"],
+                user=anna,
+                completed_at=now - timedelta(minutes=20),
+                photo_sort_orders=[1, 0],
+                note="Кейс в пыли",
+            )
+            fresh_completed_at = fresh_rental.completed_at
+            no_photo_rental, _ = self._add_returned_rental(
+                db,
+                unit=units["B2"],
+                cell=cells["B2"],
+                user=nameless,
+                completed_at=now - timedelta(minutes=5),
+            )
+            self._add_returned_rental(
+                db,
+                unit=units["B3"],
+                cell=cells["B3"],
+                user=anna,
+                completed_at=now - timedelta(days=1),
+                photo_sort_orders=[0],
+            )
+            await db.commit()
+
+        original = return_photos_utils.load_return_report_views
+        calls: list[list] = []
+
+        async def spy(db, rental_ids):
+            calls.append(list(rental_ids))
+            return await original(db, rental_ids)
+
+        with patch.object(inventory_router, "load_return_report_views", new=spy), patch.object(
+            settings, "STORAGE_PROVIDER", "filesystem"
+        ), patch.object(settings, "MEDIA_PUBLIC_BASE_URL", ""):
+            async with TestSessionLocal() as db:
+                response = await inventory_router.list_inventory_locker_cells(
+                    _make_request(), self.locker_id, db
+                )
+
+        # Отчёты грузятся одним батчем на всю сетку, а не по запросу на ячейку.
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(set(calls[0]), {fresh_rental.id, no_photo_rental.id})
+
+        by_label = {cell["label"]: cell for cell in response["data"]["cells"]}
+        self.assertIsNone(by_label["A1"]["currentUnit"])
+
+        with_photos = by_label["B1"]["currentUnit"]["lastReturn"]
+        self.assertEqual(with_photos["rentalId"], str(fresh_rental.id))
+        self.assertEqual(with_photos["userName"], "Анна Петрова")
+        self.assertEqual(with_photos["note"], "Кейс в пыли")
+        self.assertEqual(with_photos["photoCount"], 2)
+        self.assertEqual(
+            with_photos["photos"],
+            [
+                {"id": str(media.id), "url": f"/assets/runtime-uploads/{media.file_key}"}
+                for media in fresh_photos
+            ],
+        )
+        self.assertEqual(datetime.fromisoformat(with_photos["returnedAt"]), fresh_completed_at)
+        # Фото уже есть — ждать досылки нечего.
+        self.assertIsNone(with_photos["attachPhotosUntil"])
+
+        without_photos = by_label["B2"]["currentUnit"]["lastReturn"]
+        self.assertEqual(
+            without_photos,
+            {
+                "rentalId": str(no_photo_rental.id),
+                "returnedAt": without_photos["returnedAt"],
+                "userName": None,
+                "note": None,
+                "photoCount": 0,
+                "photos": [],
+                "attachPhotosUntil": without_photos["attachPhotosUntil"],
+            },
+        )
+        self.assertIsNotNone(without_photos["returnedAt"])
+        # Вернули 5 минут назад без фото: клиент ещё может дослать до конца окна.
+        self.assertEqual(
+            datetime.fromisoformat(without_photos["attachPhotosUntil"]),
+            datetime.fromisoformat(without_photos["returnedAt"])
+            + timedelta(minutes=settings.RETURN_PHOTO_LATE_WINDOW_MINUTES),
+        )
+
+        self.assertIsNone(by_label["B3"]["currentUnit"]["lastReturn"])
+
+    async def test_cells_without_awaiting_units_skip_return_lookup(self):
+        async with TestSessionLocal() as db:
+            await inventory_router.place_product_in_cell(
+                _make_request(),
+                self.cell_id,
+                AdminPlaceProductInCellPayload(productId=self.product_id),
+                db,
+            )
+        async with TestSessionLocal() as db:
+            # Юнит «На проверке», но через постамат его не возвращали
+            # (статус выставили руками) — показывать нечего.
+            unit = (
+                await db.execute(
+                    select(InventoryUnit).where(InventoryUnit.locker_cell_id == self.cell_id)
+                )
+            ).scalar_one()
+            unit.status = InventoryStatus.AWAITING_CONFIRMATION
+            await db.commit()
+
+        original = return_photos_utils.load_return_report_views
+        calls: list[list] = []
+
+        async def spy(db, rental_ids):
+            calls.append(list(rental_ids))
+            return await original(db, rental_ids)
+
+        with patch.object(inventory_router, "load_return_report_views", new=spy):
+            async with TestSessionLocal() as db:
+                response = await inventory_router.list_inventory_locker_cells(
+                    _make_request(), self.locker_id, db
+                )
+
+        self.assertEqual(calls, [])
+        current = response["data"]["cells"][0]["currentUnit"]
+        self.assertEqual(current["status"], InventoryStatus.AWAITING_CONFIRMATION.value)
+        self.assertIsNone(current["lastReturn"])
 
 
 

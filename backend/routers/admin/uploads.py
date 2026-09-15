@@ -55,7 +55,8 @@ async def presign_admin_upload(
         raise HTTPException(status_code=400, detail="FILE_TOO_LARGE")
 
     file_id = uuid4()
-    file_key = build_file_key(payload.kind, file_id, payload.fileName)
+    # Расширение ключа — по проверенному MIME, как в клиентском presign.
+    file_key = build_file_key(payload.kind, file_id, payload.fileName, mime_type=mime)
     now = datetime.now(timezone.utc)
     bucket = (
         "dev-stub"

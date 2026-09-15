@@ -1,0 +1,1551 @@
+/* ── Возврат с фото: степпер, «кадр возврата», квитанция ─────────────────
+   Главный сценарий — телефон у открытой ячейки постамата (360–414 px).
+   Движение только CSS-ом; тихая версия — в конце файла. */
+
+.return-flow {
+  --return-ok: #86d69c;
+  --return-fail: #ff8f80;
+  --return-frame: #2b241f;
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, #fffdf9 0%, var(--surface-muted) 100%);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.45;
+  scroll-margin-top: 96px;
+}
+
+.return-flow :is(button, a):focus-visible,
+.return-card-hint :is(button, a):focus-visible {
+  outline: 3px solid rgba(196, 4, 4, 0.42);
+  outline-offset: 2px;
+}
+
+.return-sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.return-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.return-spin {
+  animation: return-spin 0.9s linear infinite;
+}
+
+/* ── Шапка ─────────────────────────────────────────────────────────────── */
+
+.return-flow-head {
+  display: grid;
+  gap: 4px;
+}
+
+.return-flow-eyebrow {
+  margin: 0;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.return-flow-eyebrow.is-green {
+  color: var(--green);
+}
+
+.return-flow-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 850;
+  line-height: 1.18;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.return-flow-lead {
+  margin: 0;
+  max-width: 54ch;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+/* ── Вертикальный степпер ──────────────────────────────────────────────── */
+
+.return-steps {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.return-step {
+  --marker: 32px;
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--marker) minmax(0, 1fr);
+  column-gap: 12px;
+  padding-bottom: 20px;
+}
+
+.return-step:last-child {
+  padding-bottom: 0;
+}
+
+/* Соединительная линия и её «заполнение» пройденным шагом. */
+.return-step:not(:last-child)::before,
+.return-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--marker) + 4px);
+  bottom: 4px;
+  left: calc(var(--marker) / 2 - 1px);
+  width: 2px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.return-step:not(:last-child)::after {
+  background: var(--green);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.return-step.is-done:not(:last-child)::after {
+  transform: scaleY(1);
+}
+
+.return-step-marker {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: var(--marker);
+  height: var(--marker);
+  place-items: center;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.return-step.is-current .return-step-marker {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 0 0 4px var(--primary-soft);
+}
+
+.return-step.is-done .return-step-marker {
+  border-color: var(--green);
+  background: var(--green);
+  color: #fff;
+}
+
+.return-step.is-done .return-step-marker svg {
+  animation: return-check-in 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.4) both;
+}
+
+.return-step-main {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 5px;
+}
+
+.return-step-heading {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.return-step-titles {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.return-step-title {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 850;
+  line-height: 1.3;
+}
+
+.return-step.is-upcoming .return-step-title {
+  color: var(--muted);
+}
+
+.return-step-summary {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.return-step-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: calc(100% + 12px);
+  margin: -4px -6px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  text-align: left;
+  transition: background 0.16s ease;
+}
+
+.return-step-toggle:hover {
+  background: rgba(43, 36, 31, 0.04);
+}
+
+.return-step-toggle > .return-step-titles {
+  flex: 1;
+}
+
+.return-step-chevron {
+  flex: none;
+  margin-top: 2px;
+  color: var(--muted);
+  transition: transform 0.22s ease;
+}
+
+.return-step-toggle[aria-expanded="true"] .return-step-chevron {
+  transform: rotate(180deg);
+}
+
+.return-step-body {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  animation: return-reveal 0.3s ease both;
+}
+
+.return-step-text {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.return-step-action,
+.return-submit {
+  width: 100%;
+  min-height: 50px;
+  border-radius: 14px;
+  font-size: 15px;
+}
+
+.return-step-action:disabled,
+.return-submit:disabled {
+  box-shadow: none;
+  transform: none;
+}
+
+/* ── PIN как клавиши постамата ─────────────────────────────────────────── */
+
+.return-pin {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.return-pin-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.return-pin-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.return-pin-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 800;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.return-pin-copy:hover {
+  border-color: var(--line-strong);
+  background: #fff;
+}
+
+.return-pin-copy.is-copied {
+  border-color: rgba(73, 111, 83, 0.32);
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.return-pin-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+
+.return-pin-key {
+  display: grid;
+  width: clamp(46px, 13.5vw, 58px);
+  height: clamp(56px, 16.5vw, 68px);
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  background: linear-gradient(180deg, #fff 0%, var(--surface-muted) 100%);
+  box-shadow:
+    0 2px 0 var(--line-strong),
+    0 8px 16px rgba(63, 42, 24, 0.06);
+  color: var(--text);
+  font-size: clamp(26px, 8vw, 34px);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.return-pin-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.return-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--surface-tint);
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.return-chip.is-danger {
+  background: var(--danger-soft);
+  color: #78221c;
+}
+
+/* ── Предупреждения и ошибки ───────────────────────────────────────────── */
+
+.return-warn,
+.return-error {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.return-warn svg,
+.return-error svg {
+  margin-top: 2px;
+}
+
+.return-warn {
+  border: 1px solid rgba(156, 103, 23, 0.2);
+  background: var(--yellow-soft);
+  color: #6e4510;
+}
+
+.return-warn strong {
+  color: #5a380c;
+  font-weight: 850;
+}
+
+.return-error {
+  border: 1px solid rgba(221, 54, 45, 0.2);
+  background: var(--danger-soft);
+  color: #78221c;
+  animation: return-reveal 0.24s ease both;
+}
+
+/* ── Кадр возврата ─────────────────────────────────────────────────────── */
+
+.return-capture {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.return-shot {
+  --corner: #fff;
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 95% at 50% 32%, #4d4037 0%, var(--return-frame) 56%, #1c1713 100%);
+  box-shadow:
+    0 18px 36px rgba(43, 36, 31, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.return-shot-corner {
+  --dx: 0px;
+  --dy: 0px;
+  position: absolute;
+  z-index: 5;
+  width: 26px;
+  height: 26px;
+  border: 0 solid var(--corner);
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  transition: border-color 0.35s ease;
+}
+
+.return-shot-corner.is-tl {
+  --dx: -3px;
+  --dy: -3px;
+  top: 14px;
+  left: 14px;
+  border-top-width: 3px;
+  border-left-width: 3px;
+  border-top-left-radius: 10px;
+}
+
+.return-shot-corner.is-tr {
+  --dx: 3px;
+  --dy: -3px;
+  top: 14px;
+  right: 14px;
+  border-top-width: 3px;
+  border-right-width: 3px;
+  border-top-right-radius: 10px;
+}
+
+.return-shot-corner.is-bl {
+  --dx: -3px;
+  --dy: 3px;
+  bottom: 14px;
+  left: 14px;
+  border-bottom-width: 3px;
+  border-left-width: 3px;
+  border-bottom-left-radius: 10px;
+}
+
+.return-shot-corner.is-br {
+  --dx: 3px;
+  --dy: 3px;
+  right: 14px;
+  bottom: 14px;
+  border-right-width: 3px;
+  border-bottom-width: 3px;
+  border-bottom-right-radius: 10px;
+}
+
+/* Пустой кадр «ищет фокус», загруженный — защёлкивается зелёным. */
+.return-shot.is-empty .return-shot-corner {
+  animation: return-corner-breathe 2.8s ease-in-out infinite;
+}
+
+.return-shot.is-uploaded {
+  --corner: var(--return-ok);
+}
+
+.return-shot.is-uploaded .return-shot-corner {
+  animation: return-corner-lock 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+.return-shot.is-failed {
+  --corner: var(--return-fail);
+}
+
+.return-shot-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 26px 20px 22px;
+  text-align: center;
+}
+
+.return-shot-art {
+  width: min(40%, 150px);
+  height: auto;
+  color: rgba(255, 244, 232, 0.74);
+}
+
+.return-shot-caption {
+  margin: 0;
+  color: rgba(255, 244, 232, 0.8);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.return-shot-cta {
+  min-height: 46px;
+  margin-top: 6px;
+  padding: 0 20px;
+  border-radius: 14px;
+  box-shadow: 0 12px 26px rgba(196, 4, 4, 0.34);
+}
+
+.return-shot .return-shot-cta:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.return-shot-img {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: return-develop 0.5s ease both;
+}
+
+.return-shot.is-preparing .return-shot-img,
+.return-shot.is-uploading .return-shot-img {
+  filter: brightness(0.82);
+  transition: filter 0.3s ease;
+}
+
+.return-shot-developing {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.08) 50%, transparent 70%) 0 0 / 220% 100%;
+  animation: return-shimmer 1.4s linear infinite;
+}
+
+.return-shot-scrim {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 1;
+  height: 58%;
+  background: linear-gradient(180deg, rgba(20, 15, 12, 0) 0%, rgba(20, 15, 12, 0.7) 100%);
+  pointer-events: none;
+}
+
+/* Сканирующая линия: элемент высотой в кадр, полоса у нижнего края. */
+.return-shot-scan {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 244, 232, 0) calc(100% - 72px),
+    rgba(255, 244, 232, 0.16) calc(100% - 2px),
+    rgba(255, 250, 244, 0.95) calc(100% - 2px)
+  );
+  pointer-events: none;
+  animation: return-scan 1.9s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+.return-shot-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  animation: return-flash 0.45s ease-out both;
+}
+
+/* Между нижними уголками кадра, чтобы полоса не пересекалась со скобками. */
+.return-shot-hud {
+  position: absolute;
+  right: 48px;
+  bottom: 20px;
+  left: 48px;
+  z-index: 4;
+  display: grid;
+  gap: 8px;
+}
+
+.return-shot-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.return-shot-status > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Ошибка отправки: кадр притушен, «Повторить» — там, куда смотрит клиент. */
+.return-shot-fail {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 20px;
+  background: rgba(28, 20, 16, 0.52);
+  text-align: center;
+}
+
+.return-shot-fail-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #ffe6e1;
+  font-size: 14px;
+  font-weight: 850;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.return-shot-fail-title svg {
+  color: var(--return-fail);
+}
+
+.return-shot-retry {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+  color: var(--text);
+}
+
+.return-shot .return-shot-retry:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.return-shot-percent {
+  font-variant-numeric: tabular-nums;
+}
+
+.return-shot-progress {
+  position: relative;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.return-shot-progress > span {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #fff;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.2s linear;
+}
+
+.return-shot-progress.is-indeterminate > span {
+  width: 36%;
+  transform: none;
+  animation: return-indeterminate 1.15s ease-in-out infinite;
+}
+
+.return-shot-stamp {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px 7px 9px;
+  border: 1.5px solid var(--return-ok);
+  border-radius: 10px;
+  background: rgba(20, 44, 28, 0.72);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.26);
+  color: #eafff0;
+  font-size: 12.5px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: translateX(-50%) rotate(-4deg);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: return-stamp 0.5s cubic-bezier(0.2, 0.9, 0.25, 1.35) 0.12s both;
+}
+
+.return-shot-stamp svg {
+  color: var(--return-ok);
+}
+
+.return-shot-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.return-shot-toolbar .button {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+}
+
+/* ── Ракурсы ───────────────────────────────────────────────────────────── */
+
+.return-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 2px;
+  list-style: none;
+}
+
+.return-strip-tile,
+.return-strip-add {
+  position: relative;
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.return-strip-tile {
+  background: var(--return-frame);
+  box-shadow: 0 0 0 1px var(--line);
+  color: rgba(255, 244, 232, 0.7);
+  transition:
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.return-strip-tile:hover {
+  transform: translateY(-1px);
+}
+
+.return-strip-tile.is-active {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--text);
+}
+
+.return-strip-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.return-strip-tile.is-preparing img,
+.return-strip-tile.is-uploading img {
+  opacity: 0.7;
+}
+
+.return-strip-badge {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(28, 23, 19, 0.78);
+  box-shadow: 0 0 0 2px #fff;
+  color: #fff;
+}
+
+.return-strip-tile.is-uploaded .return-strip-badge {
+  background: var(--green);
+  animation: return-check-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4) both;
+}
+
+.return-strip-tile.is-failed .return-strip-badge {
+  background: var(--primary);
+}
+
+.return-strip-add {
+  align-content: center;
+  gap: 2px;
+  border: 1.5px dashed var(--line-strong);
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  transition:
+    border-color 0.16s ease,
+    color 0.16s ease,
+    background 0.16s ease;
+}
+
+.return-strip-add:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: #fff;
+  color: var(--primary);
+}
+
+/* ── Комментарий и ссылки ──────────────────────────────────────────────── */
+
+.return-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  min-height: 36px;
+  padding: 0 4px;
+  margin-left: -4px;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 800;
+  transition: color 0.16s ease;
+}
+
+.return-link:hover:not(:disabled) {
+  color: var(--primary);
+}
+
+.return-link.is-quiet {
+  justify-self: center;
+  margin-left: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.return-note {
+  display: grid;
+  gap: 6px;
+  animation: return-reveal 0.26s ease both;
+}
+
+.return-note-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.return-note-label span {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* 16 px — iOS не приближает страницу при фокусе. */
+.return-note-input {
+  min-height: 88px;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.return-note-count {
+  justify-self: end;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.return-submit-block {
+  display: grid;
+  gap: 8px;
+}
+
+.return-submit-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* ── Поздняя досылка фото ──────────────────────────────────────────────── */
+
+.return-flow.is-late {
+  border-color: rgba(73, 111, 83, 0.26);
+  background: linear-gradient(180deg, #f5faf5 0%, var(--surface-muted) 72%);
+}
+
+.return-late-head {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.return-late-badge {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--green-soft);
+  box-shadow: inset 0 0 0 1px rgba(73, 111, 83, 0.2);
+  color: var(--green);
+}
+
+/* ── Блок закрылся: окно досылки вышло, код истёк, возврат не подтвердился ─ */
+
+.return-flow.is-closed {
+  gap: 10px;
+  animation: return-reveal 0.26s ease both;
+}
+
+.return-late-badge.is-neutral {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--text-soft);
+}
+
+.return-late-badge.is-warn {
+  background: #fdf1ef;
+  box-shadow: inset 0 0 0 1px rgba(196, 4, 4, 0.16);
+  color: var(--primary);
+}
+
+/* Фокус, который переводим сами (заголовок, шаг, кадр), не рисует рамку при
+   касании; с клавиатуры кадр подсвечивается. */
+.return-flow-title:focus,
+.return-step-heading:focus,
+.return-shot:focus {
+  outline: none;
+}
+
+.return-shot:focus-visible {
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 6px rgba(196, 4, 4, 0.42),
+    0 18px 36px rgba(43, 36, 31, 0.22);
+}
+
+/* ── Квитанция возврата ────────────────────────────────────────────────── */
+
+.return-receipt-wrap {
+  filter: drop-shadow(0 1px 1px rgba(63, 42, 24, 0.1)) drop-shadow(0 12px 18px rgba(63, 42, 24, 0.08));
+}
+
+.return-receipt {
+  --tooth: 9px;
+  position: relative;
+  display: grid;
+  gap: 14px;
+  padding: 16px 16px calc(16px + var(--tooth));
+  border-radius: 18px 18px 0 0;
+  background: #fffdf9;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.4;
+  scroll-margin-top: 96px;
+  /* Зубчатый отрывной край снизу. */
+  -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(var(--tooth) * 2) 100%;
+  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(var(--tooth) * 2) 100%;
+}
+
+.return-receipt:focus {
+  outline: none;
+}
+
+.return-receipt-grid {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.return-receipt-media {
+  display: grid;
+  gap: 6px;
+}
+
+.return-receipt-main {
+  position: relative;
+}
+
+.return-receipt-photo {
+  position: relative;
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--return-frame, #2b241f);
+  color: rgba(255, 244, 232, 0.7);
+}
+
+.return-receipt-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+a.return-receipt-photo {
+  transition: transform 0.18s ease;
+}
+
+a.return-receipt-photo:hover {
+  transform: translateY(-1px);
+}
+
+a.return-receipt-photo:focus-visible {
+  outline: 3px solid rgba(196, 4, 4, 0.42);
+  outline-offset: 2px;
+}
+
+.return-receipt-photo.is-small {
+  border-radius: 8px;
+}
+
+.return-receipt-photo.is-empty {
+  gap: 4px;
+  align-content: center;
+  background: var(--surface-tint);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.return-receipt-thumbs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.return-receipt-stamp {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1.5px solid var(--green);
+  border-radius: 7px;
+  background: #f3faf4;
+  color: var(--green);
+  font-size: 10.5px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: translateX(-50%) rotate(-6deg);
+  box-shadow: 0 4px 10px rgba(63, 42, 24, 0.12);
+}
+
+.return-receipt-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.return-receipt-kicker {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.return-receipt-title {
+  margin: 0 0 6px;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.return-receipt-rows {
+  display: grid;
+  margin: 0;
+}
+
+.return-receipt-rows > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--line);
+}
+
+.return-receipt-rows > div:last-child {
+  border-bottom: 0;
+}
+
+.return-receipt-rows dt {
+  flex: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.return-receipt-rows dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.return-receipt-rows .is-bonus dd {
+  color: var(--green);
+}
+
+.return-receipt-note {
+  display: grid;
+  gap: 4px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--line);
+}
+
+.return-receipt-note span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.return-receipt-note p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* Квитанция, которая появилась прямо сейчас: выезжает, фото «печатается», штамп ставится. */
+.return-receipt-wrap.is-fresh {
+  animation: return-receipt-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.return-receipt-wrap.is-fresh .return-receipt-main .return-receipt-photo img {
+  animation: return-print 0.75s cubic-bezier(0.3, 0.7, 0.2, 1) 0.15s both;
+}
+
+.return-receipt-wrap.is-fresh .return-receipt-stamp {
+  animation: return-receipt-stamp 0.5s cubic-bezier(0.2, 0.9, 0.25, 1.35) 0.6s both;
+}
+
+/* ── Подсказка в списке заказов ────────────────────────────────────────── */
+
+.return-card-hint {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid rgba(196, 4, 4, 0.14);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fff 0%, #fdf1ef 100%);
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.return-card-hint > svg {
+  margin-top: 1px;
+  color: var(--primary);
+}
+
+.return-card-hint strong {
+  display: block;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.return-card-pin-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.return-card-pin {
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* ── Телефон ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 680px) {
+  .return-flow-title {
+    font-size: 20px;
+  }
+
+  .return-shot {
+    border-radius: 18px;
+  }
+
+  .return-receipt-grid {
+    grid-template-columns: 100px minmax(0, 1fr);
+    gap: 14px;
+  }
+}
+
+/* На узком экране степпер живёт прямо в карточке заказа: без второй рамки
+   кадр получает всю ширину. */
+@media (max-width: 480px) {
+  .return-flow {
+    gap: 14px;
+    padding: 2px 0 16px;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: none;
+  }
+
+  .return-flow.is-late {
+    padding-top: 4px;
+    background: none;
+    border-color: rgba(73, 111, 83, 0.26);
+  }
+
+  .return-step {
+    --marker: 28px;
+    column-gap: 10px;
+    padding-bottom: 18px;
+  }
+
+  .return-step-marker {
+    border-radius: 9px;
+    font-size: 13px;
+  }
+
+  .return-step-main {
+    padding-top: 3px;
+  }
+
+  .return-step-title {
+    font-size: 15px;
+  }
+
+  .return-pin {
+    padding: 12px;
+  }
+
+  .return-shot {
+    aspect-ratio: 1 / 1;
+  }
+
+  .return-shot-corner.is-tl,
+  .return-shot-corner.is-tr {
+    top: 12px;
+  }
+
+  .return-shot-corner.is-bl,
+  .return-shot-corner.is-br {
+    bottom: 12px;
+  }
+
+  .return-shot-corner.is-tl,
+  .return-shot-corner.is-bl {
+    left: 12px;
+  }
+
+  .return-shot-corner.is-tr,
+  .return-shot-corner.is-br {
+    right: 12px;
+  }
+
+  .return-strip-tile,
+  .return-strip-add {
+    width: 58px;
+    height: 58px;
+    border-radius: 12px;
+  }
+
+  .return-receipt {
+    padding: 14px 14px calc(14px + var(--tooth));
+  }
+
+  .return-receipt-grid {
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .return-receipt-title {
+    font-size: 18px;
+  }
+
+  .return-receipt-rows > div {
+    padding: 5px 0;
+  }
+}
+
+@media (max-width: 360px) {
+  .return-receipt-rows > div {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+
+  .return-receipt-rows dd {
+    text-align: left;
+  }
+}
+
+/* ── Анимации ──────────────────────────────────────────────────────────── */
+
+@keyframes return-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes return-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes return-check-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4) rotate(-20deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes return-corner-breathe {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(var(--dx), var(--dy));
+  }
+}
+
+@keyframes return-corner-lock {
+  0% {
+    transform: translate(calc(var(--dx) * 2), calc(var(--dy) * 2)) scale(1.12);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes return-develop {
+  from {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes return-flash {
+  0% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes return-scan {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes return-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+@keyframes return-indeterminate {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(290%);
+  }
+}
+
+@keyframes return-stamp {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) rotate(-12deg) scale(1.6);
+  }
+  60% {
+    opacity: 1;
+    transform: translateX(-50%) rotate(-3deg) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) rotate(-4deg) scale(1);
+  }
+}
+
+@keyframes return-receipt-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes return-print {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes return-receipt-stamp {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) rotate(-16deg) scale(1.7);
+  }
+  60% {
+    opacity: 1;
+    transform: translateX(-50%) rotate(-4deg) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) rotate(-6deg) scale(1);
+  }
+}
+
+/* ── Тихая версия ──────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .return-flow.is-closed,
+  .return-flow *,
+  .return-flow *::before,
+  .return-flow *::after,
+  .return-receipt-wrap,
+  .return-receipt-wrap *,
+  .return-card-hint * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Вместо бегущей линии и вспышки — просто статус и полоса прогресса. */
+  .return-shot-scan,
+  .return-shot-flash,
+  .return-shot-developing {
+    display: none;
+  }
+
+  .return-shot-progress.is-indeterminate > span {
+    width: 100%;
+    opacity: 0.55;
+  }
+
+  /* Индикатор ожидания оставляем, но медленным: это статус, а не украшение. */
+  .return-flow .return-spin {
+    animation: return-spin 2.4s linear infinite !important;
+  }
+
+  .return-strip-tile:hover,
+  a.return-receipt-photo:hover {
+    transform: none;
+  }
+}

@@ -150,6 +150,12 @@ class Settings:
         self.RETURN_REQUEST_TIMEOUT_SECONDS = int(
             ENV_VALUES.get("RETURN_REQUEST_TIMEOUT_SECONDS", "1800")
         )
+        # Сколько минут после завершения возврата клиент ещё может дослать
+        # фото вещи в ячейке: дверца часто закрывает возврат раньше, чем
+        # клиент нажал «Подтвердить», а фото к этому моменту ещё грузится.
+        self.RETURN_PHOTO_LATE_WINDOW_MINUTES = int(
+            ENV_VALUES.get("RETURN_PHOTO_LATE_WINDOW_MINUTES", "120")
+        )
 
         # Гео-проверка посетителя сайта: если IP не из СНГ, фронт показывает
         # плашку «выключите VPN». Своей базы IP→страна нет, поэтому спрашиваем

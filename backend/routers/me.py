@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from typing import NoReturn
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
@@ -38,12 +39,27 @@ from backend.utils.esi_client import (
 )
 from backend.utils.inventory_tracking import add_inventory_movement
 from backend.utils.return_requests import (
+    ACTIVE_RETURN_REQUEST_STATUSES,
     complete_return_request,
-    get_active_return_request_for_rental,
+)
+from backend.utils.return_photos import (
+    RETURN_PHOTOS_MAX,
+    ReturnPhotoError,
+    ReturnReportView,
+    attach_photos_to_return_report,
+    create_return_report,
+    load_return_report_view,
+    load_return_report_views,
+    normalize_return_note,
+    normalize_return_photo_ids,
+    resolve_return_photo_files,
+    return_photo_window_end,
+    serialize_client_return_report,
 )
 from backend.schemas.me_schemas import (
     CreateVerificationRequest,
     DeleteVerificationRequest,
+    RentalConfirmReturnPayload,
     RentalExtendPayload,
     RentalReturnRequestPayload,
     UpdateMePayload,
@@ -72,6 +88,7 @@ from backend.utils.me_utils import (
 )
 from backend.utils.inventory_confirmation_notifications import (
     notify_inventory_awaiting_confirmation,
+    notify_return_photos_attached,
 )
 from backend.utils.products_utils import load_media_files_by_ids, public_media_url
 from backend.utils.bonus_ledger import (
@@ -715,13 +732,18 @@ async def list_my_rentals(
         else []
     )
     locker_by_id = {loc.id: loc for loc in lockers}
+    return_report_views = await load_return_report_views(db, [r.id for r in rentals])
 
     items = []
     for r in rentals:
         unit = unit_by_id.get(r.inventory_unit_id)
         prod = prod_by_id.get(unit.product_id) if unit else None
         loc = locker_by_id.get(r.pickup_locker_id)
-        items.append(await serialize_rental_list_item(db, r, prod, loc))
+        items.append(
+            await serialize_rental_list_item(
+                db, r, prod, loc, return_report_view=return_report_views.get(r.id)
+            )
+        )
 
     return {
         "data": {"rentals": items},
@@ -1366,11 +1388,34 @@ async def confirm_pickup(
     }
 
 
+def _raise_return_photo_error(exc: ReturnPhotoError) -> NoReturn:
+    raise HTTPException(status_code=exc.status_code, detail=exc.code) from exc
+
+
+async def _confirm_return_response(
+    db: AsyncSession,
+    rental: Rental,
+    view: ReturnReportView | None = None,
+) -> dict:
+    if view is None:
+        view = await load_return_report_view(db, rental.id)
+    return {
+        "data": {
+            "rental": {
+                "id": str(rental.id),
+                "status": rental.status.value,
+            },
+            "returnReport": serialize_client_return_report(rental, view),
+        }
+    }
+
+
 @router.post("/rentals/{rental_id}/confirm-return")
 async def confirm_return(
     rental_id: UUID,
     request: Request,
     db: AsyncSession = Depends(get_db),
+    payload: RentalConfirmReturnPayload = Body(default_factory=RentalConfirmReturnPayload),
 ):
     """Подтверждает, что клиент уже положил товар в выбранный постамат.
 
@@ -1378,28 +1423,63 @@ async def confirm_return(
     вебхука `return_cell_closed`. Переводит rental в COMPLETED и
     return-request в COMPLETED через ту же утилиту, что и автоматический
     обработчик железа.
+
+    Вместе с подтверждением клиент присылает фото вещи в открытой ячейке
+    (`photoFileIds`) и комментарий. Дверца может завершить возврат раньше
+    кнопки — тогда тот же вызов досылает фото к уже завершённой аренде,
+    пока не истекло окно `RETURN_PHOTO_LATE_WINDOW_MINUTES`. Тело
+    необязательно: старые клиенты подтверждают без фото.
     """
     user = await get_current_client_user(request, db)
 
-    rental = await db.get(Rental, rental_id)
+    # Блокируем аренду до любых проверок: двойное нажатие, повтор после
+    # таймаута или вторая вкладка иначе прошли бы обе ветки одновременно —
+    # два завершения, два отчёта с одними и теми же фото и два уведомления.
+    # Второй запрос дождётся commit первого и увидит COMPLETED. populate_existing
+    # перечитывает строку, даже если аренда уже лежит в сессии.
+    # SQLite FOR UPDATE игнорирует.
+    rental = (
+        await db.execute(
+            select(Rental)
+            .where(Rental.id == rental_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
     if rental is None:
         raise HTTPException(status_code=404, detail="RENTAL_NOT_FOUND")
     if rental.user_id != user.id:
         raise HTTPException(status_code=403, detail="RENTAL_FORBIDDEN")
 
+    photo_file_ids = normalize_return_photo_ids(payload.photoFileIds)
+    note = normalize_return_note(payload.note)
+    if len(photo_file_ids) > RETURN_PHOTOS_MAX:
+        raise HTTPException(status_code=400, detail="RETURN_PHOTOS_TOO_MANY")
+
     if rental.status == RentalStatus.COMPLETED:
-        return {
-            "data": {
-                "rental": {
-                    "id": str(rental.id),
-                    "status": rental.status.value,
-                }
-            }
-        }
+        return await _attach_late_return_photos(
+            db,
+            user=user,
+            rental=rental,
+            photo_file_ids=photo_file_ids,
+            note=note,
+        )
     if rental.status != RentalStatus.RETURN_IN_PROGRESS:
         raise HTTPException(status_code=409, detail="RENTAL_NOT_RETURNING")
 
-    return_request = await get_active_return_request_for_rental(db, rental.id)
+    # Заявку читаем уже под блокировкой аренды и тоже заново из базы.
+    return_request = (
+        await db.scalars(
+            select(ReturnRequest)
+            .where(
+                ReturnRequest.rental_id == rental.id,
+                ReturnRequest.status.in_(ACTIVE_RETURN_REQUEST_STATUSES),
+            )
+            .order_by(ReturnRequest.created_at.desc())
+            .limit(1)
+            .execution_options(populate_existing=True)
+        )
+    ).first()
     if return_request is None:
         raise HTTPException(status_code=409, detail="RETURN_REQUEST_NOT_FOUND")
 
@@ -1410,6 +1490,17 @@ async def confirm_return(
     ):
         raise HTTPException(status_code=409, detail="RETURN_REQUEST_NOT_ACTIVE")
 
+    # Файлы проверяем до перевода аренды: кривой fileId не должен оставить
+    # возврат завершённым без фото, которые клиент считал отправленными.
+    try:
+        photo_files = await resolve_return_photo_files(
+            db,
+            user_id=user.id,
+            file_ids=photo_file_ids,
+        )
+    except ReturnPhotoError as exc:
+        _raise_return_photo_error(exc)
+
     try:
         completed_rental, unit = await complete_return_request(
             db,
@@ -1417,37 +1508,149 @@ async def confirm_return(
             provider_event_id=None,
             source=RentalEventSource.USER,
         )
+        if completed_rental is None:
+            raise RuntimeError("return request has no rental")
+        # Отчёт пишем в той же транзакции, что и завершение: операторы не
+        # должны получить «ожидает подтверждения» раньше, чем фото легли в базу.
+        if photo_files or note:
+            await create_return_report(
+                db,
+                rental=completed_rental,
+                user_id=user.id,
+                files=photo_files,
+                note=note,
+                return_request=return_request,
+            )
         await db.commit()
     except Exception as exc:
         await db.rollback()
         # Логируем полный traceback, иначе наружу видно только generic 500
         # и невозможно понять, что именно упало в complete_return_request.
-        import logging
-
-        logging.getLogger(__name__).exception("confirm-return failed")
+        logger.exception("confirm-return failed")
         raise HTTPException(status_code=500, detail="CONFIRM_RETURN_FAILED") from exc
-
-    if completed_rental is None:
-        raise HTTPException(status_code=500, detail="CONFIRM_RETURN_FAILED")
 
     if unit is not None and unit.locker_cell_id is not None:
         product = await db.get(Product, unit.product_id)
         locker = await db.get(LockerLocation, return_request.locker_id)
         cell = await db.get(LockerCell, unit.locker_cell_id)
         if product is not None and locker is not None and cell is not None:
+            # Пустой список — явный сигнал операторам «клиент фото не приложил».
             notify_inventory_awaiting_confirmation(
                 product=product,
                 locker=locker,
                 cell=cell,
                 unit=unit,
                 rental=completed_rental,
+                return_photos=list(photo_files),
+                note=note,
             )
 
-    return {
-        "data": {
-            "rental": {
-                "id": str(completed_rental.id),
-                "status": completed_rental.status.value,
-            }
-        }
-    }
+    return await _confirm_return_response(db, completed_rental)
+
+
+async def _attach_late_return_photos(
+    db: AsyncSession,
+    *,
+    user: User,
+    rental: Rental,
+    photo_file_ids: list[UUID],
+    note: str | None,
+) -> dict:
+    """Досылка фото и комментария к аренде, которую уже завершила дверца.
+
+    Аренда уже заблокирована в `confirm_return`. Отчёт на аренду один.
+    Отчёт с фото закрыт: повтор того же набора — не ошибка, другой набор — 409.
+    Отчёт без фото (подтвердили с комментарием, когда камера подвела) ждёт
+    фото, пока идёт окно. Комментарий без фото тоже сохраняем — иначе он
+    терялся бы только потому, что дверца успела закрыть возврат раньше кнопки.
+    """
+    view = await load_return_report_view(db, rental.id)
+    report = view.report
+
+    if report is not None and view.photos:
+        if not photo_file_ids:
+            return await _confirm_return_response(db, rental, view)
+        if {media.id for media in view.photos} != set(photo_file_ids):
+            raise HTTPException(status_code=409, detail="RETURN_PHOTOS_ALREADY_SENT")
+        # Повтор того же запроса (например, ответ потерялся в сети) — не ошибка.
+        try:
+            await resolve_return_photo_files(
+                db,
+                user_id=user.id,
+                file_ids=photo_file_ids,
+                allow_attached_to_report_id=report.id,
+            )
+        except ReturnPhotoError as exc:
+            _raise_return_photo_error(exc)
+        return await _confirm_return_response(db, rental, view)
+
+    # Нечего сохранять: пустое тело или тот же комментарий, что уже в отчёте.
+    if not photo_file_ids and (note is None or (report is not None and note == report.note)):
+        return await _confirm_return_response(db, rental, view)
+
+    return_request = view.completed_return_request
+    window_end = return_photo_window_end(view)
+    if (
+        return_request is None
+        or window_end is None
+        or datetime.now(timezone.utc) > window_end
+    ):
+        raise HTTPException(status_code=409, detail="RETURN_PHOTOS_WINDOW_CLOSED")
+
+    try:
+        photo_files = await resolve_return_photo_files(
+            db,
+            user_id=user.id,
+            file_ids=photo_file_ids,
+        )
+    except ReturnPhotoError as exc:
+        _raise_return_photo_error(exc)
+
+    # Операторам пишем, когда появился отчёт или в нём появились фото;
+    # правка комментария в отчёте без фото уведомления не стоит.
+    should_notify = report is None or bool(photo_files)
+    try:
+        if report is None:
+            report = await create_return_report(
+                db,
+                rental=rental,
+                user_id=user.id,
+                files=photo_files,
+                note=note,
+                return_request=return_request,
+            )
+        elif photo_files:
+            await attach_photos_to_return_report(
+                db,
+                rental=rental,
+                report=report,
+                files=photo_files,
+                note=note,
+                return_request=return_request,
+            )
+        else:
+            report.note = note
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        logger.exception("confirm-return: late return photos failed")
+        raise HTTPException(status_code=500, detail="CONFIRM_RETURN_FAILED") from exc
+
+    if should_notify:
+        unit = await db.get(InventoryUnit, rental.inventory_unit_id)
+        product = await db.get(Product, unit.product_id) if unit is not None else None
+        locker = await db.get(LockerLocation, return_request.locker_id)
+        cell = await db.get(LockerCell, return_request.cell_id)
+        if unit is not None and product is not None and locker is not None and cell is not None:
+            # Пустой список фото — отчёт с одним комментарием: «клиент фото не приложил».
+            notify_return_photos_attached(
+                product=product,
+                locker=locker,
+                cell=cell,
+                unit=unit,
+                rental=rental,
+                return_photos=list(photo_files),
+                note=report.note,
+            )
+
+    return await _confirm_return_response(db, rental)

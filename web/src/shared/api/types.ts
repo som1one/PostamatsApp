@@ -286,11 +286,39 @@ export type ActiveReturnRequest = {
   expiresAt?: string | null;
 };
 
+/** Фото вещи в ячейке, которое клиент сделал при возврате. */
+export type ReturnPhoto = {
+  id: string;
+  url: string | null;
+};
+
+/**
+ * Фотоотчёт о возврате. null — аренда ни разу не возвращалась через постамат.
+ * Дверца ячейки может завершить возврат раньше кнопки клиента, поэтому фото
+ * принимаются и какое-то время после завершения — пока canAttachPhotos.
+ */
+export type ReturnReport = {
+  photos: ReturnPhoto[];
+  note?: string | null;
+  /** Когда клиент отправил отчёт; null — ещё не отправлял. */
+  submittedAt?: string | null;
+  /** Сервер ещё примет фото к этому возврату. */
+  canAttachPhotos: boolean;
+  /** До какого момента можно дослать фото, если возврат уже завершила дверца. */
+  attachPhotosUntil?: string | null;
+  maxPhotos: number;
+  /** Постамат и ячейка, куда вернули вещь, и когда возврат завершился — для квитанции. */
+  lockerName?: string | null;
+  cellLabel?: string | null;
+  returnedAt?: string | null;
+};
+
 export type RentalListItem = {
   id: string;
   status: string;
   pickupPin?: string | null;
   returnRequest?: ActiveReturnRequest | null;
+  returnReport?: ReturnReport | null;
   cancelReason?: string | null;
   startsAt?: string | null;
   /** Дедлайн забора: после него аренда отменяется, деньги возвращаются. */
@@ -344,6 +372,8 @@ export type RentalDetail = {
     createdAt: string;
   }>;
   reservationId?: string | null;
+  returnRequest?: ActiveReturnRequest | null;
+  returnReport?: ReturnReport | null;
 };
 
 /** Один вариант продления аренды: тариф товара + новый срок окончания. */

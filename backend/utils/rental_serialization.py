@@ -14,6 +14,11 @@ from backend.models.product_filter import ProductFilter
 from backend.models.reservation import Reservation
 from backend.utils.bonus_ledger import bonus_accrued_for_rental, bonus_spent_for_reservation
 from backend.utils.return_requests import get_active_return_request_for_rental, serialize_return_request_payload
+from backend.utils.return_photos import (
+    ReturnReportView,
+    load_return_report_view,
+    serialize_client_return_report,
+)
 from backend.utils.lockers_utils import price_plan_to_minor_units
 from backend.utils.products_utils import load_media_files_by_ids, public_media_url
 from backend.utils.product_filters import resolve_effective_cover_url
@@ -50,7 +55,13 @@ async def serialize_rental_list_item(
     rental: Rental,
     product: Product | None,
     locker: LockerLocation | None,
+    return_report_view: ReturnReportView | None = None,
 ) -> dict:
+    """``return_report_view`` списку передаёт вызывающий, загрузив пачкой;
+    без него отчёт догружается по одной аренде."""
+    if return_report_view is None:
+        return_report_view = await load_return_report_view(db, rental.id)
+
     cover_url = None
     if product and product.cover_file_id:
         media_map = await load_media_files_by_ids(db, [product.cover_file_id])
@@ -91,6 +102,8 @@ async def serialize_rental_list_item(
         # Активная заявка на возврат: PIN и ячейка. Без этого клиент видел код
         # только в ответе на сам запрос возврата и терял его при перезапуске.
         "returnRequest": await serialize_active_return_request(db, rental),
+        # Фото вещи в ячейке: что уже отправлено и можно ли ещё дослать.
+        "returnReport": serialize_client_return_report(rental, return_report_view),
     }
 
 
@@ -105,7 +118,13 @@ async def serialize_active_return_request(
     return await serialize_return_request_payload(db, request)
 
 
-async def serialize_rental_detail(db: AsyncSession, rental: Rental) -> dict:
+async def serialize_rental_detail(
+    db: AsyncSession,
+    rental: Rental,
+    return_report_view: ReturnReportView | None = None,
+) -> dict:
+    if return_report_view is None:
+        return_report_view = await load_return_report_view(db, rental.id)
     unit = await db.get(InventoryUnit, rental.inventory_unit_id)
     product = await db.get(Product, unit.product_id) if unit and unit.product_id else None
     locker = await db.get(LockerLocation, rental.pickup_locker_id)
@@ -203,5 +222,6 @@ async def serialize_rental_detail(db: AsyncSession, rental: Rental) -> dict:
                 if active_return_request is not None
                 else None
             ),
+            "returnReport": serialize_client_return_report(rental, return_report_view),
         }
     }

@@ -10,7 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
 from backend.models.city import City
-from backend.models.enums import InventoryStatus, LockerCellStatus, LockerStatus, RentalStatus, RentalEventSource
+from backend.models.enums import (
+    InventoryStatus,
+    LockerCellStatus,
+    LockerStatus,
+    RentalEventSource,
+    RentalStatus,
+)
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
@@ -18,6 +24,7 @@ from backend.models.product import Product
 from backend.models.product_category import ProductCategory
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
+from backend.models.user import User
 from backend.routers.admin.auth import get_current_admin
 from backend.schemas.admin_panel_schemas import (
     AdminConfirmInventoryReadyPayload,
@@ -36,6 +43,11 @@ from backend.utils.esi_client import (
 )
 from backend.utils.inventory_tracking import add_inventory_movement
 from backend.utils.products_utils import load_media_files_by_ids, public_media_url
+from backend.utils.return_photos import (
+    load_latest_returned_rentals,
+    load_return_report_views,
+    serialize_admin_return_report,
+)
 
 router = APIRouter(prefix="/api/admin/inventory", tags=["admin-inventory"])
 
@@ -80,6 +92,7 @@ def _serialize_cell_with_unit(
     unit: InventoryUnit | None,
     product: Product | None,
     cover_url: str | None,
+    last_return: dict | None = None,
 ) -> dict:
     return {
         "id": str(cell.id),
@@ -97,11 +110,68 @@ def _serialize_cell_with_unit(
                 "productName": product.name if product else "",
                 "productSlug": product.slug if product else None,
                 "coverUrl": cover_url,
+                # Только у юнитов «На проверке»: кто сдал, когда и с какими фото.
+                "lastReturn": last_return,
             }
             if unit is not None
             else None
         ),
     }
+
+
+async def _load_last_returns(
+    db: AsyncSession,
+    units: list[InventoryUnit],
+) -> dict[UUID, dict]:
+    """Последний возврат через постамат для юнитов, ждущих проверки.
+
+    Оператор решает «Подтвердить» или «Забрать» прямо в сетке ячеек, и без
+    фото возврата ему приходилось верить на слово. Всё грузится пачкой:
+    заявки с арендами, отчёты с фото (один вызов load_return_report_views)
+    и имена клиентов — сколько бы ячеек ни было на проверке.
+    """
+    unit_ids = [
+        unit.id for unit in units if unit.status == InventoryStatus.AWAITING_CONFIRMATION
+    ]
+    if not unit_ids:
+        return {}
+
+    # То же правило «последний возврат юнита», что и у кнопок проверки в карточке аренды.
+    rental_by_unit = await load_latest_returned_rentals(db, unit_ids)
+    if not rental_by_unit:
+        return {}
+
+    views = await load_return_report_views(
+        db, [rental.id for rental in rental_by_unit.values()]
+    )
+    user_ids = list({rental.user_id for rental in rental_by_unit.values()})
+    users = {
+        user.id: user
+        for user in (await db.scalars(select(User).where(User.id.in_(user_ids)))).all()
+    }
+
+    result: dict[UUID, dict] = {}
+    for unit_id, rental in rental_by_unit.items():
+        report = serialize_admin_return_report(rental, views[rental.id])
+        if report is None:
+            continue
+        user = users.get(rental.user_id)
+        user_name = (
+            " ".join(p for p in (user.first_name, user.last_name) if p).strip() or None
+            if user is not None
+            else None
+        )
+        result[unit_id] = {
+            "rentalId": str(rental.id),
+            "returnedAt": report["returnedAt"],
+            "userName": user_name,
+            "note": report["note"],
+            "photoCount": report["photoCount"],
+            "photos": [{"id": photo["id"], "url": photo["url"]} for photo in report["photos"]],
+            # Фото ещё нет, но клиент может дослать — до этого момента «без фото» не окончательно.
+            "attachPhotosUntil": report["attachPhotosUntil"],
+        }
+    return result
 
 
 def _serialize_product_row(
@@ -240,6 +310,8 @@ async def list_inventory_locker_cells(
         if cover_ids:
             media_map = await load_media_files_by_ids(db, cover_ids)
 
+    last_returns = await _load_last_returns(db, list(units_by_cell.values()))
+
     payload_cells = []
     for cell in cells:
         unit = units_by_cell.get(cell.id)
@@ -247,7 +319,15 @@ async def list_inventory_locker_cells(
         cover_url = None
         if product and product.cover_file_id and product.cover_file_id in media_map:
             cover_url = public_media_url(media_map[product.cover_file_id].file_key)
-        payload_cells.append(_serialize_cell_with_unit(cell, unit, product, cover_url))
+        payload_cells.append(
+            _serialize_cell_with_unit(
+                cell,
+                unit,
+                product,
+                cover_url,
+                last_return=last_returns.get(unit.id) if unit is not None else None,
+            )
+        )
 
     return {
         "data": {

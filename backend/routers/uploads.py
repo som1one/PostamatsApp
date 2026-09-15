@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.database import get_db
 from backend.core.settings import settings
 from backend.models.admin_user import AdminUser
+from backend.models.condition_report_photo import ConditionReportPhoto
 from backend.models.media_file import MediaFile
 from backend.schemas.uploads_schemas import PRESIGN_KIND_VALUES, PresignUploadRequest
 from backend.utils.auth_utils import get_current_client_user
@@ -24,6 +25,7 @@ from backend.utils.uploads_utils import (
     bucket_for_media_kind,
     max_size_for_kind,
     build_file_key,
+    image_content_allowed,
     MIME_BY_KIND,
 )
 
@@ -34,6 +36,14 @@ CLIENT_PRESIGN_KIND_VALUES = PRESIGN_KIND_VALUES.difference({"product_cover", "p
 # Эти виды можно подписывать без авторизации — публичные формы (например,
 # страница "Идея для аренды" доступна гостям).
 PUBLIC_PRESIGN_KIND_VALUES = frozenset({"rental_idea_photo"})
+
+
+async def _media_file_is_locked(db: AsyncSession, media_id: UUID) -> bool:
+    """Файл уже лежит в отчёте о состоянии — его байты больше не меняем."""
+    attached = await db.scalar(
+        select(ConditionReportPhoto.id).where(ConditionReportPhoto.file_id == media_id).limit(1)
+    )
+    return attached is not None
 
 
 @router.put("/files/{file_id}", name="put_media_upload")
@@ -65,12 +75,38 @@ async def put_media_upload(
     if content_type != media.mime_type:
         raise HTTPException(status_code=400, detail="INVALID_MIME_TYPE")
 
-    body = await request.body()
+    # Токен живёт UPLOAD_PRESIGN_EXPIRES: без этой проверки фото, уже ушедшее
+    # операторам в отчёте о возврате, можно было бы тихо подменить.
+    if await _media_file_is_locked(db, media.id):
+        raise HTTPException(status_code=409, detail="MEDIA_FILE_LOCKED")
+
+    # Лимит вида держим и на PUT, а не только в presign: тело читаем потоком
+    # и обрываем на превышении, чтобы гигабайтный PUT не лёг в память целиком.
+    max_size = max_size_for_kind(media.kind)
+    try:
+        declared_length = int(request.headers.get("content-length") or 0)
+    except ValueError:
+        declared_length = 0
+    if declared_length > max_size:
+        raise HTTPException(status_code=413, detail="FILE_TOO_LARGE")
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > max_size:
+            raise HTTPException(status_code=413, detail="FILE_TOO_LARGE")
     if not body:
         raise HTTPException(status_code=400, detail="EMPTY_UPLOAD")
 
+    # Content-Type пишет клиент; под image/png может лежать SVG или HTML.
+    if media.mime_type.startswith("image/") and not image_content_allowed(media.kind, body):
+        raise HTTPException(status_code=400, detail="INVALID_FILE_CONTENT")
+
+    # Пока тело грузилось, файл могли успеть прикрепить к отчёту.
+    if await _media_file_is_locked(db, media.id):
+        raise HTTPException(status_code=409, detail="MEDIA_FILE_LOCKED")
+
     try:
-        store_local_upload(media.file_key, body)
+        store_local_upload(media.file_key, bytes(body))
     except ClientError as exc:
         raise HTTPException(status_code=500, detail=str(exc) or "STORAGE_PERSIST_FAILED") from exc
     except Exception as exc:
@@ -113,7 +149,7 @@ async def presign_upload(
         admin = result.scalar_one_or_none()
 
     file_id = uuid4()
-    file_key = build_file_key(payload.kind, file_id, payload.fileName)
+    file_key = build_file_key(payload.kind, file_id, payload.fileName, mime_type=mime)
     now = datetime.now(timezone.utc)
     bucket = (
         "dev-stub"
@@ -130,7 +166,9 @@ async def presign_upload(
         file_size=payload.fileSize,
         original_name=payload.fileName,
         kind=media_kind,
-        uploaded_by_user_id=user.id if (user is not None and admin is None) else None,
+        # Клиентский presign — всегда от имени клиента, даже если к нему
+        # привязан админ: иначе его фото возврата не пройдут проверку владельца.
+        uploaded_by_user_id=user.id if user is not None else None,
         uploaded_by_admin_id=admin.id if admin is not None else None,
         created_at=now,
     )

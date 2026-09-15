@@ -1,0 +1,624 @@
+/* =====================================================================
+   04 — Фото при возврате: блок в карточке аренды, миниатюра в сетке
+   ячеек и лайтбокс для просмотра
+   ===================================================================== */
+
+/* ----------------------- Блок в карточке аренды ------------------------- */
+
+/* Юнит ждёт решения оператора — блок чуть выделен, но без крика */
+.return-photos-block--pending {
+  border-color: var(--accent-line);
+  background: var(--surface);
+}
+
+.return-photos-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.return-photos-head .detail-block-title {
+  margin: 0;
+}
+
+.return-photos-count {
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.return-photos-meta {
+  margin: 2px 0 12px;
+  color: var(--text-2);
+  font-size: 0.8125rem;
+}
+
+.return-photos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 8px;
+}
+
+.return-photo {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 4 / 3;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  cursor: zoom-in;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.return-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 220ms ease;
+}
+
+.return-photo:hover {
+  border-color: var(--accent-line);
+  box-shadow: var(--shadow-sm);
+}
+
+.return-photo:hover img {
+  transform: scale(1.025);
+}
+
+/* Файл есть, а публичной ссылки нет (dev-хранилище) */
+.return-photo--missing {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  color: var(--text-3);
+  font-size: 0.75rem;
+  text-align: center;
+  cursor: default;
+}
+
+.return-photos-empty {
+  display: grid;
+  gap: 2px;
+  padding: 11px 14px;
+  border: 1px solid #efe1c7;
+  border-radius: var(--radius-sm);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 0.8125rem;
+}
+
+.return-photos-empty strong {
+  font-weight: 600;
+}
+
+/* Фото ещё может прийти (окно досылки открыто) — нейтрально, не предупреждение */
+.return-photos-empty--waiting {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.return-photos-empty--waiting strong {
+  color: var(--text);
+}
+
+.return-photos-note {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.return-photos-note__label {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text-3);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: normal;
+}
+
+.return-photos-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.return-photos-actions__hint {
+  flex: 1 1 100%;
+  margin: 0 0 2px;
+  color: var(--text-2);
+  font-size: 0.8125rem;
+}
+
+/* Переход в «Размещение» — вторичное действие; длинная подпись переносится */
+.return-photos-actions .ghost-button {
+  white-space: normal;
+  text-align: center;
+}
+
+/* ------------------------- Сетка ячеек постамата ------------------------- */
+
+.cell-card__return-thumb {
+  position: relative;
+  padding: 0;
+  overflow: visible;
+  cursor: zoom-in;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.cell-card__return-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: calc(var(--radius-xs) - 1px);
+}
+
+.cell-card__return-thumb:hover {
+  border-color: var(--accent-line);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Счётчик кадров: заодно отличает фото возврата от обложки товара */
+.cell-card__photo-count {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  background: var(--text);
+  color: #ffffff;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 13px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.cell-card--focused .cell-card__photo-count {
+  border-color: var(--accent-soft);
+}
+
+/* Строка возврата во всю ширину карточки (карточка — flex-wrap) */
+.cell-card__return {
+  display: flex;
+  flex: 1 0 100%;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-top: -2px;
+  padding-top: 7px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.cell-card__return-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-card--focused .cell-card__return {
+  border-top-color: var(--accent-line);
+}
+
+.cell-card__badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.45;
+  white-space: nowrap;
+}
+
+.cell-card__badge--warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.cell-card__badge--muted {
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.cell-card__review {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+}
+
+/* ------------------------------- Лайтбокс -------------------------------- */
+
+html.photo-lightbox-open,
+html.photo-lightbox-open body {
+  overflow: hidden;
+}
+
+.photo-lightbox {
+  position: fixed;
+  inset: 0;
+  /* Над модалками (30), но под тостами (40) */
+  z-index: 35;
+  background: rgba(14, 15, 18, 0.94);
+  color: #f4f4f5;
+  animation: photo-lightbox-in 160ms ease-out;
+}
+
+.photo-lightbox :focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.photo-lightbox__frame {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 12px;
+  height: 100%;
+  padding: 14px 18px 16px;
+}
+
+.photo-lightbox__bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+
+.photo-lightbox__heading {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.photo-lightbox__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.photo-lightbox__counter {
+  margin-left: 8px;
+  color: rgba(244, 244, 245, 0.6);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.photo-lightbox__meta {
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: rgba(244, 244, 245, 0.72);
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.photo-lightbox__tools {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.photo-lightbox__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-sm);
+  color: #f4f4f5;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.photo-lightbox__link:hover {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.photo-lightbox__icon-button,
+.photo-lightbox__nav {
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.photo-lightbox__icon-button {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.photo-lightbox__icon-button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.photo-lightbox__stage {
+  position: relative;
+  min-height: 0;
+}
+
+/* Абсолютное позиционирование, чтобы max-height считался от сцены,
+   а не от авто-строки грида; margin:auto центрирует кадр */
+.photo-lightbox__image {
+  position: absolute;
+  top: 0;
+  right: 64px;
+  bottom: 0;
+  left: 64px;
+  max-width: calc(100% - 128px);
+  max-height: 100%;
+  margin: auto;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  user-select: none;
+  transition: opacity 160ms ease;
+}
+
+.photo-lightbox__nav {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  margin-top: -22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.photo-lightbox__nav:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.photo-lightbox__nav--prev {
+  left: 0;
+}
+
+.photo-lightbox__nav--next {
+  right: 0;
+}
+
+.photo-lightbox__status {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  color: rgba(244, 244, 245, 0.72);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.photo-lightbox__stage.is-loading .photo-lightbox__image {
+  opacity: 0;
+}
+
+/* «Загрузка…» только если кадр грузится заметно долго — без мигания */
+.photo-lightbox__stage.is-loading .photo-lightbox__status--loading {
+  animation: photo-lightbox-reveal 1ms linear 300ms forwards;
+}
+
+.photo-lightbox__stage.is-broken .photo-lightbox__image {
+  visibility: hidden;
+}
+
+.photo-lightbox__stage.is-broken .photo-lightbox__status--broken {
+  opacity: 1;
+}
+
+.photo-lightbox__note {
+  justify-self: center;
+  max-width: 640px;
+  max-height: 4.8em;
+  margin: 0;
+  overflow-y: auto;
+  color: rgba(244, 244, 245, 0.86);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.photo-lightbox__strip {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 2px;
+  scrollbar-width: thin;
+}
+
+/* Центр, который не обрезает левый край при переполнении */
+.photo-lightbox__strip > :first-child {
+  margin-left: auto;
+}
+
+.photo-lightbox__strip > :last-child {
+  margin-right: auto;
+}
+
+.photo-lightbox__thumb {
+  flex: 0 0 auto;
+  width: 72px;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 140ms ease, border-color 140ms ease;
+}
+
+.photo-lightbox__thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-lightbox__thumb:hover {
+  opacity: 0.85;
+}
+
+.photo-lightbox__thumb.is-active {
+  border-color: #ffffff;
+  opacity: 1;
+}
+
+@keyframes photo-lightbox-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes photo-lightbox-reveal {
+  to {
+    opacity: 1;
+  }
+}
+
+/* -------------------------------- Адаптив -------------------------------- */
+
+@media (max-width: 960px) {
+  .cell-card__return-thumb {
+    width: 44px;
+    height: 44px;
+  }
+
+  .cell-card__review {
+    min-height: 36px;
+  }
+}
+
+@media (max-width: 760px) {
+  .return-photos-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .return-photos-actions .primary-button,
+  .return-photos-actions .ghost-button {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 44px;
+  }
+
+  .photo-lightbox__frame {
+    gap: 10px;
+    padding: 10px 12px 12px;
+  }
+
+  .photo-lightbox__bar {
+    gap: 10px;
+  }
+
+  /* Ячейка, клиент и время не влезают в строку — пусть переносятся */
+  .photo-lightbox__meta {
+    white-space: normal;
+  }
+
+  .photo-lightbox__link {
+    min-height: 44px;
+    padding: 0 10px;
+  }
+
+  .photo-lightbox__icon-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Кадр во всю ширину, стрелки ложатся поверх его краёв */
+  .photo-lightbox__image {
+    right: 0;
+    left: 0;
+    max-width: 100%;
+    border-radius: var(--radius-xs);
+  }
+
+  .photo-lightbox__nav {
+    background: rgba(14, 15, 18, 0.6);
+  }
+
+  .photo-lightbox__nav--prev {
+    left: 6px;
+  }
+
+  .photo-lightbox__nav--next {
+    right: 6px;
+  }
+
+  .photo-lightbox__thumb {
+    width: 60px;
+  }
+}
+
+@media (max-width: 420px) {
+  .photo-lightbox__link {
+    font-size: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-lightbox,
+  .photo-lightbox__image,
+  .photo-lightbox__thumb,
+  .return-photo,
+  .return-photo img,
+  .cell-card__return-thumb {
+    animation: none;
+    transition: none;
+  }
+
+  .return-photo:hover img {
+    transform: none;
+  }
+}

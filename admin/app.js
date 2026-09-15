@@ -164,6 +164,9 @@ const state = {
     focusCellId: "",
     onlyFree: false,
     cells: [],
+    // Постамат, чьи ячейки сейчас в cells: selectedLockerId меняется раньше,
+    // чем приходят новые ячейки, а при ошибке загрузки старая сетка остаётся.
+    cellsLockerId: "",
     products: [],
     productSearch: "",
     productOnlyActive: true,
@@ -835,6 +838,7 @@ async function authorizedRequest(url, options = {}, allowRetry = true) {
 function showAuthScreen() {
   authScreen.classList.remove("hidden");
   appShell.classList.add("hidden");
+  closePhotoLightbox({ restoreFocus: false });
   closeModal();
 }
 
@@ -1045,6 +1049,297 @@ function closeModal() {
     state.inventory.isConfirming = false;
   }
 }
+
+// =====================
+// Просмотр фото возврата (лайтбокс)
+// =====================
+// Лайтбокс — не .modal-card: любая модалка при открытии прячет соседние
+// карточки, а closeModal() гасит всё внутри #modal-backdrop. Поэтому он
+// лежит отдельным слоем на уровне body, и карточка аренды под ним остаётся.
+
+const photoLightboxState = {
+  photos: [],
+  index: 0,
+  opener: null,
+  touchStartX: null,
+};
+
+let photoLightboxEls = null;
+
+function getPhotoLightboxEls() {
+  if (photoLightboxEls) {
+    return photoLightboxEls;
+  }
+  const root = document.getElementById("photo-lightbox");
+  if (!root) {
+    return null;
+  }
+  photoLightboxEls = {
+    root,
+    stage: root.querySelector("[data-lightbox-stage]"),
+    image: document.getElementById("photo-lightbox-image"),
+    counter: document.getElementById("photo-lightbox-counter"),
+    meta: document.getElementById("photo-lightbox-meta"),
+    note: document.getElementById("photo-lightbox-note"),
+    original: document.getElementById("photo-lightbox-original"),
+    strip: document.getElementById("photo-lightbox-strip"),
+    prev: root.querySelector("[data-lightbox-prev]"),
+    next: root.querySelector("[data-lightbox-next]"),
+    close: root.querySelector("[data-lightbox-close]"),
+  };
+  return photoLightboxEls;
+}
+
+/**
+ * Ссылка на файл для src/href. public_media_url на filesystem-хранилище
+ * отдаёт путь от корня API (/assets/runtime-uploads/…), а админка может
+ * жить на другом origin — дополняем так же, как uploadUrl при загрузке.
+ */
+function resolveMediaUrl(url) {
+  const raw = String(url ?? "").trim();
+  if (!raw) {
+    return "";
+  }
+  if (/^https?:\/\//i.test(raw) || raw.startsWith("//")) {
+    return raw;
+  }
+  // Любая другая схема (javascript:, data: …) — это не ссылка на наш файл.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(raw)) {
+    return "";
+  }
+  return apiUrl(raw);
+}
+
+function isPhotoLightboxOpen() {
+  const els = getPhotoLightboxEls();
+  return Boolean(els && !els.root.classList.contains("hidden"));
+}
+
+/**
+ * photos — [{id, url}] как в API; startIndex — индекс в этом же массиве.
+ * meta и note кладутся через textContent, экранировать их не нужно.
+ */
+function openPhotoLightbox(photos, startIndex = 0, { meta = "", note = "" } = {}, opener = null) {
+  const els = getPhotoLightboxEls();
+  const source = Array.isArray(photos) ? photos : [];
+  const startId = source[startIndex]?.id;
+  const list = source
+    .map((photo) => ({ id: String(photo?.id || ""), src: resolveMediaUrl(photo?.url) }))
+    .filter((photo) => photo.src);
+  if (!els || !list.length) {
+    showToast("error", "У фото нет публичной ссылки — открыть не получится.");
+    return;
+  }
+
+  photoLightboxState.photos = list;
+  photoLightboxState.opener =
+    opener instanceof HTMLElement
+      ? opener
+      : document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+  els.meta.textContent = meta || "";
+  els.meta.classList.toggle("hidden", !meta);
+  els.note.textContent = note || "";
+  els.note.classList.toggle("hidden", !note);
+
+  const single = list.length < 2;
+  els.prev.classList.toggle("hidden", single);
+  els.next.classList.toggle("hidden", single);
+  els.strip.classList.toggle("hidden", single);
+  els.strip.innerHTML = single
+    ? ""
+    : list
+        .map(
+          (photo, index) => `
+            <button type="button" class="photo-lightbox__thumb" data-lightbox-index="${index}" aria-label="Фото ${index + 1} из ${list.length}">
+              <img src="${escapeHtml(photo.src)}" alt="" loading="lazy" decoding="async" />
+            </button>
+          `,
+        )
+        .join("");
+
+  const found = list.findIndex((photo) => startId && photo.id === String(startId));
+  els.root.classList.remove("hidden");
+  document.documentElement.classList.add("photo-lightbox-open");
+  showPhotoLightboxIndex(found >= 0 ? found : 0);
+  els.close.focus({ preventScroll: true });
+}
+
+function showPhotoLightboxIndex(nextIndex) {
+  const els = getPhotoLightboxEls();
+  const list = photoLightboxState.photos;
+  if (!els || !list.length) {
+    return;
+  }
+  const index = ((nextIndex % list.length) + list.length) % list.length;
+  photoLightboxState.index = index;
+  const photo = list[index];
+
+  if (els.image.getAttribute("src") !== photo.src) {
+    els.stage.classList.remove("is-broken");
+    els.stage.classList.add("is-loading");
+    els.image.setAttribute("src", photo.src);
+    if (els.image.complete && els.image.naturalWidth) {
+      els.stage.classList.remove("is-loading");
+    }
+  } else if (els.image.complete) {
+    // Тот же кадр ещё раз (клик по активной миниатюре): load/error уже не
+    // придут, поэтому состояние берём у самой картинки, а не сбрасываем.
+    els.stage.classList.remove("is-loading");
+    els.stage.classList.toggle("is-broken", !els.image.naturalWidth);
+  }
+  els.image.alt = `Фото ${index + 1} из ${list.length}`;
+  els.counter.textContent = list.length > 1 ? `${index + 1} / ${list.length}` : "";
+  els.original.href = photo.src;
+
+  els.strip.querySelectorAll("[data-lightbox-index]").forEach((thumb) => {
+    const active = Number(thumb.getAttribute("data-lightbox-index")) === index;
+    thumb.classList.toggle("is-active", active);
+    if (active) {
+      thumb.setAttribute("aria-current", "true");
+      thumb.scrollIntoView({ block: "nearest", inline: "nearest" });
+    } else {
+      thumb.removeAttribute("aria-current");
+    }
+  });
+
+  // Соседние кадры подгружаем заранее, чтобы стрелки листали без пустой паузы.
+  if (list.length > 1) {
+    [index - 1, index + 1].forEach((i) => {
+      const neighbour = list[(i + list.length) % list.length];
+      const preload = new Image();
+      preload.src = neighbour.src;
+    });
+  }
+}
+
+function closePhotoLightbox({ restoreFocus = true } = {}) {
+  const els = getPhotoLightboxEls();
+  if (!els || els.root.classList.contains("hidden")) {
+    return;
+  }
+  els.root.classList.add("hidden");
+  document.documentElement.classList.remove("photo-lightbox-open");
+  els.image.removeAttribute("src");
+  els.stage.classList.remove("is-loading", "is-broken");
+  els.strip.innerHTML = "";
+  const opener = photoLightboxState.opener;
+  photoLightboxState.photos = [];
+  photoLightboxState.opener = null;
+  if (restoreFocus && opener && opener.isConnected) {
+    opener.focus({ preventScroll: true });
+  }
+}
+
+(function bindPhotoLightbox() {
+  const els = getPhotoLightboxEls();
+  if (!els) {
+    return;
+  }
+
+  els.image.addEventListener("load", () => {
+    els.stage.classList.remove("is-loading");
+  });
+  els.image.addEventListener("error", () => {
+    if (!els.image.getAttribute("src")) {
+      return;
+    }
+    els.stage.classList.remove("is-loading");
+    els.stage.classList.add("is-broken");
+  });
+
+  els.root.addEventListener("click", (event) => {
+    const target = clickTargetElement(event);
+    if (!target) {
+      return;
+    }
+    if (target.closest("[data-lightbox-close]")) {
+      closePhotoLightbox();
+      return;
+    }
+    if (target.closest("[data-lightbox-prev]")) {
+      showPhotoLightboxIndex(photoLightboxState.index - 1);
+      return;
+    }
+    if (target.closest("[data-lightbox-next]")) {
+      showPhotoLightboxIndex(photoLightboxState.index + 1);
+      return;
+    }
+    const thumb = target.closest("[data-lightbox-index]");
+    if (thumb) {
+      showPhotoLightboxIndex(Number(thumb.getAttribute("data-lightbox-index")) || 0);
+      return;
+    }
+    // Клик мимо кадра и кнопок — по затемнению — закрывает просмотр.
+    if (target === els.root || target.hasAttribute("data-lightbox-backdrop")) {
+      closePhotoLightbox();
+    }
+  });
+
+  // Свайп по кадру на телефоне листает фото.
+  els.stage.addEventListener(
+    "touchstart",
+    (event) => {
+      photoLightboxState.touchStartX = event.touches.length === 1 ? event.touches[0].clientX : null;
+    },
+    { passive: true },
+  );
+  els.stage.addEventListener(
+    "touchend",
+    (event) => {
+      const startX = photoLightboxState.touchStartX;
+      photoLightboxState.touchStartX = null;
+      if (startX === null || photoLightboxState.photos.length < 2 || !event.changedTouches.length) {
+        return;
+      }
+      const dx = event.changedTouches[0].clientX - startX;
+      if (Math.abs(dx) < 40) {
+        return;
+      }
+      showPhotoLightboxIndex(photoLightboxState.index + (dx < 0 ? 1 : -1));
+    },
+    { passive: true },
+  );
+
+  document.addEventListener("keydown", (event) => {
+    if (!isPhotoLightboxOpen()) {
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closePhotoLightbox();
+      return;
+    }
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      if (photoLightboxState.photos.length > 1) {
+        event.preventDefault();
+        showPhotoLightboxIndex(photoLightboxState.index + (event.key === "ArrowLeft" ? -1 : 1));
+      }
+      return;
+    }
+    if (event.key === "Tab") {
+      // Фокус не уходит под затемнение, в карточку аренды.
+      const focusables = Array.from(els.root.querySelectorAll("a[href], button:not([disabled])")).filter(
+        (el) => el.getClientRects().length > 0,
+      );
+      if (!focusables.length) {
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !els.root.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !els.root.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  });
+})();
 
 function populateLockerCitySelect() {
   const currentValue = lockerCitySelect.value;
@@ -2791,6 +3086,141 @@ function renderRentals() {
     .join("");
 }
 
+// Подпись к фото возврата: кто и когда прислал. Без отчёта — когда сдали.
+function rentalReturnReportMeta(d) {
+  const report = d?.returnReport;
+  if (!report) {
+    return "";
+  }
+  if (!report.id) {
+    return `Возврат · ${formatDateTime(report.returnedAt)}`;
+  }
+  const author = report.source === "admin" ? "Оператор" : d.user?.name || "Клиент";
+  return `${author} · ${formatDateTime(report.createdAt || report.returnedAt)}`;
+}
+
+/**
+ * «до 14:05» для окна досылки фото. Пояс — браузера, как у formatDateTime
+ * рядом. Пустая строка — окна нет: фото уже пришли, срок вышел или бэкенд
+ * поле не прислал. Карточка могла провисеть открытой, поэтому сверяем с часами.
+ */
+function returnPhotosDeadlineLabel(source) {
+  const raw = source?.attachPhotosUntil;
+  if (!raw) {
+    return "";
+  }
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime()) || date.getTime() <= Date.now()) {
+    return "";
+  }
+  return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+/**
+ * Блок «Фото при возврате». data.returnReport: null — через постамат аренду
+ * не возвращали (блока нет); expected без фото — вернули, но кадра нет.
+ * Решение «в аренду» — только в карточке той аренды, чей возврат юнит сейчас
+ * и ждёт (pendingReview): у старой аренды того же юнита статус юнита тоже
+ * «На проверке», но фото там чужие.
+ */
+function renderRentalReturnPhotosBlock(d) {
+  const report = d?.returnReport;
+  if (!report) {
+    return "";
+  }
+  const photos = Array.isArray(report.photos) ? report.photos : [];
+  const isPending = report.pendingReview === true && Boolean(d.inventoryUnit?.id);
+  // Дверца могла закрыть возврат раньше кнопки — тогда фото ещё в пути.
+  const photosDeadline = photos.length ? "" : returnPhotosDeadlineLabel(report);
+
+  const photosHtml = photos.length
+    ? `<div class="return-photos-grid">${photos
+        .map((photo, index) => {
+          const src = resolveMediaUrl(photo.url);
+          if (!src) {
+            return `<div class="return-photo return-photo--missing">Нет ссылки на файл</div>`;
+          }
+          return `<button type="button" class="return-photo" data-return-photo-index="${index}" aria-label="Открыть фото ${index + 1} из ${photos.length}"><img src="${escapeHtml(src)}" alt="" loading="lazy" decoding="async" /></button>`;
+        })
+        .join("")}</div>`
+    : photosDeadline
+      ? `<div class="return-photos-empty return-photos-empty--waiting" role="note">
+          <strong>Фото пока нет — клиент может дослать до ${escapeHtml(photosDeadline)}</strong>
+          <span>Если пришлёт, придёт отдельное уведомление.</span>
+        </div>`
+      : `<div class="return-photos-empty" role="note">
+          <strong>Клиент не приложил фото</strong>
+          <span>Состояние вещи можно проверить только на месте.</span>
+        </div>`;
+
+  const noteHtml = report.note
+    ? `<p class="return-photos-note"><span class="return-photos-note__label">Комментарий клиента</span>${escapeHtml(report.note)}</p>`
+    : "";
+
+  // Забрать на ремонт отсюда нельзя: изъятие физическое (дверца, пустая
+  // ячейка), а карточку открывают по уведомлению вдали от постамата. Ведём
+  // в «Размещение» к этой ячейке — там обычная кнопка «Забрать».
+  const actionsHtml = isPending
+    ? `<div class="return-photos-actions">
+        <p class="return-photos-actions__hint">Товар ждёт проверки. Всё хорошо — верните его в аренду. Нужен ремонт — заберите у постамата через «Размещение».</p>
+        <button type="button" class="primary-button" data-return-confirm-ready>Всё в порядке</button>
+        ${d.cell?.id ? `<button type="button" class="ghost-button" data-return-open-inventory>Забрать на ремонт в «Размещении»</button>` : ""}
+      </div>`
+    : "";
+
+  return `
+    <div class="detail-block return-photos-block${isPending ? " return-photos-block--pending" : ""}">
+      <div class="return-photos-head">
+        <h4 class="detail-block-title">Фото при возврате</h4>
+        ${photos.length ? `<span class="return-photos-count">${formatNumber(photos.length)} фото</span>` : ""}
+      </div>
+      <p class="return-photos-meta">${escapeHtml(rentalReturnReportMeta(d))}</p>
+      ${photosHtml}
+      ${noteHtml}
+      ${actionsHtml}
+    </div>
+  `;
+}
+
+// Из карточки аренды — в «Размещение» к ячейке, где сейчас лежит юнит.
+// Сначала постамат самой ячейки (cell.lockerId), затем возврата и выдачи —
+// останавливаемся на том, в чьей сетке эта ячейка нашлась.
+async function openRentalCellInInventory() {
+  const d = state.rentalDetail;
+  const cellId = d?.cell?.id;
+  if (!cellId) {
+    return;
+  }
+  const lockerIds = [d.cell.lockerId, d.returnLocker?.id, d.rental?.pickupLocker?.id]
+    .map((id) => String(id || "").trim())
+    .filter((id, index, list) => UUID_RE.test(id) && list.indexOf(id) === index);
+
+  closeModal();
+  setActiveSection("inventory");
+  state.inventory.focusCellId = cellId;
+
+  const knownLockerIds = () =>
+    lockerIds.filter((id) => (state.inventory.lockers || []).some((locker) => locker.id === id));
+  if (!knownLockerIds().length) {
+    await loadInventoryLockers();
+  }
+  const candidates = knownLockerIds();
+  for (const lockerId of candidates) {
+    state.inventory.selectedLockerId = lockerId;
+    renderInventoryLockerOptions();
+    await loadInventoryCells();
+    if ((state.inventory.cells || []).some((cell) => cell.id === cellId)) {
+      return;
+    }
+  }
+  if (!candidates.length) {
+    // Ни один постамат не подошёл (например, выключен) — раздел хотя бы в
+    // актуальном виде, дальше оператор выберет постамат сам.
+    await bootstrapInventorySection();
+  }
+  showToast("error", "Не нашли ячейку в «Размещении» — выберите постамат вручную.");
+}
+
 function renderRentalDetailModal() {
   if (!rentalDetailBody || !rentalDetailModalTitle) {
     return;
@@ -2912,6 +3342,7 @@ function renderRentalDetailModal() {
           ${tl.cancelReason ? `<li><span>Причина снятия</span><strong>${escapeHtml(tl.cancelReason)}</strong></li>` : ""}
         </ul>
       </div>
+      ${renderRentalReturnPhotosBlock(d)}
       <div class="detail-block">
         <h4 class="detail-block-title">Пользователь</h4>
         ${userBlock}
@@ -3092,7 +3523,28 @@ let rentalDetailActionBusy = false;
 
 async function handleRentalDetailClick(event) {
   const root = clickTargetElement(event);
-  if (!root || rentalDetailActionBusy) {
+  if (!root) {
+    return;
+  }
+  // Просмотр фото ничего не меняет — доступен и пока идёт действие.
+  const photoBtn = root.closest("[data-return-photo-index]");
+  if (photoBtn) {
+    const report = state.rentalDetail?.returnReport;
+    if (report) {
+      openPhotoLightbox(
+        report.photos,
+        Number(photoBtn.getAttribute("data-return-photo-index")) || 0,
+        { meta: rentalReturnReportMeta(state.rentalDetail), note: report.note || "" },
+        photoBtn,
+      );
+    }
+    return;
+  }
+  if (rentalDetailActionBusy) {
+    return;
+  }
+  if (root.closest("[data-return-open-inventory]")) {
+    await openRentalCellInInventory();
     return;
   }
   const userBtn = root.closest("[data-open-user-from-rental]");
@@ -3103,7 +3555,9 @@ async function handleRentalDetailClick(event) {
     return;
   }
 
-  const btn = root.closest("[data-rental-detail-cancel], [data-rental-detail-force-complete], [data-rental-detail-delete]");
+  const btn = root.closest(
+    "[data-rental-detail-cancel], [data-rental-detail-force-complete], [data-rental-detail-delete], [data-return-confirm-ready]",
+  );
   if (!btn) {
     return;
   }
@@ -3143,6 +3597,36 @@ async function handleRentalDetailClick(event) {
       showToast("success", "Удалено.");
       closeModal();
       await loadRentalsOnly();
+    } else if (btn.hasAttribute("data-return-confirm-ready")) {
+      const report = state.rentalDetail?.returnReport;
+      const unitId = state.rentalDetail?.inventoryUnit?.id;
+      if (!unitId || report?.pendingReview !== true) {
+        return;
+      }
+      const photoCount =
+        Number(report.photoCount) || (Array.isArray(report.photos) ? report.photos.length : 0);
+      const question =
+        photoCount > 0
+          ? "Подтвердить, что с вещью всё в порядке? Товар снова станет доступен для аренды."
+          : "Фото возврата нет. Всё равно подтвердить, что с вещью всё в порядке? Товар снова станет доступен для аренды.";
+      if (!window.confirm(question)) {
+        return;
+      }
+      // Юнит, а не ячейка: карточке аренды сетка ячеек не нужна. Комментарий
+      // уходит в журнал движений — пишем, на чём проверка основана на самом деле.
+      await authorizedRequest("/api/admin/inventory/confirm-ready", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inventoryUnitId: unitId,
+          comment: photoCount > 0 ? "Проверено по фото возврата" : "Проверено после возврата (без фото)",
+        }),
+      });
+      showToast("success", "Возврат проверен, товар снова доступен для аренды.");
+      await reloadRentalsContext();
+      if (state.inventory.selectedLockerId) {
+        await loadInventoryCells();
+      }
     }
   } catch (error) {
     console.error(error);
@@ -4482,6 +4966,7 @@ const inventoryServiceModal = document.getElementById("inventory-service-modal")
 const inventoryServiceCellInfo = document.getElementById("inventory-service-cell-info");
 const inventoryServiceTarget = document.getElementById("inventory-service-target");
 const inventoryServiceOpen = document.getElementById("inventory-service-open");
+const inventoryServiceOpenHint = document.getElementById("inventory-service-open-hint");
 const inventoryServiceReason = document.getElementById("inventory-service-reason");
 const inventoryServiceSubmit = document.getElementById("inventory-service-submit");
 
@@ -4544,13 +5029,53 @@ function renderInventoryCells() {
       const unitStatus = occupied ? String(cell.currentUnit?.status || "") : "";
       const isAwaitingConfirmation = unitStatus === "awaiting_confirmation";
       const cellLabel = cell.label || cell.externalCellId || "\u2014";
-      const cover = occupied && cell.currentUnit?.coverUrl
+      let cover = occupied && cell.currentUnit?.coverUrl
         ? `<img class="cell-card__thumb" src="${escapeHtml(
             cell.currentUnit.coverUrl,
           )}" alt="" loading="lazy" />`
         : `<div class="cell-card__thumb cell-card__thumb--placeholder">${
             occupied ? "\ud83d\udce6" : "\u2014"
           }</div>`;
+      // Юнит «На проверке»: вместо обложки товара — первый кадр возврата,
+      // по клику крупно. Без фото обложка остаётся, а в строке возврата —
+      // «без фото» или срок, до которого клиент ещё может их дослать.
+      const lastReturn = isAwaitingConfirmation ? cell.currentUnit?.lastReturn || null : null;
+      const returnPhotos = Array.isArray(lastReturn?.photos) ? lastReturn.photos : [];
+      const firstReturnSrc = returnPhotos.length ? resolveMediaUrl(returnPhotos[0].url) : "";
+      if (firstReturnSrc) {
+        const photoCount = Number(lastReturn.photoCount) || returnPhotos.length;
+        cover = `<button type="button" class="cell-card__thumb cell-card__return-thumb" data-inventory-action="view-return-photos" data-cell-id="${escapeHtml(
+          cell.id,
+        )}" aria-label="Фото возврата: ${photoCount}. Открыть" title="Фото возврата"><img src="${escapeHtml(
+          firstReturnSrc,
+        )}" alt="" loading="lazy" decoding="async" /><span class="cell-card__photo-count" aria-hidden="true">${photoCount}</span></button>`;
+      }
+      // Отдельной строкой под карточкой: кнопок у ячейки «На проверке» три,
+      // и в колонке с названием товару места уже нет.
+      const returnMeta = lastReturn
+        ? [`Возврат ${formatDateTime(lastReturn.returnedAt)}`, lastReturn.userName]
+            .filter(Boolean)
+            .join(" · ")
+        : "";
+      // Пока окно досылки открыто, «без фото» — ещё не окончательно.
+      const returnPhotosDeadline = returnPhotos.length ? "" : returnPhotosDeadlineLabel(lastReturn);
+      let returnBadge = "";
+      if (!returnPhotos.length) {
+        returnBadge = returnPhotosDeadline
+          ? `<span class="cell-card__badge cell-card__badge--muted" title="Фото пока нет — клиент может дослать до ${escapeHtml(
+              returnPhotosDeadline,
+            )}">фото до ${escapeHtml(returnPhotosDeadline)}</span>`
+          : `<span class="cell-card__badge cell-card__badge--warn" title="Клиент не приложил фото">без фото</span>`;
+      }
+      const returnRow = lastReturn
+        ? `<div class="cell-card__return">
+            <span class="cell-card__return-meta" title="${escapeHtml(returnMeta)}">${escapeHtml(returnMeta)}</span>
+            ${returnBadge}
+            <button type="button" class="link-button cell-card__review" data-inventory-action="review-return" data-cell-id="${escapeHtml(
+              cell.id,
+            )}" data-rental-id="${escapeHtml(lastReturn.rentalId)}">Проверить</button>
+          </div>`
+        : "";
       const productName = occupied
         ? `<p class="cell-card__product-name" title="${escapeHtml(
             cell.currentUnit.productName || "",
@@ -4597,6 +5122,7 @@ function renderInventoryCells() {
             ${action}
             ${secondaryAction}
           </div>
+          ${returnRow}
         </article>
       `;
     })
@@ -4647,17 +5173,18 @@ async function loadInventoryLockers() {
 async function loadInventoryCells() {
   if (!state.inventory.selectedLockerId) {
     state.inventory.cells = [];
+    state.inventory.cellsLockerId = "";
     renderInventoryCells();
     return;
   }
   state.inventory.isLoading = true;
+  const lockerId = state.inventory.selectedLockerId;
   try {
     const payload = await authorizedRequest(
-      `/api/admin/inventory/lockers/${encodeURIComponent(
-        state.inventory.selectedLockerId,
-      )}/cells`,
+      `/api/admin/inventory/lockers/${encodeURIComponent(lockerId)}/cells`,
     );
     state.inventory.cells = payload.data?.cells || [];
+    state.inventory.cellsLockerId = lockerId;
     renderInventoryCells();
     updateInventorySummary();
     focusInventoryCellIfNeeded();
@@ -4791,11 +5318,28 @@ function inventoryOpenServiceModal(cellId) {
     }`;
   }
   if (inventoryServiceTarget) inventoryServiceTarget.value = "maintenance";
-  if (inventoryServiceOpen) inventoryServiceOpen.checked = true;
+  // Дверцу открываем только по явной галочке: в сетку ячеек заходят и
+  // удалённо, по ссылке из уведомления, а у постамата может никого не быть.
+  if (inventoryServiceOpen) inventoryServiceOpen.checked = false;
+  syncInventoryServiceOpenState();
   if (inventoryServiceReason) inventoryServiceReason.value = "";
   modalBackdrop.classList.remove("hidden");
   hideAllModals();
   inventoryServiceModal.classList.remove("hidden");
+}
+
+function inventoryEsiNoteText(code) {
+  if (code === "ESI_MACHINE_OFFLINE") return "постамат не на связи";
+  if (code === "ESI_NOT_CONFIGURED") return "ESI не настроен";
+  return "ошибка ESI";
+}
+
+function syncInventoryServiceOpenState() {
+  const armed = Boolean(inventoryServiceOpen?.checked);
+  if (inventoryServiceOpenHint) inventoryServiceOpenHint.classList.toggle("is-armed", armed);
+  if (inventoryServiceSubmit) {
+    inventoryServiceSubmit.textContent = armed ? "Открыть дверцу и изъять" : "Изъять товар";
+  }
 }
 
 function hideAllModals() {
@@ -4855,15 +5399,29 @@ async function inventoryTakeForService() {
   if (!cellId) {
     return;
   }
+  const openCell = Boolean(inventoryServiceOpen?.checked);
+  if (openCell) {
+    const cell = (state.inventory.cells || []).find((c) => c.id === cellId);
+    const locker = (state.inventory.lockers || []).find(
+      (l) => l.id === state.inventory.cellsLockerId,
+    );
+    const cellLabel = cell?.label || cell?.externalCellId || "—";
+    const where = locker?.name ? ` на постамате «${locker.name}»` : "";
+    const confirmed = window.confirm(
+      `Открыть дверцу ячейки ${cellLabel}${where}?\n\n` +
+        "Дверца откроется по-настоящему. Подтверждайте, только если вы стоите у постамата.",
+    );
+    if (!confirmed) return;
+  }
   state.inventory.isServicing = true;
   inventoryServiceSubmit.disabled = true;
   try {
     const body = {
       reason: (inventoryServiceReason?.value || "").trim() || null,
-      openCell: Boolean(inventoryServiceOpen?.checked),
+      openCell,
       targetStatus: inventoryServiceTarget?.value === "damaged" ? "damaged" : "maintenance",
     };
-    await authorizedRequest(
+    const payload = await authorizedRequest(
       `/api/admin/inventory/cells/${encodeURIComponent(cellId)}/take-for-service`,
       {
         method: "POST",
@@ -4871,7 +5429,14 @@ async function inventoryTakeForService() {
         body: JSON.stringify(body),
       },
     );
-    showToast("success", "Товар изъят на обслуживание.");
+    const esiNote = payload?.data?.esiNote;
+    if (openCell && esiNote) {
+      // Товар в системе снят, но постамат команду не выполнил — оператор
+      // у ячейки должен знать, что дверца закрыта.
+      showToast("error", `Товар снят с ячейки, но дверца не открылась: ${inventoryEsiNoteText(esiNote)}.`);
+    } else {
+      showToast("success", "Товар изъят на обслуживание.");
+    }
     closeModal();
     await Promise.all([loadInventoryCells(), loadInventoryLockers()]);
   } catch (error) {
@@ -4941,6 +5506,18 @@ async function inventoryTestOpenCell(cellId, button) {
   }
 }
 
+function inventoryViewReturnPhotos(cellId, opener) {
+  const cell = (state.inventory.cells || []).find((c) => c.id === cellId);
+  const lastReturn = cell?.currentUnit?.lastReturn;
+  if (!lastReturn) return;
+  const meta = [
+    `Ячейка ${cell.label || cell.externalCellId || "—"}`,
+    lastReturn.userName || "Клиент",
+    formatDateTime(lastReturn.returnedAt),
+  ].join(" · ");
+  openPhotoLightbox(lastReturn.photos, 0, { meta, note: lastReturn.note || "" }, opener);
+}
+
 if (inventoryLockerSelect) {
   inventoryLockerSelect.addEventListener("change", () => {
     state.inventory.selectedLockerId = inventoryLockerSelect.value || "";
@@ -4976,6 +5553,10 @@ if (inventoryCellsGrid) {
       inventoryConfirmReady(cellId);
     } else if (action === "test-open") {
       inventoryTestOpenCell(cellId, btn);
+    } else if (action === "view-return-photos") {
+      inventoryViewReturnPhotos(cellId, btn);
+    } else if (action === "review-return") {
+      openRentalDetail(btn.getAttribute("data-rental-id") || "");
     }
   });
 }
@@ -5011,6 +5592,9 @@ if (inventoryPlaceSubmit) {
 }
 if (inventoryServiceSubmit) {
   inventoryServiceSubmit.addEventListener("click", inventoryTakeForService);
+}
+if (inventoryServiceOpen) {
+  inventoryServiceOpen.addEventListener("change", syncInventoryServiceOpenState);
 }
 
 (async function init() {

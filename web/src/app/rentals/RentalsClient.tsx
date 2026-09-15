@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CalendarPlus,
+  Camera,
   CheckCircle2,
   Clock3,
   CreditCard,
@@ -26,12 +27,10 @@ import { StatusPill } from "@/components/StatusPill";
 import { Surface } from "@/components/Surface";
 import {
   cancelReservation,
-  confirmRentalReturn,
   createPaymentPreauth,
   fetchMyReservations,
   fetchReservation,
   fetchRentals,
-  requestRentalReturn,
 } from "@/shared/api/endpoints";
 import { ApiError } from "@/shared/api/client";
 import type { RentalListItem, UpcomingReservation } from "@/shared/api/types";
@@ -247,35 +246,6 @@ function RentalsContent() {
   function handleReturnRental(rental: RentalListItem, e: React.MouseEvent) {
     e.stopPropagation();
     router.push(`/profile/orders/${rental.id}`);
-  }
-
-  async function handleConfirmReturnRental(rental: RentalListItem, e: React.MouseEvent) {
-    e.stopPropagation();
-    setBusy(rental.id, true);
-    setItemError(rental.id, "");
-    try {
-      await confirmRentalReturn(rental.id);
-      setRentals((prev) =>
-        prev.map((r) => (r.id === rental.id ? { ...r, status: "completed" } : r)),
-      );
-      void load();
-    } catch (err) {
-      let msg = "Не удалось подтвердить возврат";
-      if (err instanceof ApiError) {
-        if (err.code === "RETURN_REQUEST_NOT_FOUND") {
-          msg = "Активная заявка на возврат не найдена. Откройте детали заказа и оформите возврат заново.";
-        } else if (err.code === "RENTAL_NOT_RETURNING") {
-          msg = "Возврат ещё не начат или уже завершён.";
-        } else if (err.message) {
-          msg = err.message;
-        }
-      } else if (err instanceof Error) {
-        msg = err.message;
-      }
-      setItemError(rental.id, msg);
-    } finally {
-      setBusy(rental.id, false);
-    }
   }
 
   const hasOrders = reservations.length > 0 || rentals.length > 0;
@@ -507,6 +477,23 @@ function RentalsContent() {
                               <RotateCcw size={15} />
                               {busy ? "Открываем ячейку…" : "Вернуть"}
                             </button>
+                          </div>
+                        ) : null}
+                        {canConfirmReturn ? (
+                          <div className="return-card-hint">
+                            <Camera size={16} aria-hidden="true" />
+                            <div>
+                              <strong>Сфотографируйте вещь в ячейке перед тем, как закрыть дверцу</strong>
+                              {rental.returnRequest?.pin ? (
+                                <span className="return-card-pin-row">
+                                  PIN ячейки
+                                  <b className="return-card-pin">{rental.returnRequest.pin}</b>
+                                  {rental.returnRequest.cellLabel ? (
+                                    <span>· ячейка {rental.returnRequest.cellLabel}</span>
+                                  ) : null}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                         ) : null}
                         {canConfirmReturn ? (

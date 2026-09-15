@@ -519,6 +519,20 @@
   font-size: 0.8125rem;
 }
 
+/* Открытие дверцы при изъятии — только осознанно: подсказка под чекбоксом
+   краснеет, когда галочка стоит */
+.service-open-hint {
+  margin: 4px 0 0 24px;
+  color: var(--text-2);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.service-open-hint.is-armed {
+  color: var(--danger);
+  font-weight: 500;
+}
+
 /* ---------------------------- Модальные окна ------------------------------ */
 
 .modal-backdrop {
@@ -792,6 +806,10 @@
   .checkbox-field input[type="checkbox"] {
     width: 18px;
     height: 18px;
+  }
+
+  .service-open-hint {
+    margin-left: 26px;
   }
 }
 

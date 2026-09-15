@@ -7,10 +7,11 @@
     <meta name="postamats-api-origin" content="" />
     <title>Postamats Admin</title>
     <meta name="color-scheme" content="light" />
-    <!-- Три файла подключены напрямую: @import грузил бы их последовательно -->
+    <!-- Файлы подключены напрямую: @import грузил бы их последовательно -->
     <link rel="stylesheet" href="./styles/styles-01.css?v=26" />
     <link rel="stylesheet" href="./styles/styles-02.css?v=26" />
-    <link rel="stylesheet" href="./styles/styles-03.css?v=26" />
+    <link rel="stylesheet" href="./styles/styles-03.css?v=28" />
+    <link rel="stylesheet" href="./styles/styles-04.css?v=28" />
   </head>
   <body>
     <div class="admin-shell">
@@ -1052,10 +1053,20 @@
               <option value="damaged">Повреждён</option>
             </select>
           </label>
-          <label class="checkbox-field">
-            <input id="inventory-service-open" type="checkbox" checked />
-            <span>Открыть ячейку через ESI</span>
-          </label>
+          <div class="service-open-cell">
+            <label class="checkbox-field">
+              <input
+                id="inventory-service-open"
+                type="checkbox"
+                aria-describedby="inventory-service-open-hint"
+              />
+              <span>Открыть дверцу ячейки через ESI</span>
+            </label>
+            <p id="inventory-service-open-hint" class="service-open-hint">
+              Дверца постамата откроется по-настоящему — отмечайте, только если вы стоите у
+              постамата. Без отметки товар просто снимается с ячейки в системе.
+            </p>
+          </div>
           <label class="field">
             <span>Причина (необязательно)</span>
             <input id="inventory-service-reason" type="text" placeholder="Например, заменить батарею" maxlength="500" />
@@ -1223,8 +1234,61 @@
       </section>
     </div>
 
+    <!-- Просмотр фото возврата. Живёт вне #modal-backdrop: любая модалка при
+         открытии прячет соседние, а карточка аренды под лайтбоксом должна остаться. -->
+    <div
+      id="photo-lightbox"
+      class="photo-lightbox hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="photo-lightbox-title"
+    >
+      <div class="photo-lightbox__frame" data-lightbox-backdrop>
+        <header class="photo-lightbox__bar">
+          <div class="photo-lightbox__heading">
+            <p id="photo-lightbox-title" class="photo-lightbox__title">
+              Фото при возврате
+              <span id="photo-lightbox-counter" class="photo-lightbox__counter" aria-live="polite"></span>
+            </p>
+            <p id="photo-lightbox-meta" class="photo-lightbox__meta"></p>
+          </div>
+          <div class="photo-lightbox__tools">
+            <a
+              id="photo-lightbox-original"
+              class="photo-lightbox__link"
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+            >Открыть оригинал</a>
+            <button type="button" class="photo-lightbox__icon-button" data-lightbox-close aria-label="Закрыть просмотр">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+                <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              </svg>
+            </button>
+          </div>
+        </header>
+        <div class="photo-lightbox__stage" data-lightbox-stage data-lightbox-backdrop>
+          <button type="button" class="photo-lightbox__nav photo-lightbox__nav--prev" data-lightbox-prev aria-label="Предыдущее фото">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+              <path d="M14.5 5.5L8 12l6.5 6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <img id="photo-lightbox-image" class="photo-lightbox__image" alt="" />
+          <p class="photo-lightbox__status photo-lightbox__status--loading" aria-hidden="true">Загрузка…</p>
+          <p class="photo-lightbox__status photo-lightbox__status--broken">Не удалось загрузить фото</p>
+          <button type="button" class="photo-lightbox__nav photo-lightbox__nav--next" data-lightbox-next aria-label="Следующее фото">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+              <path d="M9.5 5.5L16 12l-6.5 6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+        </div>
+        <p id="photo-lightbox-note" class="photo-lightbox__note hidden"></p>
+        <div id="photo-lightbox-strip" class="photo-lightbox__strip"></div>
+      </div>
+    </div>
+
     <div id="toast-stack" class="toast-stack" aria-live="assertive" aria-atomic="true"></div>
 
-    <script src="./app.js?v=30" defer></script>
+    <script src="./app.js?v=34" defer></script>
   </body>
 </html>
