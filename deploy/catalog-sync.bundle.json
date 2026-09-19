@@ -591,7 +591,7 @@
           "name": "1 день",
           "durationType": "day",
           "durationValue": 1,
-          "baseAmount": "750.00",
+          "baseAmount": "790.00",
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
@@ -731,7 +731,7 @@
           "name": "1 день",
           "durationType": "day",
           "durationValue": 1,
-          "baseAmount": "790.00",
+          "baseAmount": "850.00",
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
