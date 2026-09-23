@@ -180,6 +180,38 @@ class FeedbackInboxTests(unittest.IsolatedAsyncioTestCase):
         fired.assert_called_once()
         self.assertIn("Идея для аренды", fired.call_args.args[0])
 
+    async def test_feedback_is_emailed_with_reply_to_author(self) -> None:
+        """Копия обращения уходит на почту; «Ответить» пишет автору."""
+
+        from backend.utils import feedback_notifications
+
+        sent = Mock()
+        with patch.object(feedback_notifications, "fire_and_forget_notify", Mock()), \
+                patch.object(feedback_notifications, "fire_and_forget_email", sent), \
+                patch.object(
+                    feedback_notifications.settings,
+                    "FEEDBACK_EMAIL_TO",
+                    ["naprokatberu@yandex.ru"],
+                ):
+            feedback_notifications.notify_feedback_created(
+                FeedbackMessage(
+                    id=uuid4(),
+                    topic="idea",
+                    source="web",
+                    name="Иван\nПетров",
+                    email="ivan@example.com",
+                    message="Город: Москва\n\nЕсть ли самокаты?",
+                    created_at=datetime.now(timezone.utc),
+                )
+            )
+
+        sent.assert_called_once()
+        message = sent.call_args.args[0]
+        self.assertEqual(message["To"], "naprokatberu@yandex.ru")
+        self.assertEqual(message["Reply-To"], "ivan@example.com")
+        self.assertIn("Иван Петров", message["Subject"])
+        self.assertIn("Есть ли самокаты?", message.get_content())
+
     async def test_admin_list_labels_topic_and_source(self) -> None:
         notify = Mock()
         await self._submit(notify, source="mobile")

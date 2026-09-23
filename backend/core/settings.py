@@ -243,6 +243,19 @@ class Settings:
         self.MAX_WEBHOOK_SECRET = (
             (ENV_VALUES.get("MAX_WEBHOOK_SECRET") or "").strip() or None
         )
+        # Почта для копий обращений из формы обратной связи. Письмо уходит
+        # через SMTP того же ящика (Яндекс требует, чтобы From совпадал с
+        # логином), пароль — «пароль приложения» из Яндекс ID, не основной.
+        # Без логина/пароля письма молча не шлются, как и мессенджеры.
+        self.SMTP_HOST = (ENV_VALUES.get("SMTP_HOST") or "smtp.yandex.ru").strip()
+        self.SMTP_PORT = int(ENV_VALUES.get("SMTP_PORT", "465"))
+        self.SMTP_USER = (ENV_VALUES.get("SMTP_USER") or "").strip() or None
+        self.SMTP_PASSWORD = (ENV_VALUES.get("SMTP_PASSWORD") or "").strip() or None
+        self.SMTP_TIMEOUT_SECONDS = float(ENV_VALUES.get("SMTP_TIMEOUT_SECONDS", "15"))
+        self.FEEDBACK_EMAIL_TO = _split_csv(
+            ENV_VALUES.get("FEEDBACK_EMAIL_TO") or "naprokatberu@yandex.ru"
+        )
+
         # Базовый URL админки для deep-link'ов из уведомлений. Если не
         # задан — берём из WEB_APP_ORIGIN + "/admin", чтобы dev и прод
         # работали без отдельного значения.

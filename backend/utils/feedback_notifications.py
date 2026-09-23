@@ -17,6 +17,7 @@ from backend.core.settings import settings
 from backend.models.enums import FeedbackSource, FeedbackTopic
 from backend.models.feedback_message import FeedbackMessage
 from backend.utils.admin_notifications import escape_html, fire_and_forget_notify
+from backend.utils.email_sender import build_message, fire_and_forget_email
 
 # Столько текста обращения кладём в уведомление. Telegram режет сообщение
 # на ~4096 символах, оставляем запас на заголовок и экранирование.
@@ -105,8 +106,35 @@ def build_feedback_notification(
     return "\n".join(lines), buttons
 
 
+def build_feedback_email_body(record: FeedbackMessage) -> str:
+    """Текст письма: всё обращение целиком, без обрезки и без HTML."""
+
+    lines = [
+        topic_label(record.topic),
+        f"Откуда: {source_label(record.source)}",
+        f"Имя: {record.name}",
+    ]
+    if record.phone:
+        lines.append(f"Телефон: {record.phone}")
+    if record.email:
+        lines.append(f"Почта: {record.email}")
+    if record.city:
+        lines.append(f"Город: {record.city}")
+    if record.reference_url:
+        lines.append(f"Ссылка: {record.reference_url}")
+    if record.photo_id is not None:
+        lines.append("Приложено фото — смотрите в админке")
+    message = (record.message or "").strip()
+    if message:
+        lines += ["", message]
+    link = build_admin_link(record.id)
+    if link:
+        lines += ["", f"Открыть в админке: {link}"]
+    return "\n".join(lines)
+
+
 def notify_feedback_created(record: FeedbackMessage) -> None:
-    """Шлёт уведомление о новом обращении в Telegram и MAX.
+    """Шлёт уведомление о новом обращении в Telegram, MAX и на почту.
 
     Fire-and-forget: безопасно звать сразу после ``await db.commit()``,
     исключений не бросает и запрос не задерживает.
@@ -115,9 +143,25 @@ def notify_feedback_created(record: FeedbackMessage) -> None:
     text, buttons = build_feedback_notification(record)
     fire_and_forget_notify(text, buttons=buttons)
 
+    if settings.FEEDBACK_EMAIL_TO:
+        fire_and_forget_email(
+            build_message(
+                # Имя приходит из публичной формы: перевод строки в заголовке
+                # письма email.message отвергает, поэтому схлопываем пробелы.
+                subject=" ".join(
+                    f"{topic_label(record.topic)} ({source_label(record.source)})"
+                    f" — {record.name}".split()
+                ),
+                body=build_feedback_email_body(record),
+                to=settings.FEEDBACK_EMAIL_TO,
+                reply_to=record.email or None,
+            )
+        )
+
 
 __all__ = [
     "build_admin_link",
+    "build_feedback_email_body",
     "build_feedback_notification",
     "notify_feedback_created",
     "source_label",

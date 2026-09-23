@@ -36,6 +36,10 @@ inject_env_var "MAX_API_TIMEOUT_SECONDS" "${MAX_API_TIMEOUT_SECONDS-}"
 inject_env_var "MAX_WEBHOOK_SECRET" "${MAX_WEBHOOK_SECRET-}"
 inject_env_var "MAX_API_BASE_URL" "${MAX_API_BASE_URL-}"
 inject_env_var "ADMIN_PANEL_URL" "${ADMIN_PANEL_URL-}"
+inject_env_var "SMTP_HOST" "${SMTP_HOST-}"
+inject_env_var "SMTP_USER" "${SMTP_USER-}"
+inject_env_var "SMTP_PASSWORD" "${SMTP_PASSWORD-}"
+inject_env_var "FEEDBACK_EMAIL_TO" "${FEEDBACK_EMAIL_TO-}"
 
 COMPOSE_ARGS=(--env-file deploy/.env -f deploy/docker-compose.beget.yml)
 
