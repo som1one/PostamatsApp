@@ -119,8 +119,8 @@ jobs:
           MAX_API_TIMEOUT_SECONDS: ${{ vars.MAX_API_TIMEOUT_SECONDS }}
           MAX_API_BASE_URL: ${{ vars.MAX_API_BASE_URL }}
           ADMIN_PANEL_URL: ${{ vars.ADMIN_PANEL_URL }}
-          SMTP_HOST: ${{ vars.SMTP_HOST }}
-          SMTP_USER: ${{ vars.SMTP_USER }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST || vars.SMTP_HOST }}
+          SMTP_USER: ${{ secrets.SMTP_USER || vars.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           FEEDBACK_EMAIL_TO: ${{ vars.FEEDBACK_EMAIL_TO }}
         run: |
