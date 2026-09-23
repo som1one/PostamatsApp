@@ -14,6 +14,8 @@ const STATIC_ROUTES: Array<{
   { path: "/faq", changeFrequency: "monthly", priority: 0.5 },
   { path: "/terms-rental", changeFrequency: "yearly", priority: 0.3 },
   { path: "/privacy", changeFrequency: "yearly", priority: 0.3 },
+  { path: "/terms", changeFrequency: "yearly", priority: 0.3 },
+  { path: "/consent", changeFrequency: "yearly", priority: 0.3 },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

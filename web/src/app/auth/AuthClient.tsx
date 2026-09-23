@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { ConsentCheckbox, PersonalDataConsent } from "@/components/ConsentCheckbox";
 import { PageChrome } from "@/components/PageChrome";
 import { confirmCode, requestCode } from "@/shared/api/endpoints";
 import { useAuth } from "@/shared/auth/auth-context";
@@ -31,6 +32,9 @@ export function AuthClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isCodeFocused, setIsCodeFocused] = useState(false);
+  const [personalDataConsent, setPersonalDataConsent] = useState(false);
+  const [termsConsent, setTermsConsent] = useState(false);
+  const consentsGiven = personalDataConsent && termsConsent;
   const codeInputRef = useRef<HTMLInputElement | null>(null);
   const normalizedPhone = useMemo(() => normalizePhoneForApi(phone), [phone]);
 
@@ -58,6 +62,9 @@ export function AuthClient() {
 
   async function handlePhoneSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!consentsGiven) {
+      return;
+    }
     if (!normalizedPhone) {
       setError(AUTH_ERROR_MESSAGES.AUTH_PHONE_INVALID);
       return;
@@ -142,26 +149,33 @@ export function AuthClient() {
                       autoComplete="tel"
                     />
                   </label>
+                  <PersonalDataConsent
+                    checked={personalDataConsent}
+                    onChange={setPersonalDataConsent}
+                  />
+                  <ConsentCheckbox
+                    checked={termsConsent}
+                    onChange={setTermsConsent}
+                    name="termsConsent"
+                  >
+                    Согласен с{" "}
+                    <Link className="legal-link" href="/terms-rental" target="_blank">
+                      условиями аренды товаров
+                    </Link>{" "}
+                    и принимаю{" "}
+                    <Link className="legal-link" href="/terms" target="_blank">
+                      пользовательское соглашение
+                    </Link>
+                  </ConsentCheckbox>
                   {error ? <div className="alert alert-danger">{error}</div> : null}
                   <button
                     className="button button-primary"
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || !consentsGiven}
                   >
                     {loading ? "Отправляем" : "Получить код"}
                   </button>
                 </form>
-                <p className="auth-terms">
-                  Нажимая «Получить код», вы соглашаетесь с{" "}
-                  <Link className="legal-link" href="/terms-rental">
-                    условиями аренды
-                  </Link>{" "}
-                  и{" "}
-                  <Link className="legal-link" href="/privacy">
-                    политикой конфиденциальности
-                  </Link>
-                  .
-                </p>
               </>
             ) : (
               <>

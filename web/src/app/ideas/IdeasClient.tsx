@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Lightbulb, ArrowRight, ImagePlus, Check } from "lucide-react";
 import Link from "next/link";
+import { PersonalDataConsent } from "@/components/ConsentCheckbox";
 import { PageChrome } from "@/components/PageChrome";
 import { apiBaseUrl } from "@/shared/api/client";
 import { presignPublicUpload, submitFeedback } from "@/shared/api/endpoints";
@@ -22,6 +23,7 @@ export function IdeasClient() {
   const [idea, setIdea] = useState("");
   const [referenceUrl, setReferenceUrl] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
+  const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState<FormStatus>({ kind: "idle" });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -74,7 +76,7 @@ export function IdeasClient() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (status.kind === "submitting") {
+    if (status.kind === "submitting" || !consent) {
       return;
     }
     const trimmedName = name.trim();
@@ -107,6 +109,7 @@ export function IdeasClient() {
       setIdea("");
       setReferenceUrl("");
       setPhoto(null);
+      setConsent(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -225,6 +228,8 @@ export function IdeasClient() {
           )}
         </div>
 
+        <PersonalDataConsent checked={consent} onChange={setConsent} />
+
         {status.kind === "error" ? (
           <p className="form-error" role="alert">
             {status.message}
@@ -240,7 +245,7 @@ export function IdeasClient() {
         <button
           type="submit"
           className="button button-primary ideas-submit"
-          disabled={submitting}
+          disabled={submitting || !consent}
         >
           {submitting ? "Отправляем..." : "Предложить идею для аренды"}
           <ArrowRight size={18} />

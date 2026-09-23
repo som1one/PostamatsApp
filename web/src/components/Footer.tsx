@@ -26,7 +26,9 @@ export function Footer() {
         </nav>
         <nav className="footer-section" aria-label="Документы">
           <Link href="/terms-rental">Условия аренды товаров</Link>
+          <Link href="/terms">Пользовательское соглашение</Link>
           <Link href="/privacy">Политика конфиденциальности</Link>
+          <Link href="/consent">Согласие на обработку данных</Link>
           <Link href="/profile">Личный кабинет</Link>
         </nav>
       </div>

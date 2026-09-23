@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Mail, X } from "lucide-react";
+import { PersonalDataConsent } from "@/components/ConsentCheckbox";
 import { submitFeedback } from "@/shared/api/endpoints";
 
 type FormStatus =
@@ -18,6 +19,7 @@ export function FooterSocial() {
   const [city, setCity] = useState("");
   const [email, setEmail] = useState("");
   const [question, setQuestion] = useState("");
+  const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState<FormStatus>({ kind: "idle" });
 
   useEffect(() => {
@@ -35,7 +37,7 @@ export function FooterSocial() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (status.kind === "submitting") {
+    if (status.kind === "submitting" || !consent) {
       return;
     }
     const trimmedName = name.trim();
@@ -60,6 +62,7 @@ export function FooterSocial() {
       setCity("");
       setEmail("");
       setQuestion("");
+      setConsent(false);
     } catch (error) {
       const message =
         error instanceof Error && error.message
@@ -205,6 +208,8 @@ export function FooterSocial() {
                 />
               </label>
 
+              <PersonalDataConsent checked={consent} onChange={setConsent} />
+
               {status.kind === "error" ? (
                 <p className="form-error" role="alert">
                   {status.message}
@@ -219,7 +224,7 @@ export function FooterSocial() {
               <button
                 type="submit"
                 className="button button-primary"
-                disabled={submitting}
+                disabled={submitting || !consent}
               >
                 {submitting ? "Отправляем..." : "Отправить"}
               </button>

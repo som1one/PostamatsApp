@@ -27,6 +27,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
+import { PersonalDataConsent } from "@/components/ConsentCheckbox";
 import { PageChrome } from "@/components/PageChrome";
 import { FranchiseCalculator } from "@/components/FranchiseCalculator";
 import { FAQAccordion } from "@/components/FAQAccordion";
@@ -166,10 +167,11 @@ type LeadStatus =
 
 export function FranchiseClient() {
   const [status, setStatus] = useState<LeadStatus>({ kind: "idle" });
+  const [consent, setConsent] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (status.kind === "submitting") {
+    if (status.kind === "submitting" || !consent) {
       return;
     }
     const data = new FormData(event.currentTarget);
@@ -416,6 +418,7 @@ export function FranchiseClient() {
               <span>Город</span>
               <input className="input" name="city" type="text" placeholder="Город размещения" maxLength={120} />
             </label>
+            <PersonalDataConsent checked={consent} onChange={setConsent} />
             {status.kind === "error" ? (
               <p className="form-error" role="alert">
                 {status.message}
@@ -424,13 +427,10 @@ export function FranchiseClient() {
             <button
               className="button button-primary"
               type="submit"
-              disabled={status.kind === "submitting"}
+              disabled={status.kind === "submitting" || !consent}
             >
               {status.kind === "submitting" ? "Отправляем..." : "Получить консультацию"}
             </button>
-            <p className="franchise-form-consent">
-              Нажимая кнопку, вы соглашаетесь на обработку персональных данных.
-            </p>
           </form>
         )}
       </section>
