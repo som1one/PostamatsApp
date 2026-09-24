@@ -2,6 +2,7 @@ import { requestEnvelope, requestJson, requestWithAuth } from "./client";
 import type {
   AppUser,
   BonusAccount,
+  CaptchaChallenge,
   City,
   ConfirmCodeResponse,
   FeaturedProduct,
@@ -130,6 +131,11 @@ export async function presignPublicUpload(payload: {
   });
 }
 
+/** Картинка-капча для формы обратной связи (одна картинка — одна отправка). */
+export async function fetchCaptcha() {
+  return requestJson<CaptchaChallenge>("/api/captcha");
+}
+
 /**
  * Обращения с сайта и из приложения складываются в один раздел админки
  * «Обратная связь», и в карточке видно, откуда пришло. Источник проставляем
@@ -143,6 +149,8 @@ export async function submitFeedback(payload: {
   message: string;
   referenceUrl?: string | null;
   photoId?: string | null;
+  captchaToken: string;
+  captchaAnswer: string;
 }) {
   return requestJson<{ id: string }>("/api/feedback", {
     method: "POST",

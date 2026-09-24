@@ -419,3 +419,12 @@ export type VisitorGeo = {
   isCis: boolean;
   shouldSuggestVpnOff: boolean;
 };
+
+/** Ответ `/api/captcha`: картинка с цифрами для формы обратной связи. */
+export type CaptchaChallenge = {
+  /** Одноразовый: после любой отправки формы нужен новый. */
+  token: string;
+  /** PNG как data:-URL — одинаково показывается на сайте и в приложении. */
+  image: string;
+  expiresIn: number;
+};

@@ -8,6 +8,8 @@
 3. Уведомление уходит и в Telegram, и в MAX (один вызов
    ``fire_and_forget_notify``) и содержит тип обращения и источник.
 4. Админский список отдаёт готовые подписи для карточки.
+5. Без решённой капчи обращение не принимается, а неверный код не съедает
+   квоту лимитера.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ from backend.models.media_file import MediaFile
 from backend.routers import feedback as feedback_router
 from backend.routers.admin import feedback as admin_feedback_router
 from backend.routers.feedback import FeedbackCreatePayload, create_feedback
+from backend.utils.captcha import issue_captcha, reset_used_captchas
 
 TEST_DB_URL = "sqlite+aiosqlite:///test_feedback_inbox.sqlite"
 test_engine = create_async_engine(TEST_DB_URL, echo=False)
@@ -60,6 +63,7 @@ class FeedbackInboxTests(unittest.IsolatedAsyncioTestCase):
                 lambda sync_conn: Base.metadata.create_all(sync_conn, tables=TEST_TABLES)
             )
         feedback_router._limiter.reset()
+        reset_used_captchas()
 
     async def asyncTearDown(self) -> None:
         async with test_engine.begin() as conn:
@@ -67,11 +71,17 @@ class FeedbackInboxTests(unittest.IsolatedAsyncioTestCase):
                 lambda sync_conn: Base.metadata.drop_all(sync_conn, tables=TEST_TABLES)
             )
 
+    @staticmethod
+    def _solved_captcha() -> dict:
+        challenge = issue_captcha()
+        return {"captchaToken": challenge.token, "captchaAnswer": challenge.answer}
+
     async def _submit(self, notify, ip: str = "203.0.113.10", **payload) -> dict:
         data = {
             "name": "Иван",
             "email": "ivan@example.com",
             "message": "Добавьте палатку",
+            **self._solved_captcha(),
         } | payload
         async with TestSessionLocal() as db:
             with patch.object(feedback_router, "notify_feedback_created", notify):
@@ -136,6 +146,47 @@ class FeedbackInboxTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(HTTPException) as ctx:
             await self._submit(notify)
         self.assertEqual(ctx.exception.status_code, 429)
+
+    async def test_feedback_without_captcha_is_rejected(self) -> None:
+        """Так приходят боты и старые сборки приложения, где капчи ещё нет."""
+
+        notify = Mock()
+        with self.assertRaises(HTTPException) as ctx:
+            await self._submit(notify, captchaToken=None, captchaAnswer=None)
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail["code"], "CAPTCHA_REQUIRED")
+        self.assertEqual(await self._stored(), [])
+        notify.assert_not_called()
+
+    async def test_wrong_captcha_does_not_eat_the_rate_limit(self) -> None:
+        notify = Mock()
+        for _ in range(feedback_router._limiter.per_ip + 1):
+            with self.assertRaises(HTTPException) as ctx:
+                await self._submit(notify, captchaAnswer="00000")
+            self.assertEqual(ctx.exception.detail["code"], "CAPTCHA_INVALID")
+
+        await self._submit(notify)
+        self.assertEqual(len(await self._stored()), 1)
+        notify.assert_called_once()
+
+    async def test_solved_captcha_sends_only_one_message(self) -> None:
+        notify = Mock()
+        solved = self._solved_captcha()
+        await self._submit(notify, **solved)
+
+        with self.assertRaises(HTTPException) as ctx:
+            await self._submit(notify, **solved)
+        self.assertEqual(ctx.exception.detail["code"], "CAPTCHA_EXPIRED")
+        self.assertEqual(len(await self._stored()), 1)
+
+    async def test_typo_in_email_does_not_burn_the_captcha(self) -> None:
+        notify = Mock()
+        solved = self._solved_captcha()
+        with self.assertRaises(HTTPException):
+            await self._submit(notify, email="не-почта", **solved)
+
+        await self._submit(notify, **solved)
+        self.assertEqual(len(await self._stored()), 1)
 
     async def test_notification_names_topic_and_source(self) -> None:
         from backend.utils import feedback_notifications

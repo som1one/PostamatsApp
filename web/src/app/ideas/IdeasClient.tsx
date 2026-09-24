@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Lightbulb, ArrowRight, ImagePlus, Check } from "lucide-react";
 import Link from "next/link";
+import { CaptchaField, solvedCaptcha, useCaptcha } from "@/components/CaptchaField";
 import { PersonalDataConsent } from "@/components/ConsentCheckbox";
 import { PageChrome } from "@/components/PageChrome";
 import { apiBaseUrl } from "@/shared/api/client";
@@ -26,6 +27,10 @@ export function IdeasClient() {
   const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState<FormStatus>({ kind: "idle" });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Неверный код с картинки — частая причина отправить форму ещё раз;
+  // то же фото при этом второй раз не грузим.
+  const uploadedPhotoRef = useRef<{ file: File; id: string } | null>(null);
+  const captcha = useCaptcha();
 
   function handlePhotoPick(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] || null;
@@ -89,11 +94,19 @@ export function IdeasClient() {
       });
       return;
     }
+    const solved = solvedCaptcha(captcha);
+    if ("error" in solved) {
+      setStatus({ kind: "error", message: solved.error });
+      return;
+    }
     setStatus({ kind: "submitting" });
     try {
       let photoId: string | null = null;
       if (photo) {
-        photoId = await uploadPhoto(photo);
+        if (uploadedPhotoRef.current?.file !== photo) {
+          uploadedPhotoRef.current = { file: photo, id: await uploadPhoto(photo) };
+        }
+        photoId = uploadedPhotoRef.current.id;
       }
       const trimmedRef = referenceUrl.trim();
       await submitFeedback({
@@ -102,7 +115,9 @@ export function IdeasClient() {
         message: trimmedIdea,
         referenceUrl: trimmedRef || null,
         photoId,
+        ...solved,
       });
+      uploadedPhotoRef.current = null;
       setStatus({ kind: "success" });
       setName("");
       setEmail("");
@@ -121,6 +136,8 @@ export function IdeasClient() {
             : error.message
           : "Не удалось отправить идею. Попробуйте ещё раз.";
       setStatus({ kind: "error", message });
+    } finally {
+      void captcha.reload();
     }
   }
 
@@ -227,6 +244,8 @@ export function IdeasClient() {
             </p>
           )}
         </div>
+
+        <CaptchaField captcha={captcha} />
 
         <PersonalDataConsent checked={consent} onChange={setConsent} />
 

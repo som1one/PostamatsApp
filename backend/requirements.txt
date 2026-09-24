@@ -14,3 +14,4 @@ httpx
 redis
 tzdata
 hypothesis
+Pillow>=10.1

@@ -5,8 +5,12 @@ Telegram и MAX. В записи фиксируем, откуда она при�
 ``source`` (web / mobile), неизвестное значение честно превращается в
 ``unknown``, а не в «сайт».
 
-Ручка публичная и дёргает мессенджеры, поэтому на ней тот же лимитер, что
-и на заявке на франшизу.
+Ручка публичная и дёргает мессенджеры и почту, поэтому на ней тот же
+лимитер, что и на заявке на франшизу, и своя картинка-капча
+(``GET /api/captcha``). Капчу сверяем после остальных проверок: опечатка в
+email не должна сжигать одноразовый код. И до лимитера: неверный код не
+должен съедать квоту честному человеку, а перебирать цифры бессмысленно —
+на каждый токен одна попытка.
 """
 
 import re
@@ -21,6 +25,7 @@ from backend.core.database import get_db
 from backend.models.enums import FeedbackSource, FeedbackTopic, MediaFileKind
 from backend.models.feedback_message import FeedbackMessage
 from backend.models.media_file import MediaFile
+from backend.utils.captcha import CaptchaError, verify_captcha
 from backend.utils.feedback_notifications import notify_feedback_created
 from backend.utils.public_rate_limit import RateLimiter, client_ip
 
@@ -49,6 +54,8 @@ class FeedbackCreatePayload(BaseModel):
     referenceUrl: str | None = Field(default=None, max_length=2048)
     photoId: UUID | None = None
     source: str | None = Field(default=None, max_length=32)
+    captchaToken: str | None = Field(default=None, max_length=256)
+    captchaAnswer: str | None = Field(default=None, max_length=32)
 
 
 def resolve_source(raw: str | None) -> str:
@@ -89,6 +96,11 @@ async def create_feedback(
         reference_url.startswith("http://") or reference_url.startswith("https://")
     ):
         raise HTTPException(status_code=400, detail="INVALID_REFERENCE_URL")
+
+    try:
+        verify_captcha(payload.captchaToken, payload.captchaAnswer)
+    except CaptchaError as exc:
+        raise HTTPException(status_code=400, detail=exc.detail) from None
 
     if not _limiter.allow(client_ip(request)):
         raise HTTPException(status_code=429, detail="TOO_MANY_REQUESTS")

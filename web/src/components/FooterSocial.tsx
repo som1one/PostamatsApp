@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Mail, X } from "lucide-react";
+import { CaptchaField, solvedCaptcha, useCaptcha } from "@/components/CaptchaField";
 import { PersonalDataConsent } from "@/components/ConsentCheckbox";
 import { submitFeedback } from "@/shared/api/endpoints";
 
@@ -21,6 +22,7 @@ export function FooterSocial() {
   const [question, setQuestion] = useState("");
   const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState<FormStatus>({ kind: "idle" });
+  const captcha = useCaptcha(open);
 
   useEffect(() => {
     if (!open) {
@@ -48,6 +50,11 @@ export function FooterSocial() {
       setStatus({ kind: "error", message: "Заполните все поля формы." });
       return;
     }
+    const solved = solvedCaptcha(captcha);
+    if ("error" in solved) {
+      setStatus({ kind: "error", message: solved.error });
+      return;
+    }
     setStatus({ kind: "submitting" });
     try {
       await submitFeedback({
@@ -56,6 +63,7 @@ export function FooterSocial() {
         // Города нет отдельным полем в обращении, поэтому кладём его первой
         // строкой сообщения — так он виден и в админке, и в уведомлении.
         message: `Город: ${trimmedCity}\n\n${trimmedQuestion}`,
+        ...solved,
       });
       setStatus({ kind: "success" });
       setName("");
@@ -69,6 +77,8 @@ export function FooterSocial() {
           ? error.message
           : "Не удалось отправить вопрос. Попробуйте ещё раз.";
       setStatus({ kind: "error", message });
+    } finally {
+      void captcha.reload();
     }
   }
 
@@ -207,6 +217,8 @@ export function FooterSocial() {
                   required
                 />
               </label>
+
+              <CaptchaField captcha={captcha} />
 
               <PersonalDataConsent checked={consent} onChange={setConsent} />
 

@@ -39,6 +39,7 @@ from backend.routers.me import router as me_router
 from backend.routers.support import router as support_router
 from backend.realtime.chat_gateway import router as support_ws_router
 from backend.realtime.connection_hub import get_connection_hub
+from backend.routers.captcha import router as captcha_router
 from backend.routers.cities import router as cities_router
 from backend.routers.franchise_leads import router as franchise_leads_router
 from backend.routers.geo import router as geo_router
@@ -114,6 +115,7 @@ app.include_router(reservation_router)
 app.include_router(payments_router)
 app.include_router(yookassa_webhook_router)
 app.include_router(public_stats_router)
+app.include_router(captcha_router)
 app.include_router(feedback_router)
 app.include_router(franchise_leads_router)
 app.include_router(geo_router)
