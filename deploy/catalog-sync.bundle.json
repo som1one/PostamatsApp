@@ -293,6 +293,38 @@
       "originalName": "beri-bery-perforator-makita.jpg",
       "kind": "PRODUCT_COVER",
       "repoAssetPath": "assets/uploads/items/beri-bery-perforator-makita.jpg"
+    },
+    {
+      "fileKey": "uploads/items/karcher-wd6-1.webp",
+      "mimeType": "image/webp",
+      "fileSize": 82694,
+      "originalName": "karcher-wd6-1.webp",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/karcher-wd6-1.webp"
+    },
+    {
+      "fileKey": "uploads/items/karcher-wd6-2.webp",
+      "mimeType": "image/webp",
+      "fileSize": 252940,
+      "originalName": "karcher-wd6-2.webp",
+      "kind": "PRODUCT_GALLERY",
+      "repoAssetPath": "assets/uploads/items/karcher-wd6-2.webp"
+    },
+    {
+      "fileKey": "uploads/items/karcher-wd6-3.webp",
+      "mimeType": "image/webp",
+      "fileSize": 108594,
+      "originalName": "karcher-wd6-3.webp",
+      "kind": "PRODUCT_GALLERY",
+      "repoAssetPath": "assets/uploads/items/karcher-wd6-3.webp"
+    },
+    {
+      "fileKey": "uploads/items/karcher-wd6-4.webp",
+      "mimeType": "image/webp",
+      "fileSize": 120022,
+      "originalName": "karcher-wd6-4.webp",
+      "kind": "PRODUCT_GALLERY",
+      "repoAssetPath": "assets/uploads/items/karcher-wd6-4.webp"
     }
   ],
   "products": [
@@ -377,7 +409,7 @@
         }
       ],
       "filter": null,
-      "isActive": true
+      "isActive": false
     },
     {
       "slug": "drel",
@@ -402,6 +434,64 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "hozyajstvennyj-pylesos-wd-6-p-s-v-30-6-22-t",
+      "name": "Хозяйственный пылесос WD 6 P S V-30/6/22/T",
+      "brand": "Karcher",
+      "shortDescription": null,
+      "fullDescription": null,
+      "rulesText": null,
+      "kitDescription": null,
+      "specsJson": null,
+      "categorySlug": "home",
+      "coverFileKey": "uploads/items/karcher-wd6-1.webp",
+      "galleryFileKeys": [
+        "uploads/items/karcher-wd6-1.webp",
+        "uploads/items/karcher-wd6-2.webp",
+        "uploads/items/karcher-wd6-3.webp",
+        "uploads/items/karcher-wd6-4.webp"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "650.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "1170.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1660.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "3320.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 4
         }
       ],
       "filter": null,
@@ -1178,6 +1268,7 @@
     "avtonomnyj-projektor",
     "bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0",
     "drel",
+    "hozyajstvennyj-pylesos-wd-6-p-s-v-30-6-22-t",
     "jbl-partybox520-moschnaya-portativnaya-bluetooth-stereosistema",
     "karaoke-sistema-s-dvumya-besprovodnymi-mikrofonami",
     "moyuschij-pylesos-puzzi-101-1-100-130-0",
