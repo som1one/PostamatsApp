@@ -242,7 +242,7 @@ export function HomeClient() {
             <div className="hero-service-stack">
               <div className="hero-service-content">
                 <p className="eyebrow">аренда через постаматы</p>
-                <h1>Аренда нужных вещей рядом с вами, быстро и без залога</h1>
+                <h1>Аренда и прокат нужных вещей и техники рядом с вами без залога</h1>
               </div>
               <div className="hero-service-summary">
                 <p className="hero-service-description">

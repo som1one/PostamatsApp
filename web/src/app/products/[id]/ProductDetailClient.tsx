@@ -47,6 +47,12 @@ type LockerOption = {
 // просто остаётся скрытой по медиа-запросу.
 const PRODUCT_DESCRIPTION_TOGGLE_THRESHOLD = 140;
 
+// Заголовок страницы товара отдельно от названия: само название уходит
+// в брони, чеки и уведомления, поэтому в каталоге его не трогаем.
+const PRODUCT_PAGE_TITLES: Record<string, string> = {
+  "playstation-5": "PlayStation 5 (PS5) — аренда и прокат",
+};
+
 function ProductDescription({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
   const isLong = text.length > PRODUCT_DESCRIPTION_TOGGLE_THRESHOLD;
@@ -478,7 +484,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
             <ProductGallery images={images} title={product.name} />
             <div className="product-hero-copy">
               <p className="eyebrow">{product.brand || "Товар в аренду"}</p>
-              <h1 className="page-title">{product.name}</h1>
+              <h1 className="page-title">{PRODUCT_PAGE_TITLES[product.slug] ?? product.name}</h1>
               <ProductDescription
                 text={
                   product.fullDescription ||
