@@ -107,6 +107,10 @@ from backend.utils.rental_extension import (
 )
 from backend.utils.rental_return_flow import ReturnRequestError, start_rental_return
 from backend.utils.rental_serialization import serialize_rental_detail, serialize_rental_list_item
+from backend.utils.reservation_handover import (
+    get_handover_blocker,
+    release_unit_from_reservation,
+)
 from backend.utils.reservation_utils import (
     calculate_paid_reservation_expires_at,
     calculate_planned_end_at,
@@ -514,6 +518,7 @@ async def list_my_reservations(
     cover_ids = [product.cover_file_id for product in products if product.cover_file_id]
     media_by_id = await load_media_files_by_ids(db, cover_ids) if cover_ids else {}
 
+    now = datetime.now(timezone.utc)
     items: list[dict] = []
     for reservation in reservations:
         product = product_by_id.get(reservation.product_id)
@@ -524,10 +529,21 @@ async def list_my_reservations(
             if media is not None:
                 cover_url = public_media_url(media.file_key)
 
+        # Оплаченная бронь без аренды: либо confirm ещё не дошёл (секунды),
+        # либо вещь занята и PIN выдавать пока некуда — тогда клиенту нужно
+        # сказать, чего он ждёт.
+        waiting_for_unit = False
+        if reservation.status == ReservationStatus.PAYMENT_AUTHORIZED:
+            unit = await db.get(InventoryUnit, reservation.inventory_unit_id)
+            waiting_for_unit = (
+                await get_handover_blocker(db, reservation, unit, now=now)
+            ) is not None
+
         items.append(
             {
                 "id": str(reservation.id),
                 "status": reservation.status.value,
+                "waitingForUnit": waiting_for_unit,
                 "expiresAt": ensure_utc(reservation.expires_at).isoformat(),
                 "pickupAt": (
                     ensure_utc(reservation.pickup_at).isoformat()
@@ -644,11 +660,10 @@ async def cancel_my_reservation(
         # Деньги ушли обратно — возвращаем и бонусы, списанные за эту бронь.
         await release_bonus_spend(db, reservation_id=reservation.id)
 
-        await db.execute(
-            update(InventoryUnit)
-            .where(InventoryUnit.id == reservation.inventory_unit_id)
-            .values(status=InventoryStatus.AVAILABLE)
-        )
+        # Резерв снимаем аккуратно: бронь могла быть оформлена заранее на
+        # вещь, которая сейчас на руках у другого клиента, — её статус
+        # отмена трогать не должна.
+        await release_unit_from_reservation(db, reservation, now=now)
 
         await db.execute(
             update(Reservation)

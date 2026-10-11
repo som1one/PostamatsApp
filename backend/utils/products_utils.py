@@ -310,6 +310,21 @@ async def load_available_lockers_for_product(
     product_id: UUID,
     city_id: UUID | None,
 ) -> list[dict]:
+    """Постаматы, где товар можно взять или забронировать.
+
+    ``availableUnits`` — сколько единиц лежит в ячейках и свободно прямо
+    сейчас. ``bookableUnits`` — сколько вообще закреплено за постаматом,
+    включая занятые бронью и выданные из него на руки: на них принимаем
+    бронь на даты, когда вещь освободится. Занятость по дням отдаёт
+    ``compute_busy_dates_for_product``.
+    """
+    from backend.models.rental import Rental
+    from backend.utils.reservation_handover import (
+        BOOKABLE_IN_CELL_STATUSES,
+        ON_HANDS_UNIT_STATUSES,
+        UNFINISHED_RENTAL_STATUSES,
+    )
+
     stmt = (
         select(
             LockerLocation.id,
@@ -328,6 +343,18 @@ async def load_available_lockers_for_product(
                     else_=0,
                 )
             ).label("units"),
+            func.sum(
+                case(
+                    (
+                        and_(
+                            InventoryUnit.status.in_(BOOKABLE_IN_CELL_STATUSES),
+                            LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY)
+                        ),
+                        1
+                    ),
+                    else_=0,
+                )
+            ).label("bookable"),
         )
         .select_from(InventoryUnit)
         .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
@@ -348,18 +375,63 @@ async def load_available_lockers_for_product(
     )
     if city_id is not None:
         stmt = stmt.where(LockerLocation.city_id == city_id)
-    stmt = stmt.order_by(LockerLocation.name.asc())
     result = await db.execute(stmt)
-    return [
-        {
+    lockers = {
+        row.id: {
             "lockerId": str(row.id),
             "name": row.name,
             "address": row.address,
             "status": row.status.value,
             "availableUnits": int(row.units or 0),
+            "bookableUnits": int(row.bookable or 0),
         }
         for row in result
-    ]
+    }
+
+    # Вещи на руках в ячейках не числятся (locker_cell_id обнулён при
+    # заборе) — к постамату их привязывает незавершённая аренда.
+    on_hands_stmt = (
+        select(
+            LockerLocation.id,
+            LockerLocation.name,
+            LockerLocation.address,
+            LockerLocation.status,
+            func.count(func.distinct(InventoryUnit.id)).label("units"),
+        )
+        .select_from(InventoryUnit)
+        .join(Rental, Rental.inventory_unit_id == InventoryUnit.id)
+        .join(LockerLocation, Rental.pickup_locker_id == LockerLocation.id)
+        .where(
+            InventoryUnit.product_id == product_id,
+            InventoryUnit.locker_cell_id.is_(None),
+            InventoryUnit.status.in_(ON_HANDS_UNIT_STATUSES),
+            Rental.status.in_(UNFINISHED_RENTAL_STATUSES),
+            LockerLocation.status != LockerStatus.OFFLINE,
+        )
+        .group_by(
+            LockerLocation.id,
+            LockerLocation.name,
+            LockerLocation.address,
+            LockerLocation.status,
+        )
+    )
+    if city_id is not None:
+        on_hands_stmt = on_hands_stmt.where(LockerLocation.city_id == city_id)
+    for row in await db.execute(on_hands_stmt):
+        entry = lockers.setdefault(
+            row.id,
+            {
+                "lockerId": str(row.id),
+                "name": row.name,
+                "address": row.address,
+                "status": row.status.value,
+                "availableUnits": 0,
+                "bookableUnits": 0,
+            },
+        )
+        entry["bookableUnits"] += int(row.units or 0)
+
+    return sorted(lockers.values(), key=lambda item: item["name"])
 
 
 async def find_price_plan(
@@ -425,7 +497,9 @@ async def compute_busy_dates_for_product(
 
     Важно: метод не отвечает за защиту от двойного бронирования (она
     обеспечивается статусом инвентаря на этапе создания брони). Это лишь
-    подсказка для UI, какие дни заняты.
+    подсказка для UI, какие дни заняты. Правила обязаны совпадать с
+    проверкой пересечений в ``_get_available_inventory_unit``, иначе
+    календарь предложит дату, на которой оформление упадёт.
     """
 
     from datetime import date, datetime, time, timedelta, timezone
@@ -435,8 +509,18 @@ async def compute_busy_dates_for_product(
     from backend.models.rental import Rental
     from backend.models.reservation import Reservation
     from backend.models.enums import RentalStatus, ReservationStatus, InventoryStatus
+    from backend.utils.reservation_handover import (
+        AWAITING_PICKUP_RENTAL_STATUSES,
+        is_unit_on_hands,
+    )
 
     local_tz = timezone(timedelta(hours=3))
+    now = datetime.now(timezone.utc)
+
+    def _utc(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
 
     def _to_local_date(value: datetime) -> date:
         if value.tzinfo is None:
@@ -500,8 +584,8 @@ async def compute_busy_dates_for_product(
         )
     rentals = list(
         (
-            await db.scalars(
-                select(Rental)
+            await db.execute(
+                select(Rental, InventoryUnit)
                 .join(InventoryUnit, Rental.inventory_unit_id == InventoryUnit.id)
                 .where(*rental_conditions)
             )
@@ -531,7 +615,7 @@ async def compute_busy_dates_for_product(
         )
         _mark_range(start, end)
 
-    for rental in rentals:
+    for rental, unit in rentals:
         start = rental.starts_at or rental.created_at
         if rental.status == RentalStatus.COMPLETED:
             if not rental.actual_end_at:
@@ -539,6 +623,14 @@ async def compute_busy_dates_for_product(
             end = rental.actual_end_at
         else:
             end = rental.planned_end_at
+            if rental.status in AWAITING_PICKUP_RENTAL_STATUSES:
+                # Вещь отложена в ячейке под эту выдачу: раньше неё её
+                # никому не отдать, даже если даты до неё свободны.
+                if start is None or _utc(start) > now:
+                    start = now
+            elif is_unit_on_hands(unit) and end is not None and _utc(end) < now:
+                # Возврат просрочен, вещи в постамате всё ещё нет.
+                end = now
         _mark_range(start, end)
 
     return sorted(d.isoformat() for d in busy)

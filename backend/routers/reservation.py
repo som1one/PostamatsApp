@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -17,7 +18,6 @@ from backend.models.enums import (
     ReservationStatus,
 )
 from backend.models.inventory_unit import InventoryUnit
-from backend.models.locker_cell import LockerCell
 from backend.models.locker_location import LockerLocation
 from backend.models.payment import Payment
 from backend.models.price_plan import PricePlan
@@ -32,10 +32,7 @@ from backend.schemas.reservation_schemas import (
     ReservationQuotePayload,
 )
 from backend.utils.auth_utils import get_current_client_user
-from backend.utils.lockers_utils import (
-    LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY,
-    price_plan_to_minor_units,
-)
+from backend.utils.lockers_utils import price_plan_to_minor_units
 from backend.utils.products_utils import find_price_plan, load_media_files_by_ids, public_media_url
 from backend.utils.product_filters import (
     find_effective_filter_price_plan,
@@ -45,14 +42,26 @@ from backend.utils.product_filters import (
     resolve_effective_cover_url,
 )
 from backend.utils.esi_client import EsiReserveError, reserve_cell_with_pin
+from backend.utils.reservation_handover import (
+    AWAITING_PICKUP_RENTAL_STATUSES,
+    calculate_handover_pickup_expires_at,
+    claim_next_booking_notice,
+    get_handover_blocker,
+    is_unit_on_hands,
+    load_bookable_units,
+    release_unit_from_reservation,
+    waited_for_unit,
+)
 from backend.utils.reservation_utils import (
     calculate_expires_at,
-    calculate_pickup_expires_at,
+    calculate_paid_reservation_expires_at,
     calculate_planned_end_at,
     ensure_reservable_user,
     ensure_utc,
     generate_pickup_pin,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/reservations", tags=["reservation"])
 
@@ -111,31 +120,15 @@ async def _get_available_inventory_unit(
     desired_start: datetime | None = None,
     desired_end: datetime | None = None,
 ) -> InventoryUnit | None:
-    from backend.utils.products_utils import PLACED_INVENTORY_STATUSES
     from backend.models.reservation import Reservation
     from backend.models.rental import Rental
     from backend.models.enums import ReservationStatus, RentalStatus
     from backend.utils.reservation_utils import calculate_planned_end_at
     from datetime import timezone
 
-    bookable_statuses = tuple(
-        status
-        for status in PLACED_INVENTORY_STATUSES
-        if status != InventoryStatus.AWAITING_CONFIRMATION
-    )
-
-    stmt = (
-        select(InventoryUnit)
-        .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
-        .where(
-            LockerCell.locker_id == locker_id,
-            InventoryUnit.product_id == product_id,
-            InventoryUnit.status.in_(bookable_statuses),
-            LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
-        )
-        .order_by(InventoryUnit.created_at.asc())
-    )
-    units = list((await db.scalars(stmt)).all())
+    # Вместе с лежащими в ячейках берём и выданные из этого постамата:
+    # вещь на руках можно бронировать на даты после её возврата.
+    units = await load_bookable_units(db, locker_id=locker_id, product_id=product_id)
 
     if not units:
         return None
@@ -167,7 +160,8 @@ async def _get_available_inventory_unit(
 
     from sqlalchemy import or_, and_
     from datetime import timedelta
-    two_days_ago = datetime.now(timezone.utc) - timedelta(days=2)
+    now = datetime.now(timezone.utc)
+    two_days_ago = now - timedelta(days=2)
 
     rent_stmt = select(Rental).where(
         Rental.inventory_unit_id.in_(unit_ids),
@@ -225,6 +219,14 @@ async def _get_available_inventory_unit(
                     r_end = to_utc(rent.actual_end_at) + timedelta(hours=24)
                 else:
                     r_end = to_utc(rent.planned_end_at)
+                    if rent.status in AWAITING_PICKUP_RENTAL_STATUSES:
+                        # Вещь отложена в ячейке под эту выдачу: раньше неё
+                        # её никому не отдать, даже если даты до неё свободны.
+                        r_start = min(r_start, now)
+                    elif is_unit_on_hands(unit):
+                        # Возврат просрочен, вещи в постамате всё ещё нет —
+                        # бронь «на сегодня» ждала бы её впустую.
+                        r_end = max(r_end, now)
                 if max(d_start, r_start) < min(d_end, r_end):
                     has_overlap = True
                     break
@@ -432,11 +434,21 @@ async def get_reservation(
     if product_filter and product_filter.name and product_filter.name.strip():
         product_name = product_filter.name.strip()
 
+    waiting_for_unit = False
+    if reservation.status == ReservationStatus.PAYMENT_AUTHORIZED:
+        unit = await db.get(InventoryUnit, reservation.inventory_unit_id)
+        waiting_for_unit = (
+            await get_handover_blocker(
+                db, reservation, unit, now=datetime.now(timezone.utc)
+            )
+        ) is not None
+
     return {
         "data": {
             "reservation": {
                 "id": str(reservation.id),
                 "status": reservation.status.value,
+                "waitingForUnit": waiting_for_unit,
                 "productId": str(reservation.product_id),
                 "lockerId": str(reservation.locker_id),
                 "durationType": reservation.duration_type,
@@ -468,6 +480,68 @@ async def get_reservation(
                     "currency": plan.currency if plan else "RUB",
                 },
             }
+        }
+    }
+
+
+NEXT_BOOKING_SMS_TEXT = (
+    "Ваш арендованный товар забронирован следующим клиентом. "
+    "Пожалуйста, верните его вовремя, чтобы не сорвать следующую аренду."
+)
+
+
+async def _send_sms_quietly(phone: str, text: str) -> None:
+    from backend.utils.sms_ru import send_sms
+
+    try:
+        await send_sms(phone, text)
+    except Exception as exc:
+        logger.warning("Failed to send next-booking SMS: %s", exc)
+
+
+async def _keep_reservation_waiting(
+    db: AsyncSession,
+    reservation: Reservation,
+    inventory_unit: InventoryUnit | None,
+    *,
+    blocker: str,
+    background_tasks: BackgroundTasks,
+) -> dict:
+    """Оплата есть, а выдавать пока нечего: бронь ждёт вещь оплаченной."""
+    reservation.status = ReservationStatus.PAYMENT_AUTHORIZED
+    # Ждать придётся дольше двухчасового окна оплаты — до конца дня выдачи.
+    reservation.expires_at = calculate_paid_reservation_expires_at(reservation)
+
+    # Тому, у кого вещь сейчас на руках, напоминаем вернуть её вовремя.
+    notify_phone = (
+        await claim_next_booking_notice(db, reservation=reservation, unit=inventory_unit)
+        if blocker == "unit_out"
+        else None
+    )
+
+    try:
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="RESERVATION_CONFIRM_FAILED") from exc
+
+    if notify_phone:
+        background_tasks.add_task(_send_sms_quietly, notify_phone, NEXT_BOOKING_SMS_TEXT)
+
+    return {
+        "data": {
+            "rental": None,
+            "reservation": {
+                "id": str(reservation.id),
+                "status": reservation.status.value,
+                "expiresAt": ensure_utc(reservation.expires_at).isoformat(),
+                "pickupAt": (
+                    ensure_utc(reservation.pickup_at).isoformat()
+                    if reservation.pickup_at is not None
+                    else None
+                ),
+            },
+            "handover": {"status": "waiting", "reason": blocker},
         }
     }
 
@@ -527,6 +601,40 @@ async def confirm_reservation(
         if reservation.status != ReservationStatus.PAYMENT_AUTHORIZED:
             raise HTTPException(status_code=402, detail="PAYMENT_REQUIRED")
 
+    now = datetime.now(timezone.utc)
+    if ensure_utc(reservation.expires_at) <= now:
+        # Оплаченную бронь закрывает только шедулер экспирации: он сначала
+        # возвращает деньги. Пометь мы её EXPIRED здесь — он бы её уже не
+        # увидел, и клиент остался бы и без вещи, и без денег.
+        is_paid = (
+            payment is not None
+            or reservation.status == ReservationStatus.PAYMENT_AUTHORIZED
+        )
+        if not is_paid:
+            await release_unit_from_reservation(db, reservation, now=now)
+            reservation.status = ReservationStatus.EXPIRED
+            try:
+                await db.commit()
+            except Exception as exc:
+                await db.rollback()
+                raise HTTPException(status_code=500, detail="RESERVATION_CONFIRM_FAILED") from exc
+        raise HTTPException(status_code=409, detail="RESERVATION_EXPIRED")
+
+    # Вещь может быть ещё не готова к выдаче: на руках у предыдущего
+    # клиента, на проверке после возврата или отложена под чужую выдачу.
+    # PIN выдавать некуда, поэтому бронь остаётся оплаченной и ждёт —
+    # аренду создаст auto_confirm_paid_reservations, когда вещь освободится.
+    inventory_unit = await db.get(InventoryUnit, reservation.inventory_unit_id)
+    blocker = await get_handover_blocker(db, reservation, inventory_unit, now=now)
+    if blocker is not None:
+        return await _keep_reservation_waiting(
+            db,
+            reservation,
+            inventory_unit,
+            blocker=blocker,
+            background_tasks=background_tasks,
+        )
+
     locker = await db.get(LockerLocation, reservation.locker_id)
     if locker is None:
         raise HTTPException(status_code=404, detail="LOCKER_NOT_FOUND")
@@ -535,28 +643,14 @@ async def confirm_reservation(
     if locker.status != LockerStatus.ONLINE:
         raise HTTPException(status_code=409, detail="LOCKER_NOT_BOOKABLE")
 
-    now = datetime.now(timezone.utc)
-    if ensure_utc(reservation.expires_at) <= now:
-        inventory_unit = await db.get(InventoryUnit, reservation.inventory_unit_id)
-        if inventory_unit is not None and inventory_unit.status == InventoryStatus.RESERVED:
-            inventory_unit.status = InventoryStatus.AVAILABLE
-        reservation.status = ReservationStatus.EXPIRED
-        try:
-            await db.commit()
-        except Exception as exc:
-            await db.rollback()
-            raise HTTPException(status_code=500, detail="RESERVATION_CONFIRM_FAILED") from exc
-        raise HTTPException(status_code=409, detail="RESERVATION_EXPIRED")
-
-    inventory_unit = await db.get(InventoryUnit, reservation.inventory_unit_id)
-    if inventory_unit is None or inventory_unit.locker_cell_id is None:
-        raise HTTPException(status_code=409, detail="INVENTORY_CELL_MISSING")
-
     pickup_pin = generate_pickup_pin()
 
     # Источник старта аренды: payload.startAt > reservation.pickup_at > now.
     pickup_at_source = payload.startAt if payload.startAt is not None else reservation.pickup_at
     starts_at = ensure_utc(pickup_at_source) if pickup_at_source is not None else now
+    waited = starts_at <= now and await waited_for_unit(
+        db, reservation, inventory_unit.id
+    )
 
     # Резервируем ячейку в постамате через ESI. Если постамат офлайн или
     # ESI ответил ошибкой, бронь не подтверждаем — клиент увидит понятное
@@ -589,10 +683,8 @@ async def confirm_reservation(
         # сейчас или раньше), либо до конца «суток выдачи» — то есть
         # starts_at + 24 часа. Так клиент успевает в любое время
         # выбранного дня, и пара лишних часов на буфер.
-        pickup_expires_at=(
-            calculate_pickup_expires_at(now)
-            if starts_at <= now
-            else starts_at + timedelta(hours=24)
+        pickup_expires_at=calculate_handover_pickup_expires_at(
+            now, starts_at, waited=waited
         ),
         # Дата выдачи: фронт передал в /reservations или confirm. Хранится
         # в UTC. Используется на /me/rentals/{id}/open-cell для запрета
@@ -609,6 +701,10 @@ async def confirm_reservation(
     )
     reservation.status = ReservationStatus.CONFIRMED
     reservation.confirmed_at = now
+    # Бронь могла дождаться вещи уже после проверки оператором (AVAILABLE):
+    # с этого момента она отложена под выдачу.
+    if inventory_unit.status == InventoryStatus.AVAILABLE:
+        inventory_unit.status = InventoryStatus.RESERVED
     db.add(rental)
 
     try:
@@ -630,33 +726,6 @@ async def confirm_reservation(
     except Exception as exc:
         await db.rollback()
         raise HTTPException(status_code=500, detail="RESERVATION_CONFIRM_FAILED") from exc
-
-    # Notify current active renter if any
-    active_rental_stmt = (
-        select(Rental)
-        .where(
-            Rental.inventory_unit_id == reservation.inventory_unit_id,
-            Rental.status.in_([RentalStatus.ACTIVE, RentalStatus.OVERDUE, RentalStatus.PICKUP_OPENED]),
-            Rental.user_id != user.id
-        )
-        .limit(1)
-    )
-    active_rental = (await db.scalars(active_rental_stmt)).first()
-    if active_rental:
-        active_user = await db.get(User, active_rental.user_id)
-        if active_user and active_user.phone:
-            text = "Ваш арендованный товар забронирован следующим клиентом. Пожалуйста, верните его вовремя, чтобы не сорвать следующую аренду."
-            from backend.utils.sms_ru import send_sms
-            # Use background_tasks to fire-and-forget the SMS sending
-            # Note: We must swallow SmsRuError internally or let FastAPI log the background task error.
-            async def _safe_send_sms(phone: str, msg: str):
-                import logging
-                try:
-                    await send_sms(phone, msg)
-                except Exception as e:
-                    logging.getLogger(__name__).warning("Failed to send reservation overlap SMS: %s", e)
-            
-            background_tasks.add_task(_safe_send_sms, active_user.phone, text)
 
     return {
         "data": {

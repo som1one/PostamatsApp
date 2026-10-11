@@ -97,7 +97,11 @@ export type ProductDetail = {
     name: string;
     address: string;
     status: string;
+    /** Свободно в ячейках прямо сейчас. */
     availableUnits: number;
+    /** Закреплено за постаматом, включая занятые сейчас (бронь, на руках):
+     * их можно бронировать на свободные даты. */
+    bookableUnits?: number;
   }>;
 };
 
@@ -173,6 +177,8 @@ export type ReservationQuote = {
 export type ReservationSummary = {
   id: string;
   status: string;
+  /** Бронь оплачена, но вещь ещё занята: PIN появится, когда она освободится. */
+  waitingForUnit?: boolean;
   productId?: string;
   inventoryUnitId?: string;
   lockerId?: string;
@@ -202,6 +208,8 @@ export type ReservationSummary = {
 export type UpcomingReservation = {
   id: string;
   status: string;
+  /** Бронь оплачена, но вещь ещё занята: PIN появится, когда она освободится. */
+  waitingForUnit?: boolean;
   expiresAt: string;
   pickupAt?: string | null;
   cancelledAt?: string | null;

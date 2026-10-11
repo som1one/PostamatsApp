@@ -38,6 +38,9 @@ type LockerOption = {
   address: string;
   status: string;
   availableUnits: number;
+  /** Свободных сейчас нет (вещь на руках или под чужой бронью), но её
+   * можно забронировать на даты, когда она освободится. */
+  isBusyNow: boolean;
   isAvailable: boolean;
 };
 
@@ -88,6 +91,15 @@ function tomorrowInputValue() {
   const year = tomorrow.getFullYear();
   const month = String(tomorrow.getMonth() + 1).padStart(2, "0");
   const day = String(tomorrow.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function shiftInputDate(iso: string, days: number) {
+  const next = new Date(`${iso}T00:00:00`);
+  next.setDate(next.getDate() + days);
+  const year = next.getFullYear();
+  const month = String(next.getMonth() + 1).padStart(2, "0");
+  const day = String(next.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
@@ -211,6 +223,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
           address: locker.address,
           status: locker.status,
           availableUnits: locker.availableUnits,
+          bookableUnits: locker.bookableUnits ?? 0,
         },
       ]),
     );
@@ -219,13 +232,18 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
       const available = availableById.get(locker.id);
       const isRescheduleLocker =
         Boolean(rescheduleReservationId) && preselectedLockerId === locker.id;
+      const isFreeNow = (available?.availableUnits ?? 0) > 0 || isRescheduleLocker;
+      // Вещь занята сейчас, но закреплена за этим постаматом — бронь
+      // принимаем на свободные даты из календаря.
+      const isBusyNow = !isFreeNow && (available?.bookableUnits ?? 0) > 0;
       return {
         lockerId: locker.id,
         name: available?.name ?? locker.name,
         address: available?.address ?? locker.address,
         status: available?.status ?? locker.status,
         availableUnits: available?.availableUnits ?? (isRescheduleLocker ? 1 : 0),
-        isAvailable: (available?.availableUnits ?? 0) > 0 || isRescheduleLocker,
+        isBusyNow,
+        isAvailable: isFreeNow || isBusyNow,
       };
     });
 
@@ -237,12 +255,16 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
         address: locker.address,
         status: locker.status,
         availableUnits: locker.availableUnits,
-        isAvailable: locker.availableUnits > 0,
+        isBusyNow: locker.availableUnits <= 0 && (locker.bookableUnits ?? 0) > 0,
+        isAvailable: locker.availableUnits > 0 || (locker.bookableUnits ?? 0) > 0,
       }));
 
     return [...all, ...missingAvailable].sort((a, b) => {
       if (a.isAvailable !== b.isAvailable) {
         return a.isAvailable ? -1 : 1;
+      }
+      if (a.isBusyNow !== b.isBusyNow) {
+        return a.isBusyNow ? 1 : -1;
       }
       return a.name.localeCompare(b.name, "ru");
     });
@@ -370,6 +392,8 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
             ? current
             : item.availableLockers.find((locker) => locker.lockerId === preselectedLockerId)
                 ?.lockerId ||
+              // Сначала постамат, где вещь можно забрать уже сегодня.
+              item.availableLockers.find((locker) => locker.availableUnits > 0)?.lockerId ||
               item.availableLockers[0]?.lockerId ||
               "",
         );
@@ -454,6 +478,25 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
       active = false;
     };
   }, [product, lockerId, rescheduleReservationId]);
+
+  // Старт по умолчанию — сегодня, а у занятой вещи сегодня как раз занято.
+  // Переносим выбор на ближайший свободный день, иначе оформление упрётся
+  // в отказ на дате, которую человек даже не выбирал.
+  useEffect(() => {
+    if (!date || !busyDates.includes(date)) {
+      return;
+    }
+    const busy = new Set(busyDates);
+    for (let offset = 1; offset <= 60; offset += 1) {
+      const candidate = shiftInputDate(date, offset);
+      if (!busy.has(candidate)) {
+        const dayAfter = shiftInputDate(candidate, 1);
+        setDate(candidate);
+        setEndDate(busy.has(dayAfter) ? candidate : dayAfter);
+        return;
+      }
+    }
+  }, [busyDates, date]);
 
   return (
     <PageChrome>
@@ -625,7 +668,13 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                           <div className="product-locker-card-row">
                             <strong>{locker.name}</strong>
                             <div className="product-locker-card-badges">
-                              <small>{locker.isAvailable ? `${locker.availableUnits} шт.` : "временно недоступно"}</small>
+                              <small>
+                                {locker.isBusyNow
+                                  ? "сейчас занят"
+                                  : locker.isAvailable
+                                    ? `${locker.availableUnits} шт.`
+                                    : "временно недоступно"}
+                              </small>
                               {isSelected ? <em>Выбран</em> : null}
                             </div>
                           </div>
@@ -641,6 +690,13 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                     text="Выберите другой город или вернитесь позже."
                   />
                 )}
+                {selectedLocker?.isBusyNow ? (
+                  <div className="alert">
+                    Сейчас эта вещь занята. Выберите свободные даты в календаре — после
+                    оплаты бронь будет ждать, а PIN-код появится в заказе, как только вещь
+                    вернётся в постамат.
+                  </div>
+                ) : null}
               </section>
 
               {pricingLoading ? <div className="loader loader-small">Пересчитываем стоимость</div> : null}

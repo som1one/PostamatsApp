@@ -659,6 +659,13 @@ function OrderDetailContent({ id }: { id: string }) {
     setError("");
     try {
       const rental = await confirmReservation(reservationId);
+      if (!rental) {
+        // Вещь ещё занята — аренды с PIN пока нет. Перечитываем бронь,
+        // чтобы показать ожидание вместо кнопки.
+        await load();
+        setBusy(false);
+        return;
+      }
       router.replace(`/profile/orders/${rental.id}`);
     } catch (err) {
       if (err instanceof ApiError && err.code === "LOCKER_OFFLINE") {
@@ -955,11 +962,15 @@ function OrderDetailContent({ id }: { id: string }) {
                         <div>
                           <strong>Оплата подтверждена</strong>
                           <span>
-                            {pickupLabel === "сегодня"
-                              ? "Получение сегодня — нажмите «Перейти к получению» ниже."
-                              : pickupLabel
-                                ? `Получение запланировано на ${pickupLabel}.`
-                                : `Бронь активна до ${formatDateTime(order.data.expiresAt)}.`}
+                            {order.data.waitingForUnit
+                              ? pickupLabel && pickupLabel !== "сегодня"
+                                ? `Получение запланировано на ${pickupLabel}. PIN-код появится, когда вещь вернётся в постамат.`
+                                : "PIN-код появится, как только вещь вернётся в постамат."
+                              : pickupLabel === "сегодня"
+                                ? "Получение сегодня — нажмите «Перейти к получению» ниже."
+                                : pickupLabel
+                                  ? `Получение запланировано на ${pickupLabel}.`
+                                  : `Бронь активна до ${formatDateTime(order.data.expiresAt)}.`}
                           </span>
                         </div>
                       </div>
@@ -1135,7 +1146,19 @@ function OrderDetailContent({ id }: { id: string }) {
             ) : null}
 
             {/* Continue to pickup: paid reservation not yet converted into a rental */}
-            {isReservation && order.data.status === "payment_authorized" ? (
+            {isReservation &&
+            order.data.status === "payment_authorized" &&
+            order.data.waitingForUnit ? (
+              <p className="muted detail-actions-hint">
+                Оплата прошла. Вещь сейчас у другого клиента или на проверке после
+                возврата — как только она освободится, здесь появится PIN-код. Если
+                она не успеет освободиться в день получения, бронь отменится, а деньги
+                вернутся.
+              </p>
+            ) : null}
+            {isReservation &&
+            order.data.status === "payment_authorized" &&
+            !order.data.waitingForUnit ? (
               <>
                 <p className="muted detail-actions-hint">
                   Оплата прошла. Нажмите «Перейти к получению» — заказ откроется с

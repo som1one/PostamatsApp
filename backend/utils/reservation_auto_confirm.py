@@ -20,6 +20,11 @@ POST /reservations/{id}/confirm через секунды после оплат�
    CONFIRMED. Если постамат офлайн или ESI недоступен — просто ждёт
    следующего тика.
 
+Тот же sweep выдаёт вещь броням, оформленным заранее: пока она на руках у
+предыдущего клиента или на проверке после возврата, бронь ждёт оплаченной
+(см. backend.utils.reservation_handover), а аренда с PIN создаётся здесь,
+как только вещь освободилась.
+
 Свежие брони (моложе AUTO_CONFIRM_MIN_AGE_SECONDS) не трогаем, чтобы
 не гоняться с confirm-запросом фронта сразу после оплаты.
 """
@@ -30,6 +35,7 @@ from sqlalchemy import select
 
 from backend.core.database import SessionLocal
 from backend.models.enums import (
+    InventoryStatus,
     LockerStatus,
     RentalEventSource,
     RentalStatus,
@@ -41,9 +47,13 @@ from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
 from backend.models.reservation import Reservation
 from backend.utils.esi_client import EsiReserveError, reserve_cell_with_pin
+from backend.utils.reservation_handover import (
+    calculate_handover_pickup_expires_at,
+    get_handover_blocker,
+    waited_for_unit,
+)
 from backend.utils.reservation_utils import (
     calculate_paid_reservation_expires_at,
-    calculate_pickup_expires_at,
     calculate_planned_end_at,
     ensure_utc,
     generate_pickup_pin,
@@ -128,10 +138,14 @@ async def _confirm_reservation(db, reservation: Reservation, now: datetime) -> N
         return
 
     inventory_unit = await db.get(InventoryUnit, reservation.inventory_unit_id)
-    if inventory_unit is None or inventory_unit.locker_cell_id is None:
-        logger.warning(
-            "Auto-confirm: reservation %s has no inventory cell, skipping",
+    blocker = await get_handover_blocker(db, reservation, inventory_unit, now=now)
+    if blocker is not None:
+        # Штатное ожидание (вещь на руках или на проверке) может длиться
+        # днями, поэтому не warning: иначе лог зарастает строкой в минуту.
+        logger.debug(
+            "Auto-confirm: reservation %s is waiting for its unit (%s)",
             reservation.id,
+            blocker,
         )
         return
 
@@ -153,6 +167,9 @@ async def _confirm_reservation(db, reservation: Reservation, now: datetime) -> N
     starts_at = (
         ensure_utc(reservation.pickup_at) if reservation.pickup_at is not None else now
     )
+    waited = starts_at <= now and await waited_for_unit(
+        db, reservation, inventory_unit.id
+    )
     rental = Rental(
         user_id=reservation.user_id,
         reservation_id=reservation.id,
@@ -160,10 +177,8 @@ async def _confirm_reservation(db, reservation: Reservation, now: datetime) -> N
         pickup_locker_id=reservation.locker_id,
         pickup_pin=pickup_pin,
         status=RentalStatus.PICKUP_READY,
-        pickup_expires_at=(
-            calculate_pickup_expires_at(now)
-            if starts_at <= now
-            else starts_at + timedelta(hours=24)
+        pickup_expires_at=calculate_handover_pickup_expires_at(
+            now, starts_at, waited=waited
         ),
         starts_at=starts_at,
         planned_end_at=calculate_planned_end_at(
@@ -174,6 +189,10 @@ async def _confirm_reservation(db, reservation: Reservation, now: datetime) -> N
     )
     reservation.status = ReservationStatus.CONFIRMED
     reservation.confirmed_at = now
+    # После проверки оператором вещь числится AVAILABLE — с этого момента
+    # она отложена под выдачу.
+    if inventory_unit.status == InventoryStatus.AVAILABLE:
+        inventory_unit.status = InventoryStatus.RESERVED
     db.add(rental)
     await db.flush()
     db.add(

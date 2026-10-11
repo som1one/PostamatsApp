@@ -34,6 +34,7 @@ from backend.utils.products_utils import (
     public_media_url,
     serialize_product_list_item,
 )
+from backend.utils.reservation_handover import load_bookable_units
 from backend.utils.product_filters import (
     find_effective_filter_price_plan,
     is_product_visible,
@@ -400,9 +401,11 @@ async def get_product_pricing(
     if plan is None and filter_plan is None:
         raise HTTPException(status_code=404, detail="PRICE_PLAN_NOT_FOUND")
 
+    # Тот же набор единиц, из которого потом выбирает создание брони:
+    # и лежащие в ячейках, и выданные из этого постамата на руки.
     try:
-        counts = await aggregate_available_inventory_by_product(
-            db, locker_uuid, product_id, include_placed=True
+        units = len(
+            await load_bookable_units(db, locker_id=locker_uuid, product_id=product_id)
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail="PRICING_FAILED") from exc
@@ -414,7 +417,6 @@ async def get_product_pricing(
         product_id=product_id,
         locker_id=locker_uuid,
     )
-    units = counts.get(product_id, 0)
     if units <= 0 and reschedule_reservation is not None:
         units = 1
     if units <= 0:
@@ -498,6 +500,7 @@ async def get_product(
                         "address": locker.address,
                         "status": locker.status.value,
                         "availableUnits": 1,
+                        "bookableUnits": 1,
                     }
                 )
                 lockers.sort(key=lambda item: item["name"])

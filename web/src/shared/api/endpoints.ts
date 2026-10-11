@@ -432,6 +432,12 @@ export async function authorizePaymentDevStub(paymentId: string) {
   return data.payment;
 }
 
+/**
+ * Превращает оплаченную бронь в аренду. Возвращает `null`, если вещь ещё
+ * занята (на руках у другого клиента или на проверке после возврата): бронь
+ * остаётся оплаченной, а аренду с PIN бэкенд создаст сам, когда вещь
+ * освободится.
+ */
 export async function confirmReservation(
   reservationId: string,
   paymentId?: string,
@@ -447,7 +453,7 @@ export async function confirmReservation(
       pickupPin: string;
       pickupLockerId: string;
       plannedEndAt: string;
-    };
+    } | null;
   }>(`/reservations/${reservationId}/confirm`, {
     method: "POST",
     body,

@@ -54,6 +54,8 @@ function PaymentReturnContent() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [cancelled, setCancelled] = useState(false);
+  // Оплата прошла, но вещь ещё занята: аренды с PIN пока нет, бронь ждёт.
+  const [waitingForUnit, setWaitingForUnit] = useState(false);
   const [pending, setPending] = useState<PendingCheckout | null | undefined>(undefined);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
@@ -93,6 +95,7 @@ function PaymentReturnContent() {
             return;
           }
           setRental(createdRental);
+          setWaitingForUnit(!createdRental);
           clearPendingCheckout();
           setPending(null);
           return;
@@ -106,6 +109,7 @@ function PaymentReturnContent() {
             return;
           }
           setRental(createdRental);
+          setWaitingForUnit(!createdRental);
           clearPendingCheckout();
           setPending(null);
           return;
@@ -149,6 +153,7 @@ function PaymentReturnContent() {
       const createdRental = await confirmReservation(reservation.id, updatedPayment.id);
       setPayment(updatedPayment);
       setRental(createdRental);
+      setWaitingForUnit(!createdRental);
       clearPendingCheckout();
       setPending(null);
     } catch (err) {
@@ -203,6 +208,36 @@ function PaymentReturnContent() {
             <Link className="button button-primary" href="/catalog">
               В каталог
             </Link>
+          }
+        />
+      </>
+    );
+  }
+
+  if (waitingForUnit) {
+    return (
+      <>
+        <PageHeader
+          eyebrow="Оплата"
+          title="Бронь оплачена"
+          subtitle="Вещь пока занята — PIN-код появится в заказе, как только она вернётся в постамат."
+        />
+        <EmptyState
+          icon={<PackageCheck size={34} />}
+          title="Ждём, когда вещь освободится"
+          text="Сейчас она у другого клиента или на проверке после возврата. PIN-код выдадим автоматически — загляните в заказ в день получения. Если вещь не успеет освободиться, бронь отменится, а деньги вернутся."
+          action={
+            <div className="empty-state-actions">
+              <Link
+                className="button button-primary"
+                href={reservation ? `/profile/orders/${reservation.id}` : "/profile/orders"}
+              >
+                Открыть заказ
+              </Link>
+              <Link className="button button-ghost" href="/catalog">
+                В каталог
+              </Link>
+            </div>
           }
         />
       </>

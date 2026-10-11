@@ -16,11 +16,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 
 from backend.core.database import SessionLocal
-from backend.models.enums import (
-    InventoryStatus,
-    ReservationStatus,
-)
-from backend.models.inventory_unit import InventoryUnit
+from backend.models.enums import ReservationStatus
 from backend.models.reservation import Reservation
 from backend.utils.bonus_ledger import release_bonus_spend
 from backend.utils.payment_flow import release_reservation_payment
@@ -29,6 +25,7 @@ from backend.utils.payment_reconcile import (
     resolve_payment_before_release,
 )
 from backend.utils.reservation_auto_confirm import auto_confirm_paid_reservations
+from backend.utils.reservation_handover import release_unit_from_reservation
 
 logger = logging.getLogger(__name__)
 
@@ -74,11 +71,7 @@ async def expire_stale_reservations() -> None:
                         # дешевле, чем оставить клиента без вещи и без денег.
                         continue
 
-                inventory_unit = await db.get(InventoryUnit, reservation.inventory_unit_id)
-                if inventory_unit is not None and inventory_unit.status in (
-                    InventoryStatus.RESERVED,
-                ):
-                    inventory_unit.status = InventoryStatus.AVAILABLE
+                await release_unit_from_reservation(db, reservation, now=now)
 
                 # Ветка неоплаченной брони (клиент ушёл со страницы ЮKassa и не
                 # вернулся) до `release_reservation_payment` не доходит, а
