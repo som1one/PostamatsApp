@@ -351,6 +351,33 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "1120.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1590.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "3550.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
         }
       ],
       "filter": null,
@@ -434,6 +461,33 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "930.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1320.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "2950.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
         }
       ],
       "filter": null,
@@ -685,6 +739,33 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "1500.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "2130.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "4760.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
         }
       ],
       "filter": null,
@@ -713,6 +794,33 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "740.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1050.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "2350.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
         }
       ],
       "filter": null,
@@ -741,6 +849,33 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "1310.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1860.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "4150.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
         }
       ],
       "filter": null,
@@ -769,6 +904,33 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "930.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1320.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "2950.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
         }
       ],
       "filter": null,
@@ -797,6 +959,33 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "930.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1320.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "2950.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
         }
       ],
       "filter": null,
@@ -825,6 +1014,33 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "1710.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "2430.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "5410.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
         }
       ],
       "filter": null,
@@ -853,6 +1069,33 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "1120.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1590.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "3550.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
         }
       ],
       "filter": null,
@@ -881,6 +1124,33 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "1120.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1590.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "3550.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
         }
       ],
       "filter": null,
@@ -909,6 +1179,33 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "2660.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "3780.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "8430.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
         }
       ],
       "filter": null,
@@ -937,6 +1234,33 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "860.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1220.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "2710.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
         }
       ],
       "filter": null,
@@ -965,6 +1289,33 @@
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "930.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1320.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "2950.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
         }
       ],
       "filter": null,
