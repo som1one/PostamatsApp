@@ -284,9 +284,21 @@ class AdminRentalDetailTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res["durationValue"], 3)
         self.assertEqual(res["quotedAmount"], 75000)
         self.assertEqual(res["currency"], "RUB")
-        self.assertEqual(res["pricePlanName"], "Сутки")
+        # Бронь на 3 суток висит на суточном тарифе: срок без своего тарифа
+        # считается от него по шкале, и голое «Сутки» рядом со сроком в 3 дня
+        # сбивало бы оператора.
+        self.assertEqual(res["pricePlanName"], "По шкале от «Сутки»")
         self.assertIsNotNone(res["pickupAt"])
         self.assertIsNotNone(res["confirmedAt"])
+
+    async def test_plan_name_is_shown_as_is_when_it_matches_the_term(self):
+        async with SessionLocal() as db:
+            reservation = await db.get(Reservation, self.reservation_id)
+            reservation.duration_value = 1
+            await db.commit()
+
+        res = (await self._detail())["reservation"]
+        self.assertEqual(res["pricePlanName"], "Сутки")
 
     async def test_every_payment_is_listed_with_provider_id(self):
         payments = (await self._detail())["payments"]

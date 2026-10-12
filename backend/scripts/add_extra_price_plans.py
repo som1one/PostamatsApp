@@ -4,16 +4,17 @@
 прайс-лист за сутки без скидки).
 
 Прогрессирующая скидка от срока аренды:
-    1 день — без скидки (это и есть прайс-лист), 2 дня — 10%,
-    3 дня — 15%, далее +3% за каждый дополнительный день. То есть
-    4 — 18%, 5 — 21%, 6 — 24%, …, 14 — 48%. Скидка ограничена 60%
+    1 день — без скидки (это и есть прайс-лист), 2 дня — 5%,
+    3 дня — 10%, далее +1% за каждый дополнительный день. То есть
+    4 — 11%, 5 — 12%, 6 — 13%, …, 14 — 21%. Скидка ограничена 25%
     сверху (потолок).
 
 Итоговая стоимость аренды на ``days`` суток равна
 ``days * base_amount * (1 - discount(days))``. Цены округляются до 10 рублей.
 
-Эта же формула продублирована на фронте в
-``web/src/shared/rentalPricing.ts``; правьте в обоих местах.
+Шкала берётся из ``backend/utils/rental_pricing.py`` (по ней же бэк считает
+срок, под который тарифа нет); на фронте она продублирована в
+``web/src/shared/rentalPricing.ts``.
 
 Запуск (внутри backend-контейнера):
     python -m backend.scripts.add_extra_price_plans
@@ -32,29 +33,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.database import SessionLocal
 from backend.models.price_plan import PricePlan
 from backend.models.product import Product
+from backend.utils.rental_pricing import progressive_discount_percent
 
 
 def _progressive_discount(days: int) -> Decimal:
-    """Возвращает скидку (доля 0..1) для тарифа на ``days`` суток.
+    """Возвращает скидку (доля 0..1) для тарифа на ``days`` суток."""
 
-    1 — без скидки (это базовый прайс-лист), 2 — 10%, 3 — 15%, далее
-    +3% за каждые сутки. Скидка ограничена сверху 60% (потолок).
-    См. также ``web/src/shared/rentalPricing.ts``.
-    """
-
-    if days <= 0:
-        return Decimal("0")
-    if days == 1:
-        percent = 0
-    elif days == 2:
-        percent = 10
-    elif days == 3:
-        percent = 15
-    else:
-        # 4 дн -> 18%, 5 -> 21%, 6 -> 24%, ... +3% за каждый день после 3-го
-        percent = 15 + (days - 3) * 3
-    percent = max(0, min(percent, 60))
-    return Decimal(percent) / Decimal(100)
+    return Decimal(progressive_discount_percent(days)) / Decimal(100)
 
 
 def _multiplier_for(days: int) -> Decimal:

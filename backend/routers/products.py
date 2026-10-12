@@ -17,7 +17,6 @@ from backend.utils.featured_product import get_featured_product_state
 from backend.utils.lockers_utils import (
     aggregate_available_inventory_by_product,
     fetch_min_price_plans_by_product,
-    price_plan_to_minor_units,
 )
 from backend.utils.products_utils import (
     aggregate_available_globally,
@@ -26,7 +25,6 @@ from backend.utils.products_utils import (
     aggregate_placed_globally,
     aggregate_placed_in_city,
     compute_busy_dates_for_product,
-    find_price_plan,
     load_available_lockers_for_product,
     load_media_files_by_ids,
     load_price_plans_for_product,
@@ -36,7 +34,6 @@ from backend.utils.products_utils import (
 )
 from backend.utils.reservation_handover import load_bookable_units
 from backend.utils.product_filters import (
-    find_effective_filter_price_plan,
     is_product_visible,
     load_product_filter,
     load_product_filters_by_product_ids,
@@ -45,6 +42,7 @@ from backend.utils.product_filters import (
     resolve_effective_price_plans,
     serialize_base_price_plan,
 )
+from backend.utils.rental_pricing import resolve_rental_price
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -396,9 +394,10 @@ async def get_product_pricing(
     if locker.status != LockerStatus.ONLINE:
         raise HTTPException(status_code=409, detail="LOCKER_NOT_BOOKABLE")
 
-    filter_plan = find_effective_filter_price_plan(product_filter, durationType, durationValue)
-    plan = await find_price_plan(db, product_id, durationType, durationValue)
-    if plan is None and filter_plan is None:
+    price = await resolve_rental_price(
+        db, product_id, product_filter, durationType, durationValue
+    )
+    if price is None:
         raise HTTPException(status_code=404, detail="PRICE_PLAN_NOT_FOUND")
 
     # Тот же набор единиц, из которого потом выбирает создание брони:
@@ -422,13 +421,8 @@ async def get_product_pricing(
     if units <= 0:
         raise HTTPException(status_code=409, detail="PRODUCT_NOT_AVAILABLE")
 
-    if filter_plan is not None:
-        base = int(filter_plan["baseAmount"])
-        currency = str(filter_plan["currency"])
-    else:
-        assert plan is not None
-        base = price_plan_to_minor_units(plan.base_amount, plan.currency)
-        currency = plan.currency
+    base = price.amount_minor
+    currency = price.currency
     return {
         "data": {
             "productId": str(product_id),

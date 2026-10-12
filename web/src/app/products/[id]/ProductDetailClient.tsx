@@ -30,7 +30,7 @@ import type { City, Locker, PricePlan, PricingQuote, ProductDetail } from "@/sha
 import { useAuth } from "@/shared/auth/auth-context";
 import { resolvePublicAssetUrl } from "@/shared/media";
 import { calculateRentalTotalMinor, daysBetweenInclusive } from "@/shared/rentalPricing";
-import { formatMoney } from "@/shared/format";
+import { formatMoney, pluralizeRu } from "@/shared/format";
 
 type LockerOption = {
   lockerId: string;
@@ -137,79 +137,87 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
       .sort((a, b) => a.durationValue - b.durationValue);
   }, [product]);
 
-  // Базовая цена «1 день без скидки» — точка отсчёта для клиентской оценки
-  // и заголовка «N ₽ в сутки». На бэке множители уже зашиты в существующие
-  // плановые тарифы (2/3/4/5/6/7/14 дн.), но базу мы знаем от 1-дневного.
+  // Базовая цена «1 день без скидки» — заголовок «N ₽ в сутки» и точка
+  // отсчёта шкалы: срок, под который нет готового тарифа, бэк считает от
+  // суточного (backend/utils/rental_pricing.py).
   const baseDayPlan = useMemo<PricePlan | null>(
     () => dayPlans.find((plan) => plan.durationValue === 1) ?? dayPlans[0] ?? null,
     [dayPlans],
   );
+  const hasDailyRate = baseDayPlan?.durationValue === 1;
 
   const rangeDays = useMemo(
     () => daysBetweenInclusive(date, endDate),
     [date, endDate],
   );
 
-  // Подбираем существующий тариф с durationValue, ближайшим снизу к
-  // выбранному количеству суток. Это страхует от случая, когда у товара
-  // нет точного N-дневного плана: бэк требует точного совпадения
-  // durationType+durationValue, иначе вернёт PRICE_PLAN_NOT_FOUND.
-  const selectedPlan = useMemo<PricePlan | null>(() => {
-    if (!dayPlans.length || rangeDays <= 0) {
-      return baseDayPlan;
-    }
-    let best: PricePlan | null = null;
-    for (const plan of dayPlans) {
-      if (plan.durationValue <= rangeDays) {
-        if (!best || plan.durationValue > best.durationValue) {
-          best = plan;
-        }
-      }
-    }
-    // Если все тарифы длиннее выбранного диапазона (например, минимальный
-    // тариф 2 дня, а пользователь выбрал 1 день), берём самый короткий.
-    return best ?? dayPlans[0] ?? null;
-  }, [baseDayPlan, dayPlans, rangeDays]);
-
-  // Тариф с точным совпадением durationValue == rangeDays. Если есть —
-  // итог в календаре равен его baseAmount (это и есть «правда» из БД,
-  // именно такую цену вернёт `/products/{id}/pricing` и за такую сумму
-  // пройдёт предавторизация). Если такого тарифа нет — оцениваем как
-  // base * days, без выдуманной прогрессивной скидки.
-  const exactDayPlan = useMemo<PricePlan | null>(
-    () => dayPlans.find((plan) => plan.durationValue === rangeDays) ?? null,
-    [dayPlans, rangeDays],
-  );
-
-  const rangeTotalMinor = useMemo<number | null>(() => {
+  // На сколько суток оформится аренда — ровно выбранный в календаре срок.
+  // Раньше сюда подставлялся ближайший тариф снизу, и человек, выбравший
+  // 9 суток, видел цену и получал аренду на одни. Ближайший тариф остался
+  // только для товара без суточного тарифа: шкалу там считать не от чего,
+  // и бэк на срок без тарифа вернёт PRICE_PLAN_NOT_FOUND.
+  const rentalDays = useMemo<number>(() => {
     if (rangeDays <= 0) {
-      return null;
-    }
-    if (exactDayPlan) {
-      return Math.max(0, Math.floor(exactDayPlan.baseAmount));
-    }
-    if (baseDayPlan) {
-      return calculateRentalTotalMinor(baseDayPlan.baseAmount, rangeDays);
-    }
-    return null;
-  }, [baseDayPlan, exactDayPlan, rangeDays]);
-
-  // Скидка = насколько итоговый тариф дешевле, чем базовый день × дни.
-  // Считаем по факту, без таблиц процентов.
-  const rangeDiscountPercent = useMemo<number>(() => {
-    if (!baseDayPlan || rangeDays <= 1 || rangeTotalMinor == null) {
       return 0;
     }
-    const reference = baseDayPlan.baseAmount * rangeDays;
+    if (hasDailyRate || dayPlans.some((plan) => plan.durationValue === rangeDays)) {
+      return rangeDays;
+    }
+    const fitting = dayPlans.filter((plan) => plan.durationValue <= rangeDays);
+    return (fitting[fitting.length - 1] ?? dayPlans[0])?.durationValue ?? 0;
+  }, [dayPlans, hasDailyRate, rangeDays]);
+
+  // Готовый тариф ровно на этот срок, если он заведён: его цена главнее шкалы.
+  const rentalPlan = useMemo<PricePlan | null>(
+    () => dayPlans.find((plan) => plan.durationValue === rentalDays) ?? null,
+    [dayPlans, rentalDays],
+  );
+
+  const rentalDurationLabel =
+    rentalPlan?.name ||
+    (rentalDays > 0
+      ? `${rentalDays} ${pluralizeRu(rentalDays, ["день", "дня", "дней"])}`
+      : "");
+
+  // Оценка суммы, пока не пришёл ответ `/products/{id}/pricing`: тем же
+  // правилом, каким считает бэк, чтобы цифра не прыгала после загрузки.
+  const estimatedTotalMinor = useMemo<number | null>(() => {
+    if (rentalDays <= 0) {
+      return null;
+    }
+    if (rentalPlan) {
+      return Math.max(0, Math.floor(rentalPlan.baseAmount));
+    }
+    if (baseDayPlan && hasDailyRate) {
+      return calculateRentalTotalMinor(baseDayPlan.baseAmount, rentalDays);
+    }
+    return null;
+  }, [baseDayPlan, hasDailyRate, rentalDays, rentalPlan]);
+
+  // Пока летит запрос за новый срок, в `pricing` лежит сумма за прошлый
+  // выбор — показываем ответ бэка, только если он про текущий срок.
+  const currentPricing =
+    pricing && pricing.durationType === "day" && pricing.durationValue === rentalDays
+      ? pricing
+      : null;
+  const rentalTotalMinor = currentPricing?.totalAmount ?? estimatedTotalMinor;
+
+  // Скидка = насколько итог дешевле, чем базовый день × дни.
+  // Считаем по факту, без таблиц процентов.
+  const rangeDiscountPercent = useMemo<number>(() => {
+    if (!baseDayPlan || !hasDailyRate || rentalDays <= 1 || rentalTotalMinor == null) {
+      return 0;
+    }
+    const reference = baseDayPlan.baseAmount * rentalDays;
     if (reference <= 0) {
       return 0;
     }
-    const ratio = 1 - rangeTotalMinor / reference;
+    const ratio = 1 - rentalTotalMinor / reference;
     if (ratio <= 0) {
       return 0;
     }
     return Math.round(ratio * 100);
-  }, [baseDayPlan, rangeDays, rangeTotalMinor]);
+  }, [baseDayPlan, hasDailyRate, rentalDays, rentalTotalMinor]);
   const lockerOptions = useMemo<LockerOption[]>(() => {
     if (!product) {
       return [];
@@ -299,11 +307,11 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
     );
   }, [product]);
   const startDateTime = date || "";
+  const canCheckout = Boolean(product && rentalDays > 0 && lockerId && date);
   const checkoutHref =
-    product && selectedPlan && lockerId && date
-      ? `/checkout?productId=${product.id}&lockerId=${lockerId}&durationType=${selectedPlan.durationType}&durationValue=${selectedPlan.durationValue}&startAt=${encodeURIComponent(date)}${rescheduleReservationId ? `&reservationId=${encodeURIComponent(rescheduleReservationId)}` : ""}`
+    product && canCheckout
+      ? `/checkout?productId=${product.id}&lockerId=${lockerId}&durationType=day&durationValue=${rentalDays}&startAt=${encodeURIComponent(date)}${rescheduleReservationId ? `&reservationId=${encodeURIComponent(rescheduleReservationId)}` : ""}`
       : "/catalog";
-  const canCheckout = Boolean(product && selectedPlan && lockerId && date);
 
   useCitySync(cities, cityId, setCityId);
 
@@ -422,7 +430,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
   ]);
 
   useEffect(() => {
-    if (!product || !lockerId || !selectedPlan) {
+    if (!product || !lockerId || rentalDays <= 0) {
       setPricing(null);
       return;
     }
@@ -433,8 +441,8 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
     fetchProductPricing(
       product.id,
       lockerId,
-      selectedPlan.durationType,
-      selectedPlan.durationValue,
+      "day",
+      rentalDays,
       rescheduleReservationId || undefined,
     )
       .then((result) => {
@@ -456,7 +464,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
     return () => {
       active = false;
     };
-  }, [lockerId, product, rescheduleReservationId, selectedPlan]);
+  }, [lockerId, product, rentalDays, rescheduleReservationId]);
 
   // Занятые даты для календаря: зависят от товара и выбранного постамата.
   useEffect(() => {
@@ -544,8 +552,10 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                   lockerName={selectedLocker?.name}
                   lockerAddress={selectedLocker?.address}
                   lockerStatus={selectedLocker?.status}
-                  plan={selectedPlan}
-                  pricing={pricing}
+                  durationLabel={rentalDurationLabel}
+                  pricing={currentPricing}
+                  estimatedTotal={estimatedTotalMinor}
+                  currency={baseDayPlan?.currency}
                   startDateTime={startDateTime}
                   canCheckout={canCheckout}
                   checkoutHref={checkoutHref}
@@ -577,7 +587,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                     setDate(next.startDate);
                     setEndDate(next.endDate);
                   }}
-                  totalMinor={rangeTotalMinor}
+                  totalMinor={rentalTotalMinor}
                   discountPercent={rangeDiscountPercent}
                   currency={baseDayPlan?.currency || "RUB"}
                   disabledDates={busyDates}
@@ -590,8 +600,8 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                     <RentalDurationSelector
                       plans={dayPlans}
                       selectedPlanId={
-                        selectedPlan && rangeDays === selectedPlan.durationValue
-                          ? selectedPlan.id
+                        rentalPlan && rangeDays === rentalPlan.durationValue
+                          ? rentalPlan.id
                           : ""
                       }
                       onSelect={(planId) => {
@@ -625,8 +635,10 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                   lockerName={selectedLocker?.name}
                   lockerAddress={selectedLocker?.address}
                   lockerStatus={selectedLocker?.status}
-                  plan={selectedPlan}
-                  pricing={pricing}
+                  durationLabel={rentalDurationLabel}
+                  pricing={currentPricing}
+                  estimatedTotal={estimatedTotalMinor}
+                  currency={baseDayPlan?.currency}
                   startDateTime={startDateTime}
                   canCheckout={canCheckout}
                   checkoutHref={checkoutHref}

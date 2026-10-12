@@ -1,12 +1,12 @@
 // Прогрессирующая скидка от срока аренды.
 //
 // 1 день — без скидки (это «прайс-лист за сутки», от которого считаются
-// остальные тарифы), 2 дня — 10%, 3 дня — 15%, далее +3% за каждый
-// дополнительный день. Скидка ограничена сверху 60% (потолок), чтобы
-// длинные тарифы оставались экономически осмысленными.
+// остальные тарифы), 2 дня — 5%, 3 дня — 10%, далее +1% за каждый
+// дополнительный день. Скидка ограничена сверху 25% за весь срок аренды.
 //
 // Эта же формула продублирована на бэке в
-// ``backend/scripts/add_extra_price_plans.py``; правьте в обоих местах.
+// ``backend/utils/rental_pricing.py`` (по ней бэк считает срок, под который
+// нет готового тарифа); правьте в обоих местах.
 export function progressiveDiscountPercent(days: number): number {
   if (!Number.isFinite(days) || days <= 0) {
     return 0;
@@ -16,13 +16,13 @@ export function progressiveDiscountPercent(days: number): number {
   if (d === 1) {
     percent = 0;
   } else if (d === 2) {
-    percent = 10;
+    percent = 5;
   } else if (d === 3) {
-    percent = 15;
+    percent = 10;
   } else {
-    percent = 15 + (d - 3) * 3;
+    percent = 10 + (d - 3);
   }
-  return Math.max(0, Math.min(percent, 60));
+  return Math.max(0, Math.min(percent, 25));
 }
 
 export function progressiveDiscountFraction(days: number): number {
@@ -34,7 +34,7 @@ export function progressiveDiscountFraction(days: number): number {
 // что ``PricePlan.baseAmount`` для дневного тарифа на 1 сутки).
 //
 // Используется в date-range UI, чтобы показать цену для произвольного
-// диапазона до того, как backend подберёт ближайший существующий тариф.
+// диапазона, пока не пришёл ответ ``/products/{id}/pricing``.
 export function calculateRentalTotalMinor(
   baseAmountPerDayMinor: number,
   days: number,
@@ -46,11 +46,13 @@ export function calculateRentalTotalMinor(
     return 0;
   }
   const safeDays = Math.floor(days);
-  const fraction = progressiveDiscountFraction(safeDays);
-  // Округление до 10 рублей (1000 минорных единиц), как на бэке.
-  const raw = baseAmountPerDayMinor * safeDays * (1 - fraction);
+  // Округление до 10 рублей (1000 минорных единиц), как на бэке. Проценты
+  // держим целыми: с дробным множителем сумма на границе округления
+  // расходится с бэком на те самые 10 рублей.
+  const scaled =
+    baseAmountPerDayMinor * safeDays * (100 - progressiveDiscountPercent(safeDays));
   const QUANTUM = 1000;
-  return Math.round(raw / QUANTUM) * QUANTUM;
+  return Math.round(scaled / (QUANTUM * 100)) * QUANTUM;
 }
 
 // Количество суток аренды между двумя ISO-датами (YYYY-MM-DD).

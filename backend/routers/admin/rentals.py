@@ -132,6 +132,15 @@ async def _serialize_rental_reservation(db: AsyncSession, rental: Rental) -> dic
 
     plan = await db.get(PricePlan, res.price_plan_id) if res.price_plan_id else None
     currency = plan.currency if plan else "RUB"
+    plan_name = plan.name if plan else None
+    if plan is not None and (
+        plan.duration_type != res.duration_type
+        or plan.duration_value != res.duration_value
+    ):
+        # Срок без своего тарифа посчитан по шкале от суточного
+        # (backend/utils/rental_pricing.py) — имя «1 день» рядом со сроком
+        # в 9 дней только запутает оператора.
+        plan_name = f"По шкале от «{plan.name}»"
     return {
         "id": str(res.id),
         "status": res.status.value,
@@ -146,7 +155,7 @@ async def _serialize_rental_reservation(db: AsyncSession, rental: Rental) -> dic
         "quotedAmount": _minor_units(res.quoted_amount, currency),
         "preauthAmount": _minor_units(res.preauth_amount, currency),
         "currency": currency,
-        "pricePlanName": plan.name if plan else None,
+        "pricePlanName": plan_name,
     }
 
 

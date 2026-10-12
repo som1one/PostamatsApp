@@ -33,14 +33,14 @@ from backend.schemas.reservation_schemas import (
 )
 from backend.utils.auth_utils import get_current_client_user
 from backend.utils.lockers_utils import price_plan_to_minor_units
-from backend.utils.products_utils import find_price_plan, load_media_files_by_ids, public_media_url
+from backend.utils.products_utils import load_media_files_by_ids, public_media_url
 from backend.utils.product_filters import (
-    find_effective_filter_price_plan,
     is_product_visible,
     load_product_filter,
     minor_to_major_decimal,
     resolve_effective_cover_url,
 )
+from backend.utils.rental_pricing import resolve_rental_price
 from backend.utils.esi_client import EsiReserveError, reserve_cell_with_pin
 from backend.utils.reservation_handover import (
     AWAITING_PICKUP_RENTAL_STATUSES,
@@ -101,15 +101,14 @@ async def _get_price_plan(
     db: AsyncSession,
 ) -> tuple[PricePlan, int, str]:
     product_filter = await load_product_filter(db, product_id)
-    filter_plan = find_effective_filter_price_plan(product_filter, duration_type, duration_value)
-    plan = await find_price_plan(db, product_id, duration_type, duration_value)
-    if plan is None and filter_plan is None:
+    price = await resolve_rental_price(
+        db, product_id, product_filter, duration_type, duration_value
+    )
+    if price is None:
         raise HTTPException(status_code=404, detail="PRICE_PLAN_NOT_FOUND")
-    if plan is None:
+    if price.plan is None:
         raise HTTPException(status_code=409, detail="PRICE_PLAN_OVERRIDE_NOT_SUPPORTED")
-    if filter_plan is not None:
-        return plan, int(filter_plan["baseAmount"]), str(filter_plan["currency"])
-    return plan, price_plan_to_minor_units(plan.base_amount, plan.currency), plan.currency
+    return price.plan, price.amount_minor, price.currency
 
 
 async def _get_available_inventory_unit(

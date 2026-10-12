@@ -6,20 +6,20 @@ import {
   progressiveDiscountPercent,
 } from "../rentalPricing";
 
-// Проверяет соответствие формуле, описанной в
-// `backend/scripts/add_extra_price_plans.py`.
+// Проверяет соответствие формуле из `backend/utils/rental_pricing.py`.
 describe("progressiveDiscountPercent", () => {
   it.each([
     [1, 0],
-    [2, 10],
-    [3, 15],
-    [4, 18],
-    [5, 21],
-    [6, 24],
-    [7, 27],
-    [14, 48],
-    [18, 60],
-    [25, 60],
+    [2, 5],
+    [3, 10],
+    [4, 11],
+    [5, 12],
+    [6, 13],
+    [7, 14],
+    [14, 21],
+    [17, 24],
+    [18, 25],
+    [25, 25],
   ] as const)("returns %s%% discount for %s day(s)", (days, expected) => {
     expect(progressiveDiscountPercent(days)).toBe(expected);
   });
@@ -34,26 +34,25 @@ describe("progressiveDiscountPercent", () => {
     expect(progressiveDiscountPercent(Number.POSITIVE_INFINITY)).toBe(0);
   });
 
-  it("caps the discount at 60 percent for very long rentals", () => {
-    // Без cap'a 30 дней давало бы 15 + 27*3 = 96; со старой формулой — тот же
-    // потолок, но теперь установлен на 60%.
-    expect(progressiveDiscountPercent(20)).toBe(60);
-    expect(progressiveDiscountPercent(30)).toBe(60);
-    expect(progressiveDiscountPercent(365)).toBe(60);
+  it("caps the discount at 25 percent for very long rentals", () => {
+    // Без потолка 30 дней давали бы 10 + 27 = 37%.
+    expect(progressiveDiscountPercent(20)).toBe(25);
+    expect(progressiveDiscountPercent(30)).toBe(25);
+    expect(progressiveDiscountPercent(365)).toBe(25);
   });
 
   it("floors fractional days", () => {
-    expect(progressiveDiscountPercent(2.9)).toBe(10);
-    expect(progressiveDiscountPercent(3.1)).toBe(15);
+    expect(progressiveDiscountPercent(2.9)).toBe(5);
+    expect(progressiveDiscountPercent(3.1)).toBe(10);
   });
 });
 
 describe("progressiveDiscountFraction", () => {
   it("returns the fraction form of the percent discount", () => {
     expect(progressiveDiscountFraction(1)).toBeCloseTo(0, 10);
-    expect(progressiveDiscountFraction(2)).toBeCloseTo(0.1, 10);
-    expect(progressiveDiscountFraction(3)).toBeCloseTo(0.15, 10);
-    expect(progressiveDiscountFraction(7)).toBeCloseTo(0.27, 10);
+    expect(progressiveDiscountFraction(2)).toBeCloseTo(0.05, 10);
+    expect(progressiveDiscountFraction(3)).toBeCloseTo(0.1, 10);
+    expect(progressiveDiscountFraction(7)).toBeCloseTo(0.14, 10);
   });
 });
 
@@ -67,24 +66,24 @@ describe("calculateRentalTotalMinor", () => {
     expect(calculateRentalTotalMinor(BASE, 1)).toBe(10_000);
   });
 
-  it("applies 10% discount for 2 days", () => {
-    // 100 * 2 * 0.9 = 180 ₽ → 18 000.
-    expect(calculateRentalTotalMinor(BASE, 2)).toBe(18_000);
+  it("applies 5% discount for 2 days", () => {
+    // 100 * 2 * 0.95 = 190 ₽ → 19 000.
+    expect(calculateRentalTotalMinor(BASE, 2)).toBe(19_000);
   });
 
-  it("applies 15% discount for 3 days", () => {
-    // 100 * 3 * 0.85 = 255 ₽ → 260 ₽ → 26 000.
-    expect(calculateRentalTotalMinor(BASE, 3)).toBe(26_000);
+  it("applies 10% discount for 3 days", () => {
+    // 100 * 3 * 0.9 = 270 ₽ → 27 000.
+    expect(calculateRentalTotalMinor(BASE, 3)).toBe(27_000);
   });
 
-  it("applies 18% discount for 4 days", () => {
-    // 100 * 4 * 0.82 = 328 ₽ → 330 ₽ → 33 000.
-    expect(calculateRentalTotalMinor(BASE, 4)).toBe(33_000);
+  it("applies 11% discount for 4 days", () => {
+    // 100 * 4 * 0.89 = 356 ₽ → 360 ₽ → 36 000.
+    expect(calculateRentalTotalMinor(BASE, 4)).toBe(36_000);
   });
 
-  it("applies 48% discount for 14 days", () => {
-    // 100 * 14 * 0.52 = 728 ₽ → 730 ₽ → 73 000.
-    expect(calculateRentalTotalMinor(BASE, 14)).toBe(73_000);
+  it("applies 21% discount for 14 days", () => {
+    // 100 * 14 * 0.79 = 1106 ₽ → 1110 ₽ → 111 000.
+    expect(calculateRentalTotalMinor(BASE, 14)).toBe(111_000);
   });
 
   it("returns 0 for invalid inputs", () => {
@@ -96,8 +95,19 @@ describe("calculateRentalTotalMinor", () => {
   });
 
   it("rounds totals to the nearest 10 ₽", () => {
-    // 333 ₽/день * 5 * 0.79 = 1315.35 ₽ → 1320 ₽.
-    expect(calculateRentalTotalMinor(33_300, 5)).toBe(132_000);
+    // 333 ₽/день * 5 * 0.88 = 1465.2 ₽ → 1470 ₽.
+    expect(calculateRentalTotalMinor(33_300, 5)).toBe(147_000);
+  });
+
+  it("matches the backend to the kopeck", () => {
+    // Те же суммы зашиты в backend/tests/test_rental_pricing.py: оценка на
+    // странице и сумма предавторизации не должны расходиться.
+    expect(calculateRentalTotalMinor(89_900, 9)).toBe(680_000);
+    expect(calculateRentalTotalMinor(59_000, 7)).toBe(355_000);
+    // 590 * 18 * 0.75 = 7965 ₽ и 1250 * 3 * 0.9 = 3375 ₽ — ровно половина
+    // шага, округляется вверх.
+    expect(calculateRentalTotalMinor(59_000, 18)).toBe(797_000);
+    expect(calculateRentalTotalMinor(125_000, 3)).toBe(338_000);
   });
 });
 

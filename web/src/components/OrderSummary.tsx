@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LockKeyhole, MapPinned, PackageCheck } from "lucide-react";
-import type { PricePlan, PricingQuote, ProductDetail } from "@/shared/api/types";
+import type { PricingQuote, ProductDetail } from "@/shared/api/types";
 import { formatDate, formatMoney } from "@/shared/format";
 
 export function OrderSummary({
@@ -8,8 +8,10 @@ export function OrderSummary({
   lockerName,
   lockerAddress,
   lockerStatus,
-  plan,
+  durationLabel,
   pricing,
+  estimatedTotal,
+  currency,
   startDateTime,
   canCheckout,
   checkoutHref,
@@ -23,8 +25,12 @@ export function OrderSummary({
   /** Статус выбранного постамата. Если не "online" — рендерим
    * предупреждение и блокируем кнопку «Оформить аренду». */
   lockerStatus?: string | null;
-  plan?: PricePlan | null;
+  /** Срок аренды текстом: имя готового тарифа либо «9 дней». */
+  durationLabel?: string;
   pricing?: PricingQuote | null;
+  /** Оценка суммы на выбранный срок, пока не пришёл `pricing` с бэка. */
+  estimatedTotal?: number | null;
+  currency?: string;
   startDateTime?: string;
   canCheckout: boolean;
   checkoutHref: string;
@@ -37,6 +43,10 @@ export function OrderSummary({
     lockerName && lockerStatus && lockerStatus !== "online",
   );
   const effectiveCanCheckout = canCheckout && !lockerNotBookable;
+  const moneyCurrency = pricing?.currency ?? currency;
+  // Предавторизация сейчас равна сумме аренды, поэтому до ответа бэка
+  // показываем ту же оценку, а не «0 ₽».
+  const preauthAmount = pricing?.preauthAmount ?? estimatedTotal;
 
   return (
     <aside className={`surface order-summary ${isCompact ? "order-summary-compact" : "sticky-panel"}`}>
@@ -44,12 +54,12 @@ export function OrderSummary({
         <div className="summary-header-main">
           <p className="eyebrow">Итог</p>
           <h2 className="summary-total">
-            {formatMoney(pricing?.totalAmount ?? plan?.baseAmount, pricing?.currency ?? plan?.currency)}
+            {formatMoney(pricing?.totalAmount ?? estimatedTotal, moneyCurrency)}
           </h2>
         </div>
         {isCompact ? (
           <p className="muted small summary-preauth">
-            Предавторизация: {formatMoney(pricing?.preauthAmount, pricing?.currency)}
+            Предавторизация: {formatMoney(preauthAmount, moneyCurrency)}
           </p>
         ) : null}
       </div>
@@ -63,7 +73,7 @@ export function OrderSummary({
         ) : null}
         <div className="summary-line summary-line-plan">
           <span className="muted">Тариф</span>
-          <strong>{plan?.name || "Не выбран"}</strong>
+          <strong>{durationLabel || "Не выбран"}</strong>
         </div>
         <div className="summary-line summary-line-start">
           <span className="muted">Дата получения</span>
@@ -72,7 +82,7 @@ export function OrderSummary({
         {!isCompact ? (
           <div className="summary-line summary-line-preauth">
             <span className="muted">Предавторизация</span>
-            <strong>{formatMoney(pricing?.preauthAmount, pricing?.currency)}</strong>
+            <strong>{formatMoney(preauthAmount, moneyCurrency)}</strong>
           </div>
         ) : null}
       </div>
