@@ -325,6 +325,30 @@
       "originalName": "karcher-wd6-4.webp",
       "kind": "PRODUCT_GALLERY",
       "repoAssetPath": "assets/uploads/items/karcher-wd6-4.webp"
+    },
+    {
+      "fileKey": "uploads/items/makita-jigsaw-1.webp",
+      "mimeType": "image/webp",
+      "fileSize": 95440,
+      "originalName": "makita-jigsaw-1.webp",
+      "kind": "PRODUCT_COVER",
+      "repoAssetPath": "assets/uploads/items/makita-jigsaw-1.webp"
+    },
+    {
+      "fileKey": "uploads/items/makita-jigsaw-2.webp",
+      "mimeType": "image/webp",
+      "fileSize": 152076,
+      "originalName": "makita-jigsaw-2.webp",
+      "kind": "PRODUCT_GALLERY",
+      "repoAssetPath": "assets/uploads/items/makita-jigsaw-2.webp"
+    },
+    {
+      "fileKey": "uploads/items/makita-jigsaw-3.webp",
+      "mimeType": "image/webp",
+      "fileSize": 130506,
+      "originalName": "makita-jigsaw-3.webp",
+      "kind": "PRODUCT_GALLERY",
+      "repoAssetPath": "assets/uploads/items/makita-jigsaw-3.webp"
     }
   ],
   "products": [
@@ -451,6 +475,63 @@
       "coverFileKey": "uploads/items/beri-bery-drel.png",
       "galleryFileKeys": [
         "uploads/items/beri-bery-drel.png"
+      ],
+      "pricePlans": [
+        {
+          "name": "1 день",
+          "durationType": "day",
+          "durationValue": 1,
+          "baseAmount": "490.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 0
+        },
+        {
+          "name": "2 дня",
+          "durationType": "day",
+          "durationValue": 2,
+          "baseAmount": "930.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 1
+        },
+        {
+          "name": "3 дня",
+          "durationType": "day",
+          "durationValue": 3,
+          "baseAmount": "1320.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 2
+        },
+        {
+          "name": "7 дней",
+          "durationType": "day",
+          "durationValue": 7,
+          "baseAmount": "2950.00",
+          "currency": "RUB",
+          "isActive": true,
+          "sortOrder": 3
+        }
+      ],
+      "filter": null,
+      "isActive": true
+    },
+    {
+      "slug": "elektrolobzik-makita",
+      "name": "Электролобзик",
+      "brand": "Makita",
+      "shortDescription": "Электролобзик Makita на прокат для фигурного и прямого реза по дереву, фанере, пластику и металлу.",
+      "fullDescription": "Электролобзик Makita в аренду\n\nЭлектролобзик Makita на прокат для фигурного и прямого реза по дереву, фанере, пластику и металлу. Есть регулировка скорости и маятниковый ход. Рез под углом до 45° в обе стороны. 3 орбитальные установки реза. Постоянный контроль скорости под нагрузкой. Сквозная система пылеудаления. Система противовеса для снижения утомляемости.\n\nВ комплекте шестигранный ключ, набор пильных полотен и кейс.",
+      "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
+      "kitDescription": "Лобзик и сетевой кабель (2 м); шестигранный ключ; набор пильных полотен; кейс",
+      "specsJson": null,
+      "categorySlug": "tools",
+      "coverFileKey": "uploads/items/makita-jigsaw-1.webp",
+      "galleryFileKeys": [
+        "uploads/items/makita-jigsaw-1.webp",
+        "uploads/items/makita-jigsaw-2.webp",
+        "uploads/items/makita-jigsaw-3.webp"
       ],
       "pricePlans": [
         {
@@ -1619,6 +1700,7 @@
     "avtonomnyj-projektor",
     "bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0",
     "drel",
+    "elektrolobzik-makita",
     "hozyajstvennyj-pylesos-wd-6-p-s-v-30-6-22-t",
     "jbl-partybox520-moschnaya-portativnaya-bluetooth-stereosistema",
     "karaoke-sistema-s-dvumya-besprovodnymi-mikrofonami",
