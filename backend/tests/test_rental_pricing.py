@@ -7,16 +7,21 @@
 
 Теперь срок без своего тарифа считается от суточного по шкале из-под
 календаря, а готовый тариф на тот же срок остаётся главнее шкалы.
+
+Поверх — цена по дням недели: у товаров с галочкой каждые сутки аренды
+дорожают на наценку своего дня (владелец поднимает цену на выходные).
 """
 
 from __future__ import annotations
 
 import os
 import unittest
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID, uuid4
 
 import httpx
+from fastapi import HTTPException, Request
 
 # DSN и стабы перекрываем ДО импорта приложения (как в test_full_flow_e2e).
 TEST_DB_PATH = os.path.abspath(
@@ -46,12 +51,49 @@ from backend.models.price_plan import PricePlan  # noqa: E402
 from backend.models.product import Product  # noqa: E402
 from backend.models.product_category import ProductCategory  # noqa: E402
 from backend.models.reservation import Reservation  # noqa: E402
+from backend.models.admin_account import AdminAccount  # noqa: E402
+from backend.models.enums import AdminRole  # noqa: E402
 from backend.models.user import User  # noqa: E402
+from backend.models.weekday_price_markup import WeekdayPriceMarkup  # noqa: E402
+from backend.routers.admin import weekday_pricing as admin_weekday_pricing  # noqa: E402
+from backend.schemas.admin_panel_schemas import AdminWeekdayMarkupsPayload  # noqa: E402
+from backend.utils.admin_auth_utils import hash_password  # noqa: E402
+from backend.utils.rental_extension import resolve_extension_price  # noqa: E402
 from backend.utils.rental_pricing import (  # noqa: E402
     MAX_PROGRESSIVE_DAYS,
     progressive_discount_percent,
     progressive_total_minor,
+    rental_start_day,
+    weekday_markup_total_minor,
 )
+
+# Наценка владельца из переписки: пятница, суббота и воскресенье дороже.
+WEEKEND_MARKUPS = (0, 0, 0, 0, 20, 20, 20)
+MSK = timezone(timedelta(hours=3))
+
+
+def _next_weekday(weekday: int) -> date:
+    """Ближайший будущий день недели (0 — пн): бронь в прошлом не нужна."""
+    tomorrow = datetime.now(MSK).date() + timedelta(days=1)
+    return tomorrow + timedelta(days=(weekday - tomorrow.weekday()) % 7)
+
+
+def _msk_midnight_utc(day: date) -> str:
+    """Как сайт шлёт startAt: полночь выбранной даты, переведённая в UTC."""
+    moment = datetime(day.year, day.month, day.day, tzinfo=MSK)
+    return moment.astimezone(timezone.utc).isoformat()
+
+
+def _make_admin_request() -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "PUT",
+            "headers": [(b"user-agent", b"pytest")],
+            "path": "/api/admin/weekday-pricing",
+            "client": ("127.0.0.1", 0),
+        }
+    )
 
 
 class ProgressiveScaleTests(unittest.TestCase):
@@ -82,6 +124,63 @@ class ProgressiveScaleTests(unittest.TestCase):
     def test_total_is_zero_without_a_price_or_a_term(self):
         self.assertEqual(progressive_total_minor(0, 5), 0)
         self.assertEqual(progressive_total_minor(59000, 0), 0)
+
+
+class WeekdayMarkupTests(unittest.TestCase):
+    FRIDAY = date(2026, 10, 23)
+    SATURDAY = date(2026, 10, 24)
+    MONDAY = date(2026, 10, 26)
+
+    def test_each_day_of_the_term_gets_its_own_markup(self):
+        # Сутки в субботу: 590 × 1,2 = 708 → 710.
+        self.assertEqual(
+            weekday_markup_total_minor(59000, self.SATURDAY, 1, WEEKEND_MARKUPS), 71000
+        )
+        # Будний день — без наценки.
+        self.assertEqual(
+            weekday_markup_total_minor(59000, self.MONDAY, 1, WEEKEND_MARKUPS), 59000
+        )
+        # Пт–вс целиком в выходных: готовый тариф 3 дня 1590 × 1,2 = 1908 → 1910.
+        self.assertEqual(
+            weekday_markup_total_minor(159000, self.FRIDAY, 3, WEEKEND_MARKUPS), 191000
+        )
+        # Неделя с понедельника: три дня из семи по +20% → 3550 × 760/700.
+        self.assertEqual(
+            weekday_markup_total_minor(355000, self.MONDAY, 7, WEEKEND_MARKUPS), 385000
+        )
+
+    def test_negative_markup_is_a_discount(self):
+        markups = (-10, 0, 0, 0, 0, 0, 0)
+        self.assertEqual(weekday_markup_total_minor(59000, self.MONDAY, 1, markups), 53000)
+
+    def test_price_without_markup_is_not_rounded_again(self):
+        # Тариф из product_filter может быть не кратен 10 ₽ — без наценки он
+        # должен остаться ровно тем же.
+        self.assertEqual(
+            weekday_markup_total_minor(59900, self.MONDAY, 3, WEEKEND_MARKUPS), 59900
+        )
+
+    def test_start_day_is_the_date_picked_in_the_calendar(self):
+        # Полночь субботы по Москве.
+        self.assertEqual(
+            rental_start_day(datetime(2026, 10, 23, 21, 0, tzinfo=timezone.utc)),
+            self.SATURDAY,
+        )
+        # Полночь субботы в Екатеринбурге — 22:00 пятницы по Москве.
+        self.assertEqual(
+            rental_start_day(datetime(2026, 10, 23, 19, 0, tzinfo=timezone.utc)),
+            self.SATURDAY,
+        )
+        # Полночь субботы в Калининграде — 01:00 субботы по Москве.
+        self.assertEqual(
+            rental_start_day(datetime(2026, 10, 23, 22, 0, tzinfo=timezone.utc)),
+            self.SATURDAY,
+        )
+
+    def test_start_day_without_a_date_is_today_in_moscow(self):
+        # 01:30 субботы по Москве — уже суббота, хотя в UTC ещё пятница.
+        now = datetime(2026, 10, 23, 22, 30, tzinfo=timezone.utc)
+        self.assertEqual(rental_start_day(None, now), self.SATURDAY)
 
 
 async def _override_get_db():
@@ -237,16 +336,30 @@ class RentalPricingApiTests(unittest.IsolatedAsyncioTestCase):
         return {"Authorization": f"Bearer {login['accessToken']}"}
 
     async def _pricing(
-        self, product_id: UUID, days: int, duration_type: str = "day"
+        self,
+        product_id: UUID,
+        days: int,
+        duration_type: str = "day",
+        start_date: date | str | None = None,
     ) -> httpx.Response:
-        return await self.client.get(
-            f"/products/{product_id}/pricing",
-            params={
-                "lockerId": str(self.locker_id),
-                "durationType": duration_type,
-                "durationValue": days,
-            },
-        )
+        params = {
+            "lockerId": str(self.locker_id),
+            "durationType": duration_type,
+            "durationValue": days,
+        }
+        if start_date is not None:
+            params["startDate"] = str(start_date)
+        return await self.client.get(f"/products/{product_id}/pricing", params=params)
+
+    async def _enable_weekday_pricing(
+        self, product_id: UUID, markups: tuple[int, ...] = WEEKEND_MARKUPS
+    ) -> None:
+        async with SessionLocal() as db:
+            product = await db.get(Product, product_id)
+            product.weekday_pricing_enabled = True
+            for weekday, percent in enumerate(markups):
+                await db.merge(WeekdayPriceMarkup(weekday=weekday, percent=percent))
+            await db.commit()
 
     # ── тесты ───────────────────────────────────────────────────
 
@@ -332,6 +445,136 @@ class RentalPricingApiTests(unittest.IsolatedAsyncioTestCase):
         fetched = r.json()["data"]["reservation"]
         self.assertEqual(fetched["durationValue"], 9)
         self.assertEqual(fetched["pricing"]["quotedAmount"], 680000)
+
+    # ── цена по дням недели ─────────────────────────────────────
+
+    async def test_weekend_day_costs_more_for_a_product_with_the_checkbox(self):
+        await self._enable_weekday_pricing(self.karaoke_id)
+        saturday = _next_weekday(5)
+
+        r = await self._pricing(self.karaoke_id, 1, start_date=saturday)
+        self.assertEqual(r.status_code, 200, r.text)
+        data = r.json()["data"]
+        self.assertEqual(data["totalAmount"], 71000)
+        self.assertEqual(data["preauthAmount"], 71000)
+        self.assertEqual(data["startDate"], saturday.isoformat())
+
+        r = await self._pricing(self.karaoke_id, 1, start_date=_next_weekday(0))
+        self.assertEqual(r.json()["data"]["totalAmount"], 59000)
+
+        # Готовый тариф на 3 дня с пятницы — все три дня с наценкой.
+        r = await self._pricing(self.karaoke_id, 3, start_date=_next_weekday(4))
+        self.assertEqual(r.json()["data"]["totalAmount"], 191000)
+
+    async def test_product_without_the_checkbox_ignores_markups(self):
+        await self._enable_weekday_pricing(self.karaoke_id)
+
+        r = await self._pricing(self.ps5_id, 9, start_date=_next_weekday(4))
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["data"]["totalAmount"], 680000)
+
+    async def test_product_page_gets_markups_only_with_the_checkbox(self):
+        await self._enable_weekday_pricing(self.karaoke_id)
+
+        r = await self.client.get(f"/products/{self.karaoke_id}")
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(
+            r.json()["data"]["product"]["weekdayMarkups"], list(WEEKEND_MARKUPS)
+        )
+
+        r = await self.client.get(f"/products/{self.ps5_id}")
+        self.assertIsNone(r.json()["data"]["product"]["weekdayMarkups"])
+
+    async def test_pricing_rejects_a_malformed_start_date(self):
+        r = await self._pricing(self.karaoke_id, 1, start_date="24.10.2026")
+        self.assertEqual(r.status_code, 400, r.text)
+        self.assertEqual(r.json()["detail"], "INVALID_START_DATE")
+
+    async def test_reservation_charges_the_markup_of_the_pickup_day(self):
+        await self._enable_weekday_pricing(self.karaoke_id)
+        auth = await self._login_customer()
+        booking = {
+            "productId": str(self.karaoke_id),
+            "lockerId": str(self.locker_id),
+            "durationType": "day",
+            "durationValue": 1,
+            "startAt": _msk_midnight_utc(_next_weekday(5)),
+        }
+
+        r = await self.client.post("/reservations/quote", headers=auth, json=booking)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["data"]["quote"]["quotedAmount"], 71000)
+
+        r = await self.client.post("/reservations", headers=auth, json=booking)
+        self.assertEqual(r.status_code, 200, r.text)
+        created = r.json()["data"]["reservation"]
+        self.assertEqual(created["quotedAmount"], 71000)
+        self.assertEqual(created["preauthAmount"], 71000)
+
+        async with SessionLocal() as db:
+            reservation = await db.get(Reservation, UUID(created["id"]))
+        self.assertEqual(reservation.quoted_amount, Decimal("710.00"))
+
+    async def test_extension_days_get_the_markup_too(self):
+        """Иначе выходные выгоднее добирать продлением будней аренды."""
+        await self._enable_weekday_pricing(self.karaoke_id)
+        saturday = datetime.fromisoformat(_msk_midnight_utc(_next_weekday(5)))
+        monday = datetime.fromisoformat(_msk_midnight_utc(_next_weekday(0)))
+
+        async with SessionLocal() as db:
+            _, amount, _ = await resolve_extension_price(
+                db, self.karaoke_id, "day", 1, starts_at=saturday
+            )
+            self.assertEqual(amount, 71000)
+            _, amount, _ = await resolve_extension_price(
+                db, self.karaoke_id, "day", 1, starts_at=monday
+            )
+            self.assertEqual(amount, 59000)
+
+    async def test_admin_saves_markups_within_limits(self):
+        await self._enable_weekday_pricing(self.karaoke_id, (0,) * 7)
+        async with SessionLocal() as db:
+            admin = AdminAccount(
+                id=uuid4(),
+                name="Root",
+                login="root",
+                role=AdminRole.SUPER_ADMIN,
+                password_hash=hash_password("irrelevant-for-this-test"),
+            )
+            db.add(admin)
+            await db.commit()
+            admin_id = admin.id
+
+        async def fake_get_current_admin(request, db):
+            return await db.get(AdminAccount, admin_id), None
+
+        original = admin_weekday_pricing.get_current_admin
+        admin_weekday_pricing.get_current_admin = fake_get_current_admin
+        try:
+            async with SessionLocal() as db:
+                payload = await admin_weekday_pricing.update_weekday_pricing(
+                    _make_admin_request(),
+                    AdminWeekdayMarkupsPayload(markups=[0, 0, 0, 0, 10, 25, 25]),
+                    db,
+                )
+            self.assertEqual(payload["data"]["markups"], [0, 0, 0, 0, 10, 25, 25])
+            self.assertEqual(payload["data"]["enabledProductCount"], 1)
+
+            async with SessionLocal() as db:
+                with self.assertRaises(HTTPException) as ctx:
+                    await admin_weekday_pricing.update_weekday_pricing(
+                        _make_admin_request(),
+                        AdminWeekdayMarkupsPayload(markups=[0, 0, 0, 0, 0, -100, 0]),
+                        db,
+                    )
+            self.assertEqual(ctx.exception.status_code, 422)
+        finally:
+            admin_weekday_pricing.get_current_admin = original
+
+        # Отклонённое сохранение ничего не поменяло, а сохранённое — уже в цене:
+        # 590 × 1,25 = 737,5 → 740.
+        r = await self._pricing(self.karaoke_id, 1, start_date=_next_weekday(5))
+        self.assertEqual(r.json()["data"]["totalAmount"], 74000)
 
 
 if __name__ == "__main__":

@@ -55,6 +55,74 @@ export function calculateRentalTotalMinor(
   return Math.round(scaled / (QUANTUM * 100)) * QUANTUM;
 }
 
+// Цена по дням недели: у товара с галочкой в админке каждые сутки аренды
+// дорожают на наценку своего дня. ``markups`` — проценты с понедельника по
+// воскресенье (``ProductDetail.weekdayMarkups``), отрицательные — скидка.
+// Сутки считаются от даты выдачи: с пятницы на 2 суток — пятница и суббота.
+//
+// Сумма за срок умножается на среднюю по суткам наценку, так что скидка за
+// срок сохраняется. Та же формула — ``weekday_markup_total_minor`` в
+// ``backend/utils/rental_pricing.py``; правьте в обоих местах.
+export function weekdayMarkupTotalMinor(
+  amountMinor: number,
+  startISO: string,
+  days: number,
+  markups: readonly number[] | null | undefined,
+): number {
+  const start = parseDateOnly(startISO);
+  if (!markups || markups.length !== 7 || !start) {
+    return amountMinor;
+  }
+  if (!Number.isFinite(amountMinor) || amountMinor <= 0 || !Number.isFinite(days) || days <= 0) {
+    return amountMinor;
+  }
+  const safeDays = Math.floor(days);
+  const firstWeekday = mondayBasedWeekday(start);
+  let markupSum = 0;
+  for (let offset = 0; offset < safeDays; offset += 1) {
+    markupSum += Number(markups[(firstWeekday + offset) % 7]) || 0;
+  }
+  if (markupSum === 0) {
+    // Как на бэке: цену без наценки не переокругляем.
+    return amountMinor;
+  }
+  const QUANTUM = 1000;
+  const scaled = amountMinor * (100 * safeDays + markupSum);
+  return Math.round(scaled / (QUANTUM * 100 * safeDays)) * QUANTUM;
+}
+
+const WEEKDAY_SHORT = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"] as const;
+
+// «пт–вс +20%» или «пн −10%, сб–вс +25%»: подряд идущие дни с одной
+// наценкой склеиваются. Пустая строка, если наценок нет.
+export function describeWeekdayMarkups(markups: readonly number[] | null | undefined): string {
+  if (!markups || markups.length !== 7) {
+    return "";
+  }
+  const parts: string[] = [];
+  let day = 0;
+  while (day < 7) {
+    const percent = Number(markups[day]) || 0;
+    let last = day;
+    while (last + 1 < 7 && (Number(markups[last + 1]) || 0) === percent) {
+      last += 1;
+    }
+    if (percent !== 0) {
+      const days =
+        last === day
+          ? WEEKDAY_SHORT[day]
+          : `${WEEKDAY_SHORT[day]}${last === day + 1 ? ", " : "–"}${WEEKDAY_SHORT[last]}`;
+      parts.push(`${days} ${percent > 0 ? "+" : "−"}${Math.abs(percent)}%`);
+    }
+    day = last + 1;
+  }
+  return parts.join(", ");
+}
+
+function mondayBasedWeekday(date: Date): number {
+  return (date.getDay() + 6) % 7;
+}
+
 // Количество суток аренды между двумя ISO-датами (YYYY-MM-DD).
 //
 // Сутки считаются как разница start..end:

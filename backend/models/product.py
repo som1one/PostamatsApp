@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, Boolean, ForeignKey, String, Text, Uuid
+from sqlalchemy import JSON, Boolean, ForeignKey, String, Text, Uuid, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.core.database import Base, TimestampMixin
@@ -32,3 +32,12 @@ class Product(Base, TimestampMixin):
         nullable=True,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Цена зависит от дня недели: к суткам аренды применяется наценка из
+    # weekday_price_markups. Галочку ставят в админке, бандл каталога её
+    # не трогает (scripts/apply_catalog_bundle.py).
+    weekday_pricing_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default=false(),
+        nullable=False,
+    )

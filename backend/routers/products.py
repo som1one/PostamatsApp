@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -42,7 +43,11 @@ from backend.utils.product_filters import (
     resolve_effective_price_plans,
     serialize_base_price_plan,
 )
-from backend.utils.rental_pricing import resolve_rental_price
+from backend.utils.rental_pricing import (
+    load_product_weekday_markups,
+    rental_start_day,
+    resolve_rental_price,
+)
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -373,6 +378,9 @@ async def get_product_pricing(
     durationType: str = Query("day"),
     durationValue: int = Query(1, ge=1),
     reservationId: str | None = Query(None),
+    startDate: str | None = Query(
+        None, description="Дата выдачи YYYY-MM-DD; без неё — сегодня"
+    ),
 ):
     product = await db.get(Product, product_id)
     if not product:
@@ -385,6 +393,12 @@ async def get_product_pricing(
     if locker_uuid is None:
         raise HTTPException(status_code=400, detail="INVALID_LOCKER_ID")
     reservation_uuid = _parse_uuid_param(reservationId, "INVALID_RESERVATION_ID")
+    start_date = rental_start_day(None)
+    if startDate:
+        try:
+            start_date = date.fromisoformat(startDate.strip())
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="INVALID_START_DATE") from exc
 
     locker = await db.get(LockerLocation, locker_uuid)
     if not locker:
@@ -395,7 +409,12 @@ async def get_product_pricing(
         raise HTTPException(status_code=409, detail="LOCKER_NOT_BOOKABLE")
 
     price = await resolve_rental_price(
-        db, product_id, product_filter, durationType, durationValue
+        db,
+        product_id,
+        product_filter,
+        durationType,
+        durationValue,
+        start_date=start_date,
     )
     if price is None:
         raise HTTPException(status_code=404, detail="PRICE_PLAN_NOT_FOUND")
@@ -429,6 +448,7 @@ async def get_product_pricing(
             "lockerId": str(locker_uuid),
             "durationType": durationType,
             "durationValue": durationValue,
+            "startDate": start_date.isoformat(),
             "currency": currency,
             "baseAmount": base,
             "discountAmount": 0,
@@ -503,6 +523,7 @@ async def get_product(
         [serialize_base_price_plan(pl) for pl in plans],
         product_filter,
     )
+    weekday_markups = await load_product_weekday_markups(db, product_id)
 
     cover_url = None
     if product.cover_file_id:
@@ -528,6 +549,11 @@ async def get_product(
                     "coverUrl": cover_url,
                     "images": images,
                     "pricePlans": price_plans_out,
+                    # Наценки в процентах с пн по вс, если цена товара
+                    # зависит от дня недели, — для оценки суммы на витрине.
+                    "weekdayMarkups": (
+                        list(weekday_markups) if weekday_markups else None
+                    ),
                     "availableLockers": lockers,
                 },
                 product_filter,

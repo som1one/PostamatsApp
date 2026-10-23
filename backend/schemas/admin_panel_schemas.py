@@ -147,6 +147,9 @@ class AdminCreateProductPayload(BaseModel):
     kitDescription: str | None = None
     brand: str | None = Field(default=None, max_length=200)
     isActive: bool = Field(default=True)
+    weekdayPricingEnabled: bool = Field(
+        default=False, description="Цена зависит от дня недели"
+    )
     specsJson: dict[str, Any] | None = None
     coverFileId: UUID | None = Field(default=None, description="ID media-файла обложки")
     galleryFileIds: list[UUID] = Field(default_factory=list, description="Упорядоченный список ID галереи")
@@ -162,9 +165,19 @@ class AdminUpdateProductPayload(BaseModel):
     kitDescription: str | None = None
     brand: str | None = Field(default=None, max_length=200)
     isActive: bool | None = None
+    weekdayPricingEnabled: bool | None = None
     specsJson: dict[str, Any] | None = None
     coverFileId: UUID | None = Field(default=None, description="ID media-файла обложки")
     galleryFileIds: list[UUID] | None = Field(
         default=None,
         description="Упорядоченный список ID галереи. Пустой список очищает галерею",
+    )
+
+
+class AdminWeekdayMarkupsPayload(BaseModel):
+    markups: list[int] = Field(
+        ...,
+        min_length=7,
+        max_length=7,
+        description="Наценка в процентах с понедельника по воскресенье",
     )

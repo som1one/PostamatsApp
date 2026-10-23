@@ -36,6 +36,12 @@ from backend.utils.product_filters import (
     find_effective_filter_price_plan,
     load_product_filter,
 )
+from backend.utils.rental_pricing import (
+    load_product_weekday_markups,
+    rental_start_day,
+    term_days,
+    weekday_markup_total_minor,
+)
 from backend.utils.reservation_utils import calculate_planned_end_at, ensure_utc
 
 logger = logging.getLogger(__name__)
@@ -102,13 +108,40 @@ async def resolve_extension_price(
     product_id,
     duration_type: str,
     duration_value: int,
+    starts_at: datetime | None = None,
 ) -> tuple[PricePlan | None, int, str]:
     """(план, сумма в минорных единицах, валюта) для выбранной длительности.
 
     Та же логика, что у ``_get_price_plan`` в роутере броней: тариф товара
     плюс возможный override из product_filter. Возвращает (None, 0, "RUB"),
     если тарифа нет — вызывающий сам решает, какой ошибкой ответить.
+
+    ``starts_at`` — текущий конец аренды, с которого начнётся продление:
+    у товара с ценой по дням недели продлённые сутки дорожают так же, как
+    при новой аренде (иначе выходные выгоднее добирать продлением).
     """
+    plan, amount_minor, currency = await _resolve_plan_price(
+        db, product_id, duration_type, duration_value
+    )
+    if plan is None:
+        return plan, amount_minor, currency
+    markups = await load_product_weekday_markups(db, product_id)
+    if markups is not None:
+        amount_minor = weekday_markup_total_minor(
+            amount_minor,
+            rental_start_day(starts_at),
+            term_days(duration_type, duration_value),
+            markups,
+        )
+    return plan, amount_minor, currency
+
+
+async def _resolve_plan_price(
+    db: AsyncSession,
+    product_id,
+    duration_type: str,
+    duration_value: int,
+) -> tuple[PricePlan | None, int, str]:
     from backend.utils.products_utils import find_price_plan
 
     product_filter = await load_product_filter(db, product_id)
@@ -127,6 +160,7 @@ async def list_extension_options(db: AsyncSession, rental: Rental, product_id) -
     """Варианты продления по активным тарифам товара + потолок по времени."""
     barrier = await get_extension_barrier(db, rental)
     base_end = ensure_utc(rental.planned_end_at)
+    weekday_markups = await load_product_weekday_markups(db, product_id)
 
     product_filter = await load_product_filter(db, product_id)
     plans = (
@@ -151,6 +185,13 @@ async def list_extension_options(db: AsyncSession, rental: Rental, product_id) -
         else:
             amount_minor = price_plan_to_minor_units(plan.base_amount, plan.currency)
             currency = plan.currency
+        if weekday_markups is not None:
+            amount_minor = weekday_markup_total_minor(
+                amount_minor,
+                rental_start_day(base_end),
+                term_days(plan.duration_type, plan.duration_value),
+                weekday_markups,
+            )
         new_end = calculate_planned_end_at(
             base_end, plan.duration_type, plan.duration_value
         )

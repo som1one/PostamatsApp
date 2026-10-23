@@ -141,6 +141,7 @@ def _serialize_product_row(
         "slug": p.slug,
         "shortDescription": p.short_description,
         "isActive": p.is_active,
+        "weekdayPricingEnabled": p.weekday_pricing_enabled,
         "brand": p.brand,
         "unitCount": unit_count,
         "coverUrl": cover_url,
@@ -266,6 +267,7 @@ async def get_admin_product(
                 "brand": product.brand,
                 "specsJson": product.specs_json,
                 "isActive": product.is_active,
+                "weekdayPricingEnabled": product.weekday_pricing_enabled,
                 "coverFileId": str(product.cover_file_id) if product.cover_file_id else None,
                 "coverUrl": cover_url,
                 "images": images,
@@ -315,6 +317,7 @@ async def create_admin_product(
         brand=payload.brand.strip() if payload.brand else None,
         specs_json=payload.specsJson,
         is_active=payload.isActive,
+        weekday_pricing_enabled=payload.weekdayPricingEnabled,
         cover_file_id=payload.coverFileId,
     )
     db.add(product)
@@ -413,6 +416,8 @@ async def update_admin_product(
         product.brand = data["brand"].strip() if data["brand"] else None
     if "isActive" in data and data["isActive"] is not None:
         product.is_active = data["isActive"]
+    if "weekdayPricingEnabled" in data and data["weekdayPricingEnabled"] is not None:
+        product.weekday_pricing_enabled = data["weekdayPricingEnabled"]
     if "specsJson" in data:
         product.specs_json = data["specsJson"]
     if "coverFileId" in data:

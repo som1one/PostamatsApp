@@ -92,6 +92,9 @@ export type ProductDetail = {
     sortOrder: number;
   }>;
   pricePlans: PricePlan[];
+  /** Наценки в процентах с пн по вс, если цена товара зависит от дня
+   * недели; null — не зависит. */
+  weekdayMarkups?: number[] | null;
   availableLockers: Array<{
     lockerId: string;
     name: string;
@@ -110,6 +113,8 @@ export type PricingQuote = {
   lockerId: string;
   durationType: string;
   durationValue: number;
+  /** Дата выдачи YYYY-MM-DD, от которой посчитана цена по дням недели. */
+  startDate?: string;
   currency: string;
   baseAmount: number;
   discountAmount: number;

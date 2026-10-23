@@ -34,6 +34,7 @@ from backend.routers.admin.uploads import router as admin_uploads_router
 from backend.routers.admin.users import router as admin_users_router
 from backend.routers.admin.verification_queue import router as admin_verification_queue_router
 from backend.routers.admin.support import router as admin_support_router
+from backend.routers.admin.weekday_pricing import router as admin_weekday_pricing_router
 from backend.routers.auth import router as auth_router
 from backend.routers.me import router as me_router
 from backend.routers.support import router as support_router
@@ -140,6 +141,7 @@ app.include_router(admin_product_filters_router)
 app.include_router(admin_products_router)
 app.include_router(admin_uploads_router)
 app.include_router(admin_support_router)
+app.include_router(admin_weekday_pricing_router)
 
 # Client support chat REST + the WebSocket gateway (client + operator sockets).
 app.include_router(support_router)

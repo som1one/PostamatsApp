@@ -40,7 +40,7 @@ from backend.utils.product_filters import (
     minor_to_major_decimal,
     resolve_effective_cover_url,
 )
-from backend.utils.rental_pricing import resolve_rental_price
+from backend.utils.rental_pricing import rental_start_day, resolve_rental_price
 from backend.utils.esi_client import EsiReserveError, reserve_cell_with_pin
 from backend.utils.reservation_handover import (
     AWAITING_PICKUP_RENTAL_STATUSES,
@@ -99,10 +99,16 @@ async def _get_price_plan(
     duration_type: str,
     duration_value: int,
     db: AsyncSession,
+    start_at: datetime | None = None,
 ) -> tuple[PricePlan, int, str]:
     product_filter = await load_product_filter(db, product_id)
     price = await resolve_rental_price(
-        db, product_id, product_filter, duration_type, duration_value
+        db,
+        product_id,
+        product_filter,
+        duration_type,
+        duration_value,
+        start_date=rental_start_day(start_at),
     )
     if price is None:
         raise HTTPException(status_code=404, detail="PRICE_PLAN_NOT_FOUND")
@@ -283,7 +289,11 @@ async def create_quote(
     await _get_product(payload.productId, db)
     await _get_locker(payload.lockerId, db)
     _, quoted_amount, currency = await _get_price_plan(
-        payload.productId, payload.durationType, payload.durationValue, db
+        payload.productId,
+        payload.durationType,
+        payload.durationValue,
+        db,
+        payload.startAt,
     )
 
     try:
@@ -339,7 +349,11 @@ async def create_reservation(
         await _get_product(payload.productId, db)
         await _get_locker(payload.lockerId, db)
         plan, quoted_amount_minor, currency = await _get_price_plan(
-            payload.productId, payload.durationType, payload.durationValue, db
+            payload.productId,
+            payload.durationType,
+            payload.durationValue,
+            db,
+            payload.startAt,
         )
         d_start = ensure_utc(payload.startAt) if payload.startAt is not None else now
         d_end = calculate_planned_end_at(d_start, payload.durationType, payload.durationValue)

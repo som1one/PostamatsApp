@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   calculateRentalTotalMinor,
   daysBetweenInclusive,
+  describeWeekdayMarkups,
   progressiveDiscountFraction,
   progressiveDiscountPercent,
+  weekdayMarkupTotalMinor,
 } from "../rentalPricing";
 
 // Проверяет соответствие формуле из `backend/utils/rental_pricing.py`.
@@ -142,5 +144,45 @@ describe("daysBetweenInclusive", () => {
     expect(daysBetweenInclusive("", "2026-05-25")).toBe(0);
     expect(daysBetweenInclusive("2026-05-25", "")).toBe(0);
     expect(daysBetweenInclusive("not-a-date", "2026-05-25")).toBe(0);
+  });
+});
+
+// Те же случаи, что в WeekdayMarkupTests (backend/tests/test_rental_pricing.py).
+describe("weekdayMarkupTotalMinor", () => {
+  const WEEKEND = [0, 0, 0, 0, 20, 20, 20];
+
+  it("raises each day of the term by its weekday markup", () => {
+    // Суббота: 590 × 1,2 = 708 → 710.
+    expect(weekdayMarkupTotalMinor(59000, "2026-10-24", 1, WEEKEND)).toBe(71000);
+    // Понедельник — без наценки.
+    expect(weekdayMarkupTotalMinor(59000, "2026-10-26", 1, WEEKEND)).toBe(59000);
+    // Тариф 3 дня с пятницы: 1590 × 1,2 = 1908 → 1910.
+    expect(weekdayMarkupTotalMinor(159000, "2026-10-23", 3, WEEKEND)).toBe(191000);
+    // Неделя с понедельника: 3550 × 760/700 → 3850.
+    expect(weekdayMarkupTotalMinor(355000, "2026-10-26", 7, WEEKEND)).toBe(385000);
+  });
+
+  it("treats a negative markup as a discount", () => {
+    expect(weekdayMarkupTotalMinor(59000, "2026-10-26", 1, [-10, 0, 0, 0, 0, 0, 0])).toBe(53000);
+  });
+
+  it("leaves the price as is without markups", () => {
+    expect(weekdayMarkupTotalMinor(59900, "2026-10-26", 3, WEEKEND)).toBe(59900);
+    expect(weekdayMarkupTotalMinor(59900, "2026-10-24", 1, null)).toBe(59900);
+    expect(weekdayMarkupTotalMinor(59900, "", 1, WEEKEND)).toBe(59900);
+  });
+});
+
+describe("describeWeekdayMarkups", () => {
+  it("joins neighbouring days with the same markup", () => {
+    expect(describeWeekdayMarkups([0, 0, 0, 0, 20, 20, 20])).toBe("пт–вс +20%");
+    expect(describeWeekdayMarkups([-10, 0, 0, 0, 10, 25, 25])).toBe(
+      "пн −10%, пт +10%, сб, вс +25%",
+    );
+  });
+
+  it("is empty without markups", () => {
+    expect(describeWeekdayMarkups([0, 0, 0, 0, 0, 0, 0])).toBe("");
+    expect(describeWeekdayMarkups(null)).toBe("");
   });
 });

@@ -107,7 +107,16 @@ function CheckoutContent() {
     Promise.all([
       fetchMe(),
       fetchProduct(productId),
-      fetchProductPricing(productId, lockerId, durationType, durationValue),
+      // С датой выдачи: у товара с ценой по дням недели сумма от неё
+      // зависит, и без даты здесь была бы одна цена, а в оплате — другая.
+      fetchProductPricing(
+        productId,
+        lockerId,
+        durationType,
+        durationValue,
+        undefined,
+        startAt || undefined,
+      ),
       // Бонусы не должны блокировать оформление: если счёт не загрузился,
       // клиент просто платит полную сумму картой.
       fetchBonusAccount().catch(() => null),
@@ -135,7 +144,7 @@ function CheckoutContent() {
     return () => {
       active = false;
     };
-  }, [durationType, durationValue, lockerId, productId]);
+  }, [durationType, durationValue, lockerId, productId, startAt]);
 
   async function handleCheckout() {
     if (!pricing) {

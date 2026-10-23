@@ -9,6 +9,13 @@ class ReservationQuotePayload(BaseModel):
     lockerId: UUID = Field(..., description="Locker UUID")
     durationType: str = Field("day", description="Duration unit")
     durationValue: int = Field(1, ge=1, description="Duration value")
+    # Дата/время, на которое пользователь оформил выдачу. Фронт передаёт
+    # выбранную в календаре дату. Если не передано, считаем "сейчас".
+    # От неё же считаются дни недели для товаров с ценой по дням.
+    startAt: datetime | None = Field(
+        None,
+        description="Pickup start datetime (ISO-8601). Until that moment cell can't be opened.",
+    )
 
 
 class CreateReservationPayload(ReservationQuotePayload):
@@ -18,12 +25,6 @@ class CreateReservationPayload(ReservationQuotePayload):
     sourceReservationId: UUID | None = Field(
         None,
         description="Existing reservation UUID when user is rescheduling their own booking",
-    )
-    # Дата/время, на которое пользователь оформил выдачу. Фронт передаёт
-    # выбранный chip из DateTimeSelector. Если не передано, считаем "сейчас".
-    startAt: datetime | None = Field(
-        None,
-        description="Pickup start datetime (ISO-8601). Until that moment cell can't be opened.",
     )
 
 

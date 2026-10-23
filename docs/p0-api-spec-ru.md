@@ -463,11 +463,13 @@ Query params:
   - `lockerId`
   - `durationType`
   - `durationValue`
+  - `startDate` — дата выдачи `YYYY-MM-DD`, необязательно (по умолчанию сегодня по Москве)
 
 ### Какие модели использует
 
 - `Product`
 - `PricePlan`
+- `WeekdayPriceMarkup`
 - `LockerLocation`
 - `InventoryUnit`
 
@@ -475,6 +477,7 @@ Query params:
 
 1. Проверяет товар.
 2. Подбирает цену: тариф ровно на `durationType`+`durationValue`, а если его нет и срок задан в сутках (до 30) — считает от тарифа «1 день» по шкале из `backend/utils/rental_pricing.py` (2 суток — −5%, 3 — −10%, далее −1% за сутки, потолок 25%). Так же считают `POST /reservations/quote` и `POST /reservations`.
+   Если у товара стоит галочка «Цена по дням недели» (`products.weekday_pricing_enabled`), каждые сутки срока с `startDate` дорожают на наценку своего дня из `weekday_price_markups` (пн…вс, задаются в админке); сумма за срок умножается на среднюю по суткам наценку и округляется до 10 ₽. Брони берут день из `startAt`, продление — из текущего конца аренды.
 3. Проверяет доступность хотя бы одной единицы товара в выбранном постамате.
 4. Возвращает расчёт для checkout.
 
@@ -483,6 +486,7 @@ Query params:
 - `404 PRODUCT_NOT_FOUND`
 - `404 LOCKER_NOT_FOUND`
 - `404 PRICE_PLAN_NOT_FOUND`
+- `400 INVALID_START_DATE`
 - `409 PRODUCT_NOT_AVAILABLE`
 - `409 LOCKER_OFFLINE`
 - `500 PRICING_FAILED`
@@ -496,6 +500,7 @@ Query params:
     "lockerId": "uuid",
     "durationType": "day",
     "durationValue": 1,
+    "startDate": "2026-10-24",
     "currency": "RUB",
     "baseAmount": 150000,
     "discountAmount": 0,

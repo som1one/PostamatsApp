@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="./styles/styles-01.css?v=27" />
     <link rel="stylesheet" href="./styles/styles-02.css?v=26" />
     <link rel="stylesheet" href="./styles/styles-03.css?v=28" />
-    <link rel="stylesheet" href="./styles/styles-04.css?v=28" />
+    <link rel="stylesheet" href="./styles/styles-04.css?v=29" />
   </head>
   <body>
     <div class="admin-shell">
@@ -450,6 +450,35 @@
               </div>
             </div>
 
+            <article class="surface weekday-pricing" id="weekday-pricing-panel">
+              <div class="weekday-pricing-head">
+                <div>
+                  <h3 class="detail-block-title">Цена по дням недели</h3>
+                  <p class="muted-inline">
+                    Наценка к цене суток в процентах, минус — скидка. Действует только на товары
+                    с галочкой «По дням» в таблице ниже.
+                    <span id="weekday-pricing-count"></span>
+                  </p>
+                </div>
+                <button type="button" class="primary-inline-button" id="weekday-pricing-save">Сохранить</button>
+              </div>
+              <div class="weekday-pricing-grid">
+                <label class="field"><span>Пн</span><input type="number" step="1" inputmode="numeric" data-weekday="0" value="0" /></label>
+                <label class="field"><span>Вт</span><input type="number" step="1" inputmode="numeric" data-weekday="1" value="0" /></label>
+                <label class="field"><span>Ср</span><input type="number" step="1" inputmode="numeric" data-weekday="2" value="0" /></label>
+                <label class="field"><span>Чт</span><input type="number" step="1" inputmode="numeric" data-weekday="3" value="0" /></label>
+                <label class="field"><span>Пт</span><input type="number" step="1" inputmode="numeric" data-weekday="4" value="0" /></label>
+                <label class="field"><span>Сб</span><input type="number" step="1" inputmode="numeric" data-weekday="5" value="0" /></label>
+                <label class="field"><span>Вс</span><input type="number" step="1" inputmode="numeric" data-weekday="6" value="0" /></label>
+              </div>
+              <p class="muted-inline">
+                Каждые сутки аренды дорожают на процент своего дня, скидка за срок сохраняется.
+                Например, при +20% на пт, сб и вс сутки в субботу за 1000 ₽ стоят 1200 ₽, а аренда
+                на 3 дня с пятницы — на 20% дороже обычной цены трёх дней. Уже оплаченные брони
+                не пересчитываются.
+              </p>
+            </article>
+
             <article class="surface table-surface">
               <div class="table-scroll">
                 <table class="data-table">
@@ -460,6 +489,7 @@
                       <th>Категория</th>
                       <th>Единиц</th>
                       <th>Статус</th>
+                      <th title="Цена зависит от дня недели">По дням</th>
                       <th class="data-table-col-actions">Действия</th>
                     </tr>
                   </thead>
@@ -1291,6 +1321,6 @@
 
     <div id="toast-stack" class="toast-stack" aria-live="assertive" aria-atomic="true"></div>
 
-    <script src="./app.js?v=34" defer></script>
+    <script src="./app.js?v=35" defer></script>
   </body>
 </html>

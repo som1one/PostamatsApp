@@ -143,6 +143,17 @@ _FRANCHISE_COLUMNS: tuple[tuple[str, str, str, str], ...] = (
     ("max_admin_subscribers", "city_id", "UUID", "CHAR(32)"),
 )
 
+# Колонки из миграции `t6o7p8q9r0s1` (цена по дням недели) — по той же
+# причине: на проде схему держит create_all, а alembic не коммитит.
+_WEEKDAY_PRICING_COLUMNS: tuple[tuple[str, str, str, str], ...] = (
+    (
+        "products",
+        "weekday_pricing_enabled",
+        "BOOLEAN NOT NULL DEFAULT false",
+        "BOOLEAN NOT NULL DEFAULT 0",
+    ),
+)
+
 
 async def _ensure_franchise_columns(conn) -> None:
     from sqlalchemy import text
@@ -151,7 +162,10 @@ async def _ensure_franchise_columns(conn) -> None:
     if dialect not in ("postgresql", "sqlite"):
         return
 
-    for table_name, column_name, pg_ddl, sqlite_ddl in _FRANCHISE_COLUMNS:
+    for table_name, column_name, pg_ddl, sqlite_ddl in (
+        *_FRANCHISE_COLUMNS,
+        *_WEEKDAY_PRICING_COLUMNS,
+    ):
         try:
             has_column = await _table_has_column(
                 conn,
@@ -214,6 +228,7 @@ async def init_db():
         "backend.models.telegram_admin_subscriber",
         "backend.models.user",
         "backend.models.verification_request",
+        "backend.models.weekday_price_markup",
     ):
         import_module(module_name)
     async with engine.begin() as conn:

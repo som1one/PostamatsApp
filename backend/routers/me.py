@@ -875,7 +875,11 @@ async def extend_rental(
         raise HTTPException(status_code=409, detail="RENTAL_NOT_EXTENDABLE")
 
     plan, amount_minor, currency = await resolve_extension_price(
-        db, unit.product_id, payload.durationType, payload.durationValue
+        db,
+        unit.product_id,
+        payload.durationType,
+        payload.durationValue,
+        starts_at=ensure_utc(rental.planned_end_at),
     )
     if plan is None or amount_minor <= 0:
         raise HTTPException(status_code=404, detail="PRICE_PLAN_NOT_FOUND")

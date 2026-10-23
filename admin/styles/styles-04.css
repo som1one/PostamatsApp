@@ -622,3 +622,61 @@ html.photo-lightbox-open body {
     transform: none;
   }
 }
+
+/* Цена по дням недели (раздел «Каталог») */
+.weekday-pricing {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+}
+
+.weekday-pricing-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.weekday-pricing-head .muted-inline {
+  margin: 0;
+  max-width: 60ch;
+}
+
+.weekday-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.weekday-pricing-grid input {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.weekday-pricing-grid input.is-markup {
+  border-color: var(--accent);
+}
+
+.weekday-pricing > .muted-inline {
+  margin: 0;
+}
+
+.weekday-pricing-toggle {
+  display: inline-flex;
+  justify-content: center;
+}
+
+.weekday-pricing-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .weekday-pricing-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

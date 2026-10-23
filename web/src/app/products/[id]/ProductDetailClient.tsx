@@ -29,7 +29,12 @@ import {
 import type { City, Locker, PricePlan, PricingQuote, ProductDetail } from "@/shared/api/types";
 import { useAuth } from "@/shared/auth/auth-context";
 import { resolvePublicAssetUrl } from "@/shared/media";
-import { calculateRentalTotalMinor, daysBetweenInclusive } from "@/shared/rentalPricing";
+import {
+  calculateRentalTotalMinor,
+  daysBetweenInclusive,
+  describeWeekdayMarkups,
+  weekdayMarkupTotalMinor,
+} from "@/shared/rentalPricing";
 import { formatMoney, pluralizeRu } from "@/shared/format";
 
 type LockerOption = {
@@ -179,36 +184,55 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
       ? `${rentalDays} ${pluralizeRu(rentalDays, ["день", "дня", "дней"])}`
       : "");
 
+  // Наценки по дням недели (пн…вс), если цена товара от них зависит.
+  const weekdayMarkups = product?.weekdayMarkups ?? null;
+  const weekdayMarkupsLabel = useMemo(
+    () => describeWeekdayMarkups(weekdayMarkups),
+    [weekdayMarkups],
+  );
+
   // Оценка суммы, пока не пришёл ответ `/products/{id}/pricing`: тем же
   // правилом, каким считает бэк, чтобы цифра не прыгала после загрузки.
   const estimatedTotalMinor = useMemo<number | null>(() => {
     if (rentalDays <= 0) {
       return null;
     }
+    let termTotal: number | null = null;
     if (rentalPlan) {
-      return Math.max(0, Math.floor(rentalPlan.baseAmount));
+      termTotal = Math.max(0, Math.floor(rentalPlan.baseAmount));
+    } else if (baseDayPlan && hasDailyRate) {
+      termTotal = calculateRentalTotalMinor(baseDayPlan.baseAmount, rentalDays);
     }
-    if (baseDayPlan && hasDailyRate) {
-      return calculateRentalTotalMinor(baseDayPlan.baseAmount, rentalDays);
+    if (termTotal == null) {
+      return null;
     }
-    return null;
-  }, [baseDayPlan, hasDailyRate, rentalDays, rentalPlan]);
+    return weekdayMarkupTotalMinor(termTotal, date, rentalDays, weekdayMarkups);
+  }, [baseDayPlan, date, hasDailyRate, rentalDays, rentalPlan, weekdayMarkups]);
 
-  // Пока летит запрос за новый срок, в `pricing` лежит сумма за прошлый
-  // выбор — показываем ответ бэка, только если он про текущий срок.
+  // Пока летит запрос за новый срок или дату, в `pricing` лежит сумма за
+  // прошлый выбор — показываем ответ бэка, только если он про текущий.
   const currentPricing =
-    pricing && pricing.durationType === "day" && pricing.durationValue === rentalDays
+    pricing &&
+    pricing.durationType === "day" &&
+    pricing.durationValue === rentalDays &&
+    (!pricing.startDate || pricing.startDate === date)
       ? pricing
       : null;
   const rentalTotalMinor = currentPricing?.totalAmount ?? estimatedTotalMinor;
 
-  // Скидка = насколько итог дешевле, чем базовый день × дни.
-  // Считаем по факту, без таблиц процентов.
+  // Скидка = насколько итог дешевле, чем базовый день × дни (с наценкой
+  // дней недели, иначе она «съест» скидку за срок). Считаем по факту, без
+  // таблиц процентов.
   const rangeDiscountPercent = useMemo<number>(() => {
     if (!baseDayPlan || !hasDailyRate || rentalDays <= 1 || rentalTotalMinor == null) {
       return 0;
     }
-    const reference = baseDayPlan.baseAmount * rentalDays;
+    const reference = weekdayMarkupTotalMinor(
+      baseDayPlan.baseAmount * rentalDays,
+      date,
+      rentalDays,
+      weekdayMarkups,
+    );
     if (reference <= 0) {
       return 0;
     }
@@ -217,7 +241,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
       return 0;
     }
     return Math.round(ratio * 100);
-  }, [baseDayPlan, hasDailyRate, rentalDays, rentalTotalMinor]);
+  }, [baseDayPlan, date, hasDailyRate, rentalDays, rentalTotalMinor, weekdayMarkups]);
   const lockerOptions = useMemo<LockerOption[]>(() => {
     if (!product) {
       return [];
@@ -444,6 +468,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
       "day",
       rentalDays,
       rescheduleReservationId || undefined,
+      date || undefined,
     )
       .then((result) => {
         if (active) {
@@ -464,7 +489,7 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
     return () => {
       active = false;
     };
-  }, [lockerId, product, rentalDays, rescheduleReservationId]);
+  }, [date, lockerId, product, rentalDays, rescheduleReservationId]);
 
   // Занятые даты для календаря: зависят от товара и выбранного постамата.
   useEffect(() => {
@@ -579,6 +604,11 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                         {formatMoney(baseDayPlan.baseAmount, baseDayPlan.currency)} в сутки
                       </p>
                     ) : null}
+                    {weekdayMarkupsLabel ? (
+                      <p className="muted small rental-range-rate">
+                        Цена зависит от дня недели: {weekdayMarkupsLabel} к цене суток
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 <RentalDateRangePicker
@@ -599,6 +629,14 @@ export function ProductDetailClient({ productRef }: { productRef: string }) {
                     </p>
                     <RentalDurationSelector
                       plans={dayPlans}
+                      displayAmount={(plan) =>
+                        weekdayMarkupTotalMinor(
+                          plan.baseAmount,
+                          date,
+                          plan.durationValue,
+                          weekdayMarkups,
+                        )
+                      }
                       selectedPlanId={
                         rentalPlan && rangeDays === rentalPlan.durationValue
                           ? rentalPlan.id

@@ -328,6 +328,7 @@ export async function fetchProductPricing(
   durationType = "day",
   durationValue = 1,
   reservationId?: string,
+  startDate?: string,
 ) {
   const params = new URLSearchParams({
     lockerId,
@@ -336,6 +337,10 @@ export async function fetchProductPricing(
   });
   if (reservationId) {
     params.set("reservationId", reservationId);
+  }
+  // Дата выдачи YYYY-MM-DD: от неё бэк считает наценку по дням недели.
+  if (startDate) {
+    params.set("startDate", startDate);
   }
   return requestJson<PricingQuote>(
     `/products/${productId}/pricing?${params.toString()}`,

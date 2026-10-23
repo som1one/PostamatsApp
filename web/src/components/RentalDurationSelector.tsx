@@ -39,10 +39,14 @@ export function RentalDurationSelector({
   plans,
   selectedPlanId,
   onSelect,
+  displayAmount,
 }: {
   plans: PricePlan[];
   selectedPlanId: string;
   onSelect: (planId: string) => void;
+  /** Сумма тарифа к показу — например, с наценкой дней недели от выбранной
+   * даты. Процент скидки за срок всё равно считается от самих тарифов. */
+  displayAmount?: (plan: PricePlan) => number;
 }) {
   if (!plans.length) {
     return <div className="alert alert-warn">Тарифы для товара пока не настроены.</div>;
@@ -54,6 +58,7 @@ export function RentalDurationSelector({
     <div className="tariff-grid">
       {plans.map((plan) => {
         const discount = discountPercent(plan, reference);
+        const amount = displayAmount ? displayAmount(plan) : plan.baseAmount;
         return (
           <button
             className={`tariff-card ${selectedPlanId === plan.id ? "is-selected" : ""}`}
@@ -73,10 +78,10 @@ export function RentalDurationSelector({
                   </span>
                 ) : null}
               </span>
-              <strong className="tariff-card-price">{formatMoney(plan.baseAmount, plan.currency)}</strong>
+              <strong className="tariff-card-price">{formatMoney(amount, plan.currency)}</strong>
             </div>
             <small className="tariff-card-meta">
-              {formatMoney(Math.round(plan.baseAmount / Math.max(plan.durationValue, 1)), plan.currency)}
+              {formatMoney(Math.round(amount / Math.max(plan.durationValue, 1)), plan.currency)}
               {plan.durationType === "hour" ? "/ч" : "/день"}
             </small>
           </button>

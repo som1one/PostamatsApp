@@ -89,6 +89,12 @@ const productNewButton = document.getElementById("product-new-button");
 const productDetailModal = document.getElementById("product-detail-modal");
 const productDetailBody = document.getElementById("product-detail-body");
 const productDetailModalTitle = document.getElementById("product-detail-modal-title");
+const weekdayPricingPanel = document.getElementById("weekday-pricing-panel");
+const weekdayPricingInputs = weekdayPricingPanel
+  ? Array.from(weekdayPricingPanel.querySelectorAll("input[data-weekday]"))
+  : [];
+const weekdayPricingSave = document.getElementById("weekday-pricing-save");
+const weekdayPricingCount = document.getElementById("weekday-pricing-count");
 const auditTableBody = document.getElementById("audit-table-body");
 const auditEmpty = document.getElementById("audit-empty");
 const auditTotal = document.getElementById("audit-total");
@@ -156,6 +162,7 @@ const state = {
   productsFilterActive: "",
   productDetail: null,
   productDetailIsNew: false,
+  weekdayPricing: null,
   auditEvents: [],
   auditMeta: { total: 0, page: 1, limit: 50 },
   inventory: {
@@ -3714,6 +3721,13 @@ function renderProducts() {
         <td>${escapeHtml(p.categoryName || "—")}</td>
         <td>${formatNumber(p.unitCount ?? 0)}</td>
         <td>${renderStatusPill(p.isActive ? "online" : "offline")}</td>
+        <td>
+          <label class="weekday-pricing-toggle" title="Цена зависит от дня недели">
+            <input type="checkbox" data-weekday-pricing-product="${escapeHtml(p.id)}"${
+              p.weekdayPricingEnabled ? " checked" : ""
+            } aria-label="Цена по дням недели: ${escapeHtml(p.name)}" />
+          </label>
+        </td>
         <td class="data-table-col-actions">
           <button type="button" class="ghost-button table-inline-button" data-open-product="${escapeHtml(p.id)}">Открыть</button>
           <button type="button" class="table-danger-button table-inline-button" data-delete-product="${escapeHtml(p.id)}">Удалить</button>
@@ -3880,6 +3894,9 @@ function renderProductDetailModal() {
           <label class="checkbox-field"><input id="product-edit-active" type="checkbox" ${
             isNew || P?.isActive ? " checked" : ""
           } /><span>Активен в каталоге</span></label>
+          <label class="checkbox-field"><input id="product-edit-weekday-pricing" type="checkbox" ${
+            !isNew && P?.weekdayPricingEnabled ? " checked" : ""
+          } /><span>Цена зависит от дня недели (наценки — над таблицей товаров)</span></label>
           <div class="user-detail-action-row">
             <button type="button" class="primary-button" data-product-action="save">${isNew ? "Создать" : "Сохранить"}</button>
           </div>
@@ -4023,6 +4040,9 @@ async function handleProductDetailClick(event) {
       document.getElementById("product-edit-gallery-file-ids")?.value || "",
     );
     const isActive = Boolean(document.getElementById("product-edit-active")?.checked);
+    const weekdayPricingEnabled = Boolean(
+      document.getElementById("product-edit-weekday-pricing")?.checked,
+    );
     const specsRaw = String(document.getElementById("product-edit-specs")?.value || "").trim();
     let specsJson = null;
     if (specsRaw) {
@@ -4068,6 +4088,7 @@ async function handleProductDetailClick(event) {
           coverFileId,
           galleryFileIds,
           isActive,
+          weekdayPricingEnabled,
           specsJson,
         }),
       });
@@ -4088,6 +4109,7 @@ async function handleProductDetailClick(event) {
         coverFileId,
         galleryFileIds,
         isActive,
+        weekdayPricingEnabled,
         specsJson,
       };
       if (slugRaw) {
@@ -4102,6 +4124,7 @@ async function handleProductDetailClick(event) {
     }
     closeModal();
     await loadProducts();
+    await loadWeekdayPricing({ keepInputs: true });
   } catch (error) {
     console.error(error);
     showToast("error", error.message || "Ошибка сохранения");
@@ -4183,6 +4206,125 @@ function renderAudit() {
         </tr>`;
     })
     .join("");
+}
+
+async function loadWeekdayPricing({ keepInputs = false } = {}) {
+  if (!weekdayPricingPanel) {
+    return;
+  }
+  try {
+    const payload = await authorizedRequest("/api/admin/weekday-pricing");
+    state.weekdayPricing = payload.data;
+    renderWeekdayPricing({ keepInputs });
+  } catch (error) {
+    console.error(error);
+    showToast("error", error.message || "Не удалось загрузить наценки по дням недели");
+  }
+}
+
+function renderWeekdayPricing({ keepInputs = false } = {}) {
+  const data = state.weekdayPricing;
+  if (!data) {
+    return;
+  }
+  for (const input of weekdayPricingInputs) {
+    const day = Number(input.dataset.weekday);
+    input.min = String(data.minPercent);
+    input.max = String(data.maxPercent);
+    if (!keepInputs) {
+      input.value = String(data.markups?.[day] ?? 0);
+    }
+  }
+  syncWeekdayPricingHighlight();
+  if (weekdayPricingCount) {
+    const count = Number(data.enabledProductCount || 0);
+    weekdayPricingCount.textContent = count
+      ? `Сейчас галочка стоит у ${formatNumber(count)} ${
+          count % 10 === 1 && count % 100 !== 11 ? "товара" : "товаров"
+        }.`
+      : "Пока галочка не стоит ни у одного товара.";
+  }
+}
+
+function syncWeekdayPricingHighlight() {
+  for (const input of weekdayPricingInputs) {
+    input.classList.toggle("is-markup", Number(input.value || 0) !== 0);
+  }
+}
+
+async function saveWeekdayPricing() {
+  const data = state.weekdayPricing;
+  const min = Number(data?.minPercent ?? -50);
+  const max = Number(data?.maxPercent ?? 200);
+  const markups = [];
+  for (const input of weekdayPricingInputs) {
+    const raw = String(input.value || "").trim();
+    const value = raw === "" ? 0 : Number(raw);
+    if (!Number.isInteger(value) || value < min || value > max) {
+      const label = input.closest("label")?.querySelector("span")?.textContent || "";
+      showToast("error", `${label}: наценка — целое число от ${min} до ${max}%.`);
+      input.focus();
+      return;
+    }
+    markups[Number(input.dataset.weekday)] = value;
+  }
+  if (weekdayPricingSave) {
+    weekdayPricingSave.disabled = true;
+  }
+  try {
+    const payload = await authorizedRequest("/api/admin/weekday-pricing", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markups }),
+    });
+    state.weekdayPricing = payload.data;
+    renderWeekdayPricing();
+    showToast("success", "Наценки по дням недели сохранены.");
+  } catch (error) {
+    console.error(error);
+    showToast("error", error.message || "Не удалось сохранить наценки");
+  } finally {
+    if (weekdayPricingSave) {
+      weekdayPricingSave.disabled = false;
+    }
+  }
+}
+
+async function handleProductsTableChange(event) {
+  const input =
+    event.target instanceof Element
+      ? event.target.closest("[data-weekday-pricing-product]")
+      : null;
+  if (!input) {
+    return;
+  }
+  const id = input.getAttribute("data-weekday-pricing-product");
+  const enabled = Boolean(input.checked);
+  input.disabled = true;
+  try {
+    await authorizedRequest(`/api/admin/products/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weekdayPricingEnabled: enabled }),
+    });
+    const product = (state.products || []).find((item) => String(item.id) === String(id));
+    if (product) {
+      product.weekdayPricingEnabled = enabled;
+    }
+    showToast(
+      "success",
+      enabled
+        ? "Цена товара теперь зависит от дня недели."
+        : "Цена товара больше не зависит от дня недели.",
+    );
+    await loadWeekdayPricing({ keepInputs: true });
+  } catch (error) {
+    console.error(error);
+    input.checked = !enabled;
+    showToast("error", error.message || "Не удалось сохранить товар");
+  } finally {
+    input.disabled = false;
+  }
 }
 
 function handleProductsTableClick(event) {
@@ -4757,6 +4899,14 @@ lockersTableBody.addEventListener("click", handleOpenLockerFromTable);
 
 if (productsTableBody) {
   productsTableBody.addEventListener("click", handleProductsTableClick);
+  productsTableBody.addEventListener("change", handleProductsTableChange);
+}
+
+if (weekdayPricingSave) {
+  weekdayPricingSave.addEventListener("click", saveWeekdayPricing);
+}
+for (const input of weekdayPricingInputs) {
+  input.addEventListener("input", syncWeekdayPricingHighlight);
 }
 
 let productsSearchDebounceTimer = null;
@@ -4869,6 +5019,7 @@ navLinks.forEach((link) => {
         productsFilterActive.value = state.productsFilterActive;
       }
       loadProducts();
+      loadWeekdayPricing();
     }
     if (link.dataset.section === "audit") {
       state.auditMeta.page = 1;
