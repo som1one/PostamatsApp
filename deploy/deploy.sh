@@ -82,10 +82,10 @@ while :; do
 done
 
 if [ "${backend_ready}" -eq 1 ]; then
-  echo "[deploy] running scripts.wipe_spb to clean SPB before sync"
-  docker compose "${COMPOSE_ARGS[@]}" exec -T backend \
-    python -m scripts.wipe_spb
-
+  # scripts.wipe_spb здесь больше не запускается: он удалял постамат СПб
+  # вместе с бронями и платежами, и 2026-10-23 стёр оплаченную клиентом
+  # бронь. apply_catalog_bundle сам находит постамат, ячейки и юниты по
+  # внешним id и обновляет их на месте, без дублей.
   echo "[deploy] applying catalog bundle (idempotent)"
 
   docker compose "${COMPOSE_ARGS[@]}" exec -T backend \

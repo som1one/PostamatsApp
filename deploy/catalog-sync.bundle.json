@@ -1481,7 +1481,7 @@
       "name": "Великий Новгород",
       "timezone": "Europe/Moscow",
       "isActive": true,
-      "sortOrder": 20
+      "sortOrder": 5
     }
   ],
   "lockers": [
@@ -1491,7 +1491,7 @@
       "address": "Санкт-Петербург, Невский пр., 114",
       "lat": 59.931258,
       "lon": 30.360748,
-      "status": "ONLINE",
+      "status": "OFFLINE",
       "workingHoursJson": {
         "mode": "daily",
         "from": "08:00",

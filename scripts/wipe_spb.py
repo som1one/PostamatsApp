@@ -1,10 +1,11 @@
-"""Полностью вычищает все постаматы СПб перед apply_catalog_bundle.
+"""Удаляет постаматы СПб вместе с ячейками и юнитами — только вручную.
 
-Нужно чтобы bundle мог пересобрать СПб с нуля: apply_bundle делает только
-upsert и не удаляет старые ячейки/юниты. Каскад идёт через тот же helper,
-что использует ``migrate_lockers_to_real`` при удалении постаматов —
-иначе при наличии payments/return_requests/rentals/reservations
-получаем FK violation (например, payments_reservation_id_fkey).
+Раньше запускался на каждом деплое перед apply_catalog_bundle и удалял
+заодно брони, аренды и платежи; 2026-10-23 так пропала оплаченная бронь.
+Из deploy/deploy.sh убран. Чистка идёт через тот же helper, что у
+``migrate_lockers_to_real``, а он отказывается трогать постамат, к которому
+привязана хоть одна бронь или аренда, — тогда скрипт ничего не меняет и
+выходит с кодом 1.
 """
 
 import asyncio
@@ -14,15 +15,18 @@ from sqlalchemy import select
 from backend.core.database import SessionLocal
 from backend.models.city import City
 from backend.models.locker_location import LockerLocation
-from scripts.migrate_lockers_to_real import _purge_locker_contents
+from scripts.migrate_lockers_to_real import (
+    LockerHasOperationsError,
+    _purge_locker_contents,
+)
 
 
-async def _run():
+async def _run() -> int:
     async with SessionLocal() as session:
         city = await session.scalar(select(City).where(City.slug == "spb"))
         if not city:
             print("SPB city not found — nothing to wipe")
-            return
+            return 0
 
         lockers = (
             await session.scalars(
@@ -31,16 +35,22 @@ async def _run():
         ).all()
 
         for locker in lockers:
-            await _purge_locker_contents(session, locker)
+            try:
+                await _purge_locker_contents(session, locker)
+            except LockerHasOperationsError as exc:
+                await session.rollback()
+                print(f"Refuse to wipe SPB: {exc}")
+                return 1
             await session.delete(locker)
 
         await session.commit()
         print(f"Wiped {len(lockers)} SPB lockers")
+        return 0
 
 
-def main():
-    asyncio.run(_run())
+def main() -> int:
+    return asyncio.run(_run())
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

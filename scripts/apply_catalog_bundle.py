@@ -274,6 +274,17 @@ def _upsert_city(session: Session, payload: dict[str, Any], stats: SyncStats) ->
     return city
 
 
+def _locker_status(payload: dict[str, Any]) -> LockerStatus:
+    # Сидовый постамат физически не существует: команды в него уходят в
+    # stub (backend/utils/esi_client.py), PIN ничего не откроет. ONLINE в
+    # бандле значит, что сайт продаёт аренду в ячейку, которой нет. Так
+    # «СПб Невский» с июня по октябрь 2026 принимал оплаты: бандл
+    # пересобрали из базы, где он был ONLINE, и статус тихо вернулся.
+    if str(payload["externalProvider"] or "").strip().lower() == "seed":
+        return LockerStatus.OFFLINE
+    return _enum_value(LockerStatus, payload["status"])
+
+
 def _upsert_locker(
     session: Session,
     payload: dict[str, Any],
@@ -292,7 +303,7 @@ def _upsert_locker(
             address=payload["address"],
             lat=payload["lat"],
             lon=payload["lon"],
-            status=_enum_value(LockerStatus, payload["status"]),
+            status=_locker_status(payload),
             working_hours_json=payload["workingHoursJson"],
             external_provider=payload["externalProvider"],
             external_locker_id=payload["externalLockerId"],
@@ -308,7 +319,7 @@ def _upsert_locker(
     locker.address = payload["address"]
     locker.lat = payload["lat"]
     locker.lon = payload["lon"]
-    locker.status = _enum_value(LockerStatus, payload["status"])
+    locker.status = _locker_status(payload)
     locker.working_hours_json = payload["workingHoursJson"]
     locker.partner_name = payload["partnerName"]
     locker.last_online_at = _parse_datetime(payload["lastOnlineAt"])

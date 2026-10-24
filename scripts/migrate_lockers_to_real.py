@@ -430,11 +430,22 @@ def _apply_target(locker: LockerLocation, target: TargetState) -> bool:
     return changed
 
 
+class LockerHasOperationsError(RuntimeError):
+    """К постамату или его юнитам привязаны брони или аренды."""
+
+
 async def _purge_locker_contents(
     session: AsyncSession, locker: LockerLocation
 ) -> None:
-    """Сносит ячейки, юниты и все зависимые записи (брони, аренды, платежи,
-    события ESI, перемещения, отчёты состояния) у постамата.
+    """Сносит ячейки и юниты постамата вместе со служебными записями
+    (перемещения, отчёты состояния, осиротевшие заявки на возврат).
+
+    Брони, аренды и платежи не удаляет никогда: если к постамату или его
+    юнитам привязана хоть одна бронь или аренда, бросает
+    ``LockerHasOperationsError`` и ничего не трогает. Раньше они удалялись
+    каскадом, и деплой 2026-10-23 (``wipe_spb``) стёр оплаченную клиентом
+    бронь вместе с платежом — деньги остались в ЮKassa без записи у нас.
+    Постамат с историей операций выключают (OFFLINE), а не чистят.
 
     Сам ``locker`` не удаляется — это делает caller, если нужно.
     """
@@ -467,25 +478,21 @@ async def _purge_locker_contents(
         Rental.pickup_locker_id == locker.id,
         Rental.return_locker_id == locker.id,
     ]
+    res_conditions = [Reservation.locker_id == locker.id]
     if unit_ids:
         r_conditions.append(Rental.inventory_unit_id.in_(unit_ids))
-    rentals_list = (await session.scalars(select(Rental.id).where(or_(*r_conditions)))).all()
-
-    if rentals_list:
-        return_reqs = (await session.scalars(select(ReturnRequest.id).where(ReturnRequest.rental_id.in_(rentals_list)))).all()
-        if return_reqs:
-            await session.execute(delete(EsiEventLog).where(EsiEventLog.matched_return_request_id.in_(return_reqs)))
-        await session.execute(delete(ReturnRequest).where(ReturnRequest.rental_id.in_(rentals_list)))
-
-        payments = (await session.scalars(select(Payment.id).where(Payment.rental_id.in_(rentals_list)))).all()
-        if payments:
-            await session.execute(delete(PaymentEvent).where(PaymentEvent.payment_id.in_(payments)))
-        await session.execute(delete(Payment).where(Payment.rental_id.in_(rentals_list)))
-
-        await session.execute(delete(EsiEventLog).where(EsiEventLog.matched_rental_id.in_(rentals_list)))
-        await session.execute(delete(RentalEvent).where(RentalEvent.rental_id.in_(rentals_list)))
-        await session.execute(delete(ConditionReport).where(ConditionReport.rental_id.in_(rentals_list)))
-        await session.execute(delete(Rental).where(Rental.id.in_(rentals_list)))
+        res_conditions.append(Reservation.inventory_unit_id.in_(unit_ids))
+    rental_count = await session.scalar(
+        select(func.count(Rental.id)).where(or_(*r_conditions))
+    )
+    reservation_count = await session.scalar(
+        select(func.count(Reservation.id)).where(or_(*res_conditions))
+    )
+    if rental_count or reservation_count:
+        raise LockerHasOperationsError(
+            f"locker {locker.external_provider}/{locker.external_locker_id} "
+            f"has {reservation_count} reservations and {rental_count} rentals"
+        )
 
     rr_conds = [ReturnRequest.locker_id == locker.id]
     if cell_ids:
@@ -494,18 +501,6 @@ async def _purge_locker_contents(
     if return_reqs_l:
         await session.execute(delete(EsiEventLog).where(EsiEventLog.matched_return_request_id.in_(return_reqs_l)))
         await session.execute(delete(ReturnRequest).where(ReturnRequest.id.in_(return_reqs_l)))
-
-    res_conditions = [Reservation.locker_id == locker.id]
-    if unit_ids:
-        res_conditions.append(Reservation.inventory_unit_id.in_(unit_ids))
-    reservations_list = (await session.scalars(select(Reservation.id).where(or_(*res_conditions)))).all()
-
-    if reservations_list:
-        payments_res = (await session.scalars(select(Payment.id).where(Payment.reservation_id.in_(reservations_list)))).all()
-        if payments_res:
-            await session.execute(delete(PaymentEvent).where(PaymentEvent.payment_id.in_(payments_res)))
-        await session.execute(delete(Payment).where(Payment.reservation_id.in_(reservations_list)))
-        await session.execute(delete(Reservation).where(Reservation.id.in_(reservations_list)))
 
     im_conds = [
         InventoryMovement.from_locker_id == locker.id,
@@ -542,7 +537,10 @@ async def _delete_locker_cascade(
     if locker is None:
         return False, "not_found"
 
-    await _purge_locker_contents(session, locker)
+    try:
+        await _purge_locker_contents(session, locker)
+    except LockerHasOperationsError as exc:
+        return False, str(exc)
     await session.delete(locker)
     return True, "deleted"
 
@@ -571,7 +569,10 @@ async def _empty_locker_inventory(
     if not cell_count:
         return False, "already_empty"
 
-    await _purge_locker_contents(session, locker)
+    try:
+        await _purge_locker_contents(session, locker)
+    except LockerHasOperationsError as exc:
+        return False, str(exc)
     return True, "emptied"
 
 
@@ -671,13 +672,25 @@ async def _run() -> int:
                     empty_provider,
                     empty_external_id,
                 )
-            else:
+            elif reason == "not_found":
                 missing += 1
                 logger.warning(
                     "Locker to empty not found: provider=%s external_id=%s",
                     empty_provider,
                     empty_external_id,
                 )
+            else:
+                # К постамату привязаны брони или аренды — чистить его
+                # нельзя. Откатываем всё и падаем, чтобы это заметили.
+                await session.rollback()
+                await engine.dispose()
+                logger.error(
+                    "Refuse to empty locker provider=%s external_id=%s: %s",
+                    empty_provider,
+                    empty_external_id,
+                    reason,
+                )
+                return 1
 
         for delete_target in DELETE_TARGETS:
             ok, reason = await _delete_locker_cascade(session, delete_target)
