@@ -2954,6 +2954,12 @@ function rentalCanCancel(status) {
   return s !== "completed" && s !== "cancelled";
 }
 
+// «Снять» — только пока вещь в ячейке и её не забирали: бэкенд вернёт
+// клиенту деньги и сменит PIN ячейки. Вещь у клиента — это «Завершить».
+function rentalCanBeTakenBack(status) {
+  return String(status || "") === "pickup_ready";
+}
+
 function rentalIsTerminalForDetailActions(status) {
   return !rentalCanCancel(status);
 }
@@ -3055,7 +3061,7 @@ function renderRentals() {
   rentalsTableBody.innerHTML = list
     .map((row) => {
       const canDel = rentalIsDeletable(row.status);
-      const canRel = rentalCanCancel(row.status);
+      const canRel = rentalCanBeTakenBack(row.status);
       const overdueTag = row.isOverdue
         ? ` <span class="overdue-badge" title="Просрочено">!</span>`
         : "";
@@ -3244,6 +3250,7 @@ function renderRentalDetailModal() {
   const u = d.user;
   const inv = d.inventoryUnit;
   const term = rentalIsTerminalForDetailActions(r.status);
+  const canTakeBack = rentalCanBeTakenBack(r.status);
   const canDeleteRecord = rentalIsDeletable(r.status);
 
   const eventsRows = (r.events || [])
@@ -3264,9 +3271,13 @@ function renderRentalDetailModal() {
     : `
     <div class="detail-block">
       <h4 class="detail-block-title">Оператор</h4>
-      <p class="muted-inline">Снять — отменить аренду и вернуть юнит в доступные. Принудительно завершить — закрыть как успешный возврат (без вебхука).</p>
+      <p class="muted-inline">${
+        canTakeBack
+          ? "Снять — отменить аренду, которую ещё не забрали: клиенту вернутся деньги, PIN ячейки сменится. "
+          : "Снять нельзя: ячейку уже открывали или вещь у клиента. "
+      }Принудительно завершить — закрыть как успешный возврат (без вебхука).</p>
       <div class="user-detail-action-row">
-        <button type="button" class="ghost-button" data-rental-detail-cancel>Снять аренду</button>
+        ${canTakeBack ? `<button type="button" class="ghost-button" data-rental-detail-cancel>Снять аренду</button>` : ""}
         <button type="button" class="table-danger-button" data-rental-detail-force-complete>Форс-мажор: завершить</button>
       </div>
     </div>
@@ -3476,7 +3487,11 @@ async function handleRentalsTableClick(event) {
   const cancelBtn = root.closest("[data-rental-cancel]");
   if (cancelBtn) {
     const id = (cancelBtn.getAttribute("data-rental-cancel") || "").trim();
-    if (!window.confirm("Снять аренду? Статус станет «отменено», товар вернётся в доступные.")) {
+    if (
+      !window.confirm(
+        "Снять аренду? Клиенту вернутся деньги, PIN ячейки сменится, вещь останется в ячейке и снова станет доступна.",
+      )
+    ) {
       return;
     }
     rentalsTableBusy = true;
@@ -3579,7 +3594,11 @@ async function handleRentalDetailClick(event) {
   btn.disabled = true;
   try {
     if (btn.hasAttribute("data-rental-detail-cancel")) {
-      if (!window.confirm("Снять аренду? Статус «отменено».")) {
+      if (
+        !window.confirm(
+          "Снять аренду? Клиенту вернутся деньги, PIN ячейки сменится, вещь останется в ячейке и снова станет доступна.",
+        )
+      ) {
         return;
       }
       await authorizedRequest(`/api/admin/rentals/${safeId}/cancel`, { method: "POST" });

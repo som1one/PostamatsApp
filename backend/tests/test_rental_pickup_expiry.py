@@ -247,7 +247,8 @@ class RentalPickupExpiryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payment.status, PaymentStatus.REFUNDED)
         self.assertIsNotNone(payment.processed_at)
         self.assertEqual(unit.status, InventoryStatus.AVAILABLE)
-        self.assertEqual(cell.status, LockerCellStatus.VACANT)
+        # Вещь так и лежит в ячейке — она занята, а не пуста.
+        self.assertEqual(cell.status, LockerCellStatus.OCCUPIED)
         self.assertEqual(len(events), 1)
 
     async def test_expired_pickup_cancels_authorized_hold(self):

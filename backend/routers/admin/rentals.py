@@ -13,6 +13,7 @@ from backend.models.enums import (
     LockerCellStatus,
     RentalEventSource,
     RentalStatus,
+    ReservationStatus,
 )
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.locker_cell import LockerCell
@@ -29,6 +30,11 @@ from backend.utils.admin_audit import record_admin_audit
 from backend.utils.admin_scope import ensure_rental_in_scope, franchise_city_ids
 from backend.utils.bonus_ledger import accrue_rental_bonus
 from backend.utils.lockers_utils import price_plan_to_minor_units
+from backend.utils.payment_flow import release_reservation_payment
+from backend.utils.rental_cancellation import (
+    release_unit_kept_in_cell,
+    reset_pin_after_pickup_cancel,
+)
 from backend.utils.rental_serialization import rental_is_overdue, serialize_rental_detail
 from backend.utils.return_photos import (
     load_latest_returned_rentals,
@@ -221,9 +227,11 @@ async def _release_unit_and_cell(db: AsyncSession, rental: Rental) -> None:
         ):
             unit.status = InventoryStatus.AVAILABLE
         if unit.locker_cell_id is not None:
+            # Юнит числится в ячейке — значит, вещь внутри: ячейка занята,
+            # а не пуста, иначе туда можно положить вторую вещь.
             cell = await db.get(LockerCell, unit.locker_cell_id)
             if cell is not None and cell.status == LockerCellStatus.RESERVED:
-                cell.status = LockerCellStatus.VACANT
+                cell.status = LockerCellStatus.OCCUPIED
 
 
 @router.get("")
@@ -427,14 +435,47 @@ async def cancel_rental(
     await ensure_rental_in_scope(db, franchise_city_ids(admin), rental)
     if rental.status in _NO_CANCEL_RENTAL:
         raise HTTPException(status_code=409, detail="RENTAL_NOT_CANCELLABLE")
+    if rental.status != RentalStatus.PICKUP_READY:
+        # Ячейку уже открывали или вещь у клиента: «снять» такую аренду
+        # значило бы объявить вещь свободной, хотя её нет в постамате.
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Снять можно только аренду, которую ещё не забрали из постамата. "
+                "Если вещь у клиента — завершите аренду."
+            ),
+        )
 
     prev = rental.status
     now = datetime.now(timezone.utc)
+    reservation = (
+        await db.get(Reservation, rental.reservation_id)
+        if rental.reservation_id is not None
+        else None
+    )
+
+    # Деньги — до отмены, как при отмене клиентом и по таймауту забора.
+    # Не вышло вернуть — аренду не снимаем.
+    if reservation is not None:
+        released = await release_reservation_payment(
+            db, reservation.id, now, context="admin-cancelled rental"
+        )
+        if not released:
+            await db.rollback()
+            raise HTTPException(
+                status_code=502,
+                detail="Не удалось вернуть деньги клиенту через ЮKassa — аренда не снята. Попробуйте позже.",
+            )
+        reservation.status = ReservationStatus.CANCELLED
+        reservation.cancelled_at = now
+        reservation.cancel_reason = "cancelled_by_admin"
+
     rental.status = RentalStatus.CANCELLED
+    rental.cancel_reason = "cancelled_by_admin"
     rental.actual_end_at = now
     rental.completed_at = now
 
-    await _release_unit_and_cell(db, rental)
+    await release_unit_kept_in_cell(db, rental, now)
 
     db.add(
         RentalEvent(
@@ -443,7 +484,7 @@ async def cancel_rental(
             from_status=prev,
             to_status=RentalStatus.CANCELLED,
             source=RentalEventSource.ADMIN,
-            payload_json=None,
+            payload_json={"moneyReturned": reservation is not None},
         )
     )
     try:
@@ -462,7 +503,9 @@ async def cancel_rental(
         await db.rollback()
         raise HTTPException(status_code=500, detail="RENTAL_CANCEL_FAILED") from exc
 
-    return {
+    # Ответ — до смены PIN: если постамат не ответит, сессия откатится и
+    # поля аренды прочитать уже не выйдет, а отмена всё равно состоялась.
+    response = {
         "data": {
             "rental": {
                 "id": str(rental.id),
@@ -472,6 +515,8 @@ async def cancel_rental(
             }
         }
     }
+    await reset_pin_after_pickup_cancel(db, rental)
+    return response
 
 
 @router.post("/{rental_id}/force-complete")

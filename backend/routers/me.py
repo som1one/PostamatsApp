@@ -105,6 +105,7 @@ from backend.utils.rental_extension import (
     list_extension_options,
     resolve_extension_price,
 )
+from backend.utils.rental_cancellation import reset_pin_after_pickup_cancel
 from backend.utils.rental_return_flow import ReturnRequestError, start_rental_return
 from backend.utils.rental_serialization import serialize_rental_detail, serialize_rental_list_item
 from backend.utils.reservation_handover import (
@@ -1132,7 +1133,7 @@ async def cancel_rental_before_pickup(
         await db.rollback()
         raise HTTPException(status_code=500, detail="RENTAL_CANCEL_FAILED") from exc
 
-    return {
+    response = {
         "data": {
             "rental": {
                 "id": str(rental.id),
@@ -1142,6 +1143,9 @@ async def cancel_rental_before_pickup(
             }
         }
     }
+    # Деньги вернули — старый PIN больше не должен открывать ячейку.
+    await reset_pin_after_pickup_cancel(db, rental)
+    return response
 
 
 @router.post("/rentals/{rental_id}/open-cell")

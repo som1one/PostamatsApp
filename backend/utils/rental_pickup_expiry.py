@@ -5,7 +5,8 @@ If a rental has status PICKUP_READY and pickup_expires_at <= now,
 it is cancelled:
   - деньги клиенту   → refund списанного (или cancel холда)
   - inventory unit → AVAILABLE
-  - locker cell    → VACANT  (if still RESERVED)
+  - locker cell    → OCCUPIED (вещь так и лежит внутри) + новый PIN в
+                     постамате, чтобы старый код клиента не открывал ячейку
   - rental.status  → CANCELLED
   - rental.cancel_reason → "pickup_expired"
   - RentalEvent logged
@@ -23,12 +24,14 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 
 from backend.core.database import SessionLocal
-from backend.models.enums import InventoryStatus, LockerCellStatus, RentalEventSource, RentalStatus
-from backend.models.inventory_unit import InventoryUnit
-from backend.models.locker_cell import LockerCell
+from backend.models.enums import RentalEventSource, RentalStatus
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
 from backend.utils.payment_flow import release_reservation_payment
+from backend.utils.rental_cancellation import (
+    release_unit_kept_in_cell,
+    reset_pin_after_pickup_cancel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,18 +76,8 @@ async def expire_stale_pickup_rentals() -> None:
 
                 prev_status = rental.status
 
-                # Освобождаем единицу инвентаря
-                unit = await db.get(InventoryUnit, rental.inventory_unit_id)
-                if unit is not None and unit.status in (
-                    InventoryStatus.RESERVED,
-                    InventoryStatus.RENTED,
-                ):
-                    unit.status = InventoryStatus.AVAILABLE
-                    # Освобождаем ячейку постамата
-                    if unit.locker_cell_id is not None:
-                        cell = await db.get(LockerCell, unit.locker_cell_id)
-                        if cell is not None and cell.status == LockerCellStatus.RESERVED:
-                            cell.status = LockerCellStatus.VACANT
+                # Вещь так и лежит в ячейке: юнит снова доступен, ячейка занята.
+                await release_unit_kept_in_cell(db, rental, now)
 
                 rental.status = RentalStatus.CANCELLED
                 rental.cancel_reason = "pickup_expired"
@@ -103,6 +96,8 @@ async def expire_stale_pickup_rentals() -> None:
                 )
                 await db.commit()
                 cancelled += 1
+                # Старый PIN клиента больше не должен открывать ячейку.
+                await reset_pin_after_pickup_cancel(db, rental)
             except Exception:
                 await db.rollback()
                 logger.exception("Error expiring pickup-ready rental %s", rental_id)
