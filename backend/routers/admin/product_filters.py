@@ -15,6 +15,7 @@ from backend.schemas.product_filter_schemas import (
     AdminUpdateProductFilterPayload,
 )
 from backend.utils.admin_audit import record_admin_audit
+from backend.utils.admin_edits import changed_fields, mark_admin_edited
 from backend.utils.product_filters import serialize_product_filter
 
 router = APIRouter(
@@ -122,6 +123,21 @@ async def get_product_filter(
     return {"data": _serialize_item(product, product_filter)}
 
 
+def _editable_filter_fields(product_filter: ProductFilter) -> dict:
+    """Поля фильтра, которые выкладка накатывает из каталога, — в именах API."""
+    return {
+        "name": product_filter.name,
+        "shortDescription": product_filter.short_description,
+        "fullDescription": product_filter.full_description,
+        "rulesText": product_filter.rules_text,
+        "kitDescription": product_filter.kit_description,
+        "coverUrl": product_filter.cover_url,
+        "galleryUrls": product_filter.gallery_urls_json,
+        "tariffs": product_filter.price_plans_json,
+        "isActive": product_filter.is_active,
+    }
+
+
 @router.post("")
 async def create_product_filter(
     request: Request,
@@ -154,6 +170,8 @@ async def create_product_filter(
         price_plans_json=_normalize_tariffs(payload.tariffs),
         is_active=payload.isActive,
     )
+    # Фильтр заведён в админке целиком — выкладка его не тронет.
+    mark_admin_edited(product_filter, _editable_filter_fields(product_filter))
     db.add(product_filter)
 
     try:
@@ -198,6 +216,7 @@ async def update_product_filter(
         raise HTTPException(status_code=404, detail="PRODUCT_FILTER_NOT_FOUND")
 
     data = payload.model_dump(exclude_unset=True)
+    fields_before = _editable_filter_fields(product_filter)
     if "name" in data:
         product_filter.name = _normalize_optional_text(data["name"])
     if "shortDescription" in data:
@@ -216,6 +235,9 @@ async def update_product_filter(
         product_filter.price_plans_json = _normalize_tariffs(payload.tariffs or [])
     if "isActive" in data:
         product_filter.is_active = bool(data["isActive"])
+    mark_admin_edited(
+        product_filter, changed_fields(fields_before, _editable_filter_fields(product_filter))
+    )
 
     try:
         record_admin_audit(

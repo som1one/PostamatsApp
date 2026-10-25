@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from importlib import import_module
@@ -29,6 +29,7 @@ from backend.models.product import Product
 from backend.models.product_category import ProductCategory
 from backend.models.product_filter import ProductFilter
 from backend.models.product_image import ProductImage
+from backend.utils.admin_edits import admin_edited
 from backend.utils.local_storage import store_local_upload
 from backend.utils.products_utils import public_media_url
 from backend.utils.uploads_utils import bucket_for_media_kind
@@ -99,6 +100,8 @@ class SyncStats:
     filters_deleted: int = 0
     units_created: int = 0
     units_updated: int = 0
+    # Что сохранили из правок в админке: «товар vacuum: fullDescription».
+    admin_edits_kept: list[str] = field(default_factory=list)
 
 
 def _load_models() -> None:
@@ -266,10 +269,17 @@ def _upsert_city(session: Session, payload: dict[str, Any], stats: SyncStats) ->
         stats.cities_created += 1
         return city
 
-    city.name = payload["name"]
-    city.timezone = payload["timezone"]
-    city.is_active = bool(payload["isActive"])
-    city.sort_order = int(payload["sortOrder"])
+    kept = _keep_admin_edits(
+        stats, "city", payload["slug"], city, {"name", "timezone", "isActive", "sortOrder"}
+    )
+    if "name" not in kept:
+        city.name = payload["name"]
+    if "timezone" not in kept:
+        city.timezone = payload["timezone"]
+    if "isActive" not in kept:
+        city.is_active = bool(payload["isActive"])
+    if "sortOrder" not in kept:
+        city.sort_order = int(payload["sortOrder"])
     stats.cities_updated += 1
     return city
 
@@ -402,6 +412,24 @@ def _upsert_media_file(session: Session, payload: dict[str, Any], stats: SyncSta
     return media
 
 
+# Поле в именах админского API → (атрибут модели, ключ бандла). Поля без
+# ключа бандла (категория, обложка, галерея, активность) выставляются
+# отдельно: у них своя логика.
+_PRODUCT_FIELDS: dict[str, tuple[str, str | None]] = {
+    "name": ("name", "name"),
+    "shortDescription": ("short_description", "shortDescription"),
+    "fullDescription": ("full_description", "fullDescription"),
+    "specsJson": ("specs_json", "specsJson"),
+    "rulesText": ("rules_text", "rulesText"),
+    "kitDescription": ("kit_description", "kitDescription"),
+    "brand": ("brand", "brand"),
+    "categoryId": ("category_id", None),
+    "coverFileId": ("cover_file_id", None),
+    "galleryFileIds": ("", None),
+    "isActive": ("is_active", None),
+}
+
+
 def _upsert_product(
     session: Session,
     payload: dict[str, Any],
@@ -428,19 +456,19 @@ def _upsert_product(
         stats.products_created += 1
         return product
 
-    product.category_id = category.id
-    product.name = payload["name"]
-    product.short_description = payload["shortDescription"]
-    product.full_description = payload["fullDescription"]
-    product.specs_json = payload["specsJson"]
-    product.rules_text = payload["rulesText"]
-    product.kit_description = payload["kitDescription"]
-    product.brand = payload["brand"]
+    kept = _keep_admin_edits(stats, "product", payload["slug"], product, set(_PRODUCT_FIELDS))
+    for field_name, (attr, bundle_key) in _PRODUCT_FIELDS.items():
+        if field_name in kept or bundle_key is None:
+            continue
+        setattr(product, attr, payload[bundle_key])
+    if "categoryId" not in kept:
+        product.category_id = category.id
     # Не затираем обложку, если в бандле она не задана (null) —
     # фото могло быть загружено вручную через админку.
-    if cover_media is not None:
+    if cover_media is not None and "coverFileId" not in kept:
         product.cover_file_id = cover_media.id
-    product.is_active = bool(payload["isActive"])
+    if "isActive" not in kept:
+        product.is_active = bool(payload["isActive"])
     stats.products_updated += 1
     return product
 
@@ -516,9 +544,8 @@ def _sync_product_filter(
 ) -> None:
     existing = session.scalar(select(ProductFilter).where(ProductFilter.product_id == product.id))
     if payload is None:
-        if existing is not None:
-            session.delete(existing)
-            stats.filters_deleted += 1
+        # Фильтра в каталоге нет, а в базе есть — его завели в админке.
+        # Раньше выкладка его удаляла; теперь не трогаем.
         return
 
     cover_url = public_media_url(payload["coverFileKey"]) if payload.get("coverFileKey") else None
@@ -546,18 +573,33 @@ def _sync_product_filter(
         stats.filters_created += 1
         return
 
-    existing.name = payload["name"]
-    existing.short_description = payload["shortDescription"]
-    existing.full_description = payload["fullDescription"]
-    existing.rules_text = payload["rulesText"]
-    existing.kit_description = payload["kitDescription"]
+    kept = _keep_admin_edits(
+        stats,
+        "filter",
+        product.slug,
+        existing,
+        {"name", "shortDescription", "fullDescription", "rulesText", "kitDescription",
+         "coverUrl", "galleryUrls", "tariffs", "isActive"},
+    )
+    if "name" not in kept:
+        existing.name = payload["name"]
+    if "shortDescription" not in kept:
+        existing.short_description = payload["shortDescription"]
+    if "fullDescription" not in kept:
+        existing.full_description = payload["fullDescription"]
+    if "rulesText" not in kept:
+        existing.rules_text = payload["rulesText"]
+    if "kitDescription" not in kept:
+        existing.kit_description = payload["kitDescription"]
     # Не затираем обложку/галерею фильтра, если в бандле они не заданы.
-    if cover_url is not None:
+    if cover_url is not None and "coverUrl" not in kept:
         existing.cover_url = cover_url
-    if gallery_urls:
+    if gallery_urls and "galleryUrls" not in kept:
         existing.gallery_urls_json = gallery_urls
-    existing.price_plans_json = payload["pricePlans"] or []
-    existing.is_active = bool(payload["isActive"])
+    if "tariffs" not in kept:
+        existing.price_plans_json = payload["pricePlans"] or []
+    if "isActive" not in kept:
+        existing.is_active = bool(payload["isActive"])
     stats.filters_updated += 1
 
 
@@ -631,7 +673,20 @@ def _deactivate_missing_products(
 def _print_summary(stats: SyncStats) -> None:
     print("Catalog bundle sync summary:")
     for field_name in stats.__dataclass_fields__:
+        if field_name == "admin_edits_kept":
+            continue
         print(f"  {field_name}: {getattr(stats, field_name)}")
+    print(f"  admin_edits_kept: {len(stats.admin_edits_kept)}")
+    for line in stats.admin_edits_kept:
+        print(f"    kept admin edit — {line}")
+
+
+def _keep_admin_edits(stats: SyncStats, kind: str, key: str, obj: Any, fields: set[str]) -> set[str]:
+    """Поля из ``fields``, поправленные в админке: их не перезаписываем."""
+    kept = fields & admin_edited(obj)
+    if kept:
+        stats.admin_edits_kept.append(f"{kind} {key}: {', '.join(sorted(kept))}")
+    return kept
 
 
 def apply_bundle(
@@ -707,9 +762,9 @@ def apply_bundle(
                 for file_key in payload.get("galleryFileKeys") or []
                 if file_key in media_by_file_key
             ]
-            # Не затираем галерею, если в бандле она пустая — фото могли
-            # быть загружены вручную через админку.
-            if gallery_media:
+            # Не затираем галерею, если в бандле она пустая или её
+            # поправили в админке — фото могли загрузить вручную.
+            if gallery_media and "galleryFileIds" not in admin_edited(product):
                 _replace_product_gallery(session, product, gallery_media, stats)
             _sync_product_filter(session, product, payload.get("filter"), stats)
 

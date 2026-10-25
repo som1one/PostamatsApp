@@ -27,3 +27,6 @@ class ProductFilter(Base, TimestampMixin):
     gallery_urls_json: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     price_plans_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Поля, изменённые в админке: синхронизация каталога их не трогает
+    # (backend/utils/admin_edits.py).
+    admin_edited_fields: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)

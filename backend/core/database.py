@@ -154,6 +154,14 @@ _WEEKDAY_PRICING_COLUMNS: tuple[tuple[str, str, str, str], ...] = (
     ),
 )
 
+# Колонки из миграции `u7p8q9r0s1t2`: какие поля поправили в админке, чтобы
+# синхронизация каталога их не затирала (backend/utils/admin_edits.py).
+_ADMIN_EDIT_COLUMNS: tuple[tuple[str, str, str, str], ...] = (
+    ("products", "admin_edited_fields", "JSON", "JSON"),
+    ("cities", "admin_edited_fields", "JSON", "JSON"),
+    ("product_filters", "admin_edited_fields", "JSON", "JSON"),
+)
+
 
 async def _ensure_franchise_columns(conn) -> None:
     from sqlalchemy import text
@@ -165,6 +173,7 @@ async def _ensure_franchise_columns(conn) -> None:
     for table_name, column_name, pg_ddl, sqlite_ddl in (
         *_FRANCHISE_COLUMNS,
         *_WEEKDAY_PRICING_COLUMNS,
+        *_ADMIN_EDIT_COLUMNS,
     ):
         try:
             has_column = await _table_has_column(

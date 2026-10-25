@@ -23,6 +23,7 @@ from backend.models.reservation import Reservation
 from backend.routers.admin.auth import get_current_admin
 from backend.schemas.admin_panel_schemas import AdminCreateProductPayload, AdminUpdateProductPayload
 from backend.utils.admin_audit import record_admin_audit
+from backend.utils.admin_edits import changed_fields, is_catalog_product, mark_admin_edited
 from backend.utils.products_utils import load_media_files_by_ids, load_product_images_with_urls, public_media_url
 
 router = APIRouter(
@@ -131,6 +132,31 @@ def _serialize_plan(p: PricePlan) -> dict:
         "isActive": p.is_active,
         "sortOrder": p.sort_order,
     }
+
+
+def _editable_product_fields(product: Product) -> dict:
+    """Поля товара, которые выкладка накатывает из каталога, — в именах API."""
+    return {
+        "categoryId": product.category_id,
+        "name": product.name,
+        "shortDescription": product.short_description,
+        "fullDescription": product.full_description,
+        "rulesText": product.rules_text,
+        "kitDescription": product.kit_description,
+        "brand": product.brand,
+        "specsJson": product.specs_json,
+        "isActive": product.is_active,
+        "coverFileId": product.cover_file_id,
+    }
+
+
+async def _gallery_file_ids(db: AsyncSession, product_id: UUID) -> list[UUID]:
+    rows = await db.scalars(
+        select(ProductImage.file_id)
+        .where(ProductImage.product_id == product_id)
+        .order_by(ProductImage.sort_order.asc())
+    )
+    return list(rows.all())
 
 
 def _serialize_product_row(
@@ -379,6 +405,8 @@ async def update_admin_product(
     gallery_file_ids: list[UUID] | None = None
     if "galleryFileIds" in data and data["galleryFileIds"] is not None:
         gallery_file_ids = _dedupe_uuid_list(data["galleryFileIds"])
+    fields_before = _editable_product_fields(product)
+    gallery_before = await _gallery_file_ids(db, product.id) if gallery_file_ids is not None else None
 
     media_ids_to_validate: list[UUID] = []
     if "coverFileId" in data and data["coverFileId"] is not None:
@@ -403,6 +431,16 @@ async def update_admin_product(
         slug = normalize_product_slug(data["slug"])
         if not slug:
             raise HTTPException(status_code=422, detail="Slug должен содержать латиницу или цифры")
+        if slug != product.slug and is_catalog_product(product.slug):
+            # Выкладка находит товары каталога по slug: под новым адресом
+            # она его не узнает и создаст рядом дубль со старым.
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Это товар из каталога сайта: адрес (slug) у него менять нельзя, "
+                    "иначе следующая выкладка создаст дубль. Название и тексты менять можно."
+                ),
+            )
         conflict = await db.scalar(select(Product.id).where(Product.slug == slug, Product.id != product_id))
         if conflict is not None:
             raise HTTPException(status_code=409, detail="Товар с таким slug уже существует")
@@ -431,6 +469,12 @@ async def update_admin_product(
     if gallery_file_ids is not None:
         await _sync_product_gallery(db, product.id, gallery_file_ids)
 
+    # Запоминаем, что действительно поменяли: выкладка эти поля не тронет.
+    edited = changed_fields(fields_before, _editable_product_fields(product))
+    if gallery_before is not None and gallery_before != gallery_file_ids:
+        edited.add("galleryFileIds")
+    mark_admin_edited(product, edited)
+
     try:
         record_admin_audit(
             db,
@@ -441,6 +485,7 @@ async def update_admin_product(
             resource_id=product.id,
             payload={
                 "fields": list(data.keys()),
+                "changed": sorted(edited),
                 "coverFileId": str(product.cover_file_id) if product.cover_file_id else None,
                 "galleryCount": len(gallery_file_ids) if gallery_file_ids is not None else None,
             },

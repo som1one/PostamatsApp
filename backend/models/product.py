@@ -41,3 +41,6 @@ class Product(Base, TimestampMixin):
         server_default=false(),
         nullable=False,
     )
+    # Поля, изменённые в админке: синхронизация каталога их не трогает
+    # (backend/utils/admin_edits.py).
+    admin_edited_fields: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)

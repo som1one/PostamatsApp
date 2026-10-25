@@ -12,6 +12,7 @@ from backend.models.locker_location import LockerLocation
 from backend.models.user import User
 from backend.routers.admin.auth import get_current_admin
 from backend.utils.admin_audit import record_admin_audit
+from backend.utils.admin_edits import changed_fields, is_catalog_city, mark_admin_edited
 from backend.utils.admin_scope import (
     ensure_city_in_scope,
     franchise_city_ids,
@@ -174,6 +175,16 @@ async def create_admin_city(
     return {"data": {"city": serialize_city(city)}}
 
 
+def _editable_city_fields(city: City) -> dict:
+    """Поля города, которые выкладка накатывает из каталога, — в именах API."""
+    return {
+        "name": city.name,
+        "timezone": city.timezone,
+        "isActive": city.is_active,
+        "sortOrder": city.sort_order,
+    }
+
+
 @router.patch("/{city_id}")
 async def update_admin_city(
     request: Request,
@@ -191,6 +202,7 @@ async def update_admin_city(
         raise HTTPException(status_code=404, detail="Город не найден")
 
     data = payload.model_dump(exclude_unset=True)
+    fields_before = _editable_city_fields(city)
 
     if "name" in data and data["name"] is not None:
         name = data["name"].strip()
@@ -213,6 +225,12 @@ async def update_admin_city(
         )
         if conflict is not None:
             raise HTTPException(status_code=409, detail="Город с таким slug уже существует")
+        if normalized_slug != city.slug and is_catalog_city(city.slug):
+            # Выкладка находит города каталога по slug — создала бы дубль.
+            raise HTTPException(
+                status_code=409,
+                detail="Это город из каталога сайта: slug у него менять нельзя, иначе следующая выкладка создаст дубль.",
+            )
         city.slug = normalized_slug
 
     if "isActive" in data:
@@ -220,6 +238,9 @@ async def update_admin_city(
 
     if "sortOrder" in data:
         city.sort_order = data["sortOrder"]
+
+    # Запоминаем, что поменяли: выкладка эти поля не тронет.
+    mark_admin_edited(city, changed_fields(fields_before, _editable_city_fields(city)))
 
     try:
         record_admin_audit(
