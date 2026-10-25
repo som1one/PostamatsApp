@@ -404,6 +404,18 @@ async def create_reservation(
     except Exception as exc:
         await db.rollback()
         raise HTTPException(status_code=500, detail="RESERVATION_CREATE_FAILED") from exc
+    # Строка, по которой бронь можно восстановить, даже если запись пропадёт.
+    logger.info(
+        "Reservation %s created: user=%s product=%s locker=%s %s %s pickup_at=%s amount=%s",
+        reservation.id,
+        reservation.user_id,
+        reservation.product_id,
+        reservation.locker_id,
+        reservation.duration_value,
+        reservation.duration_type,
+        reservation.pickup_at.isoformat() if reservation.pickup_at else "now",
+        reservation.quoted_amount,
+    )
 
     return {
         "data": {
@@ -743,6 +755,12 @@ async def confirm_reservation(
     except Exception as exc:
         await db.rollback()
         raise HTTPException(status_code=500, detail="RESERVATION_CONFIRM_FAILED") from exc
+    logger.info(
+        "Confirmed reservation %s into rental %s (pickup until %s)",
+        reservation.id,
+        rental.id,
+        rental.pickup_expires_at.isoformat() if rental.pickup_expires_at else None,
+    )
 
     return {
         "data": {

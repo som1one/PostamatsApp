@@ -12,7 +12,11 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from backend.core.database import close_db, init_db
+from backend.core.logging_setup import configure_logging
+
+configure_logging()
+
+from backend.core.database import close_db, init_db  # noqa: E402
 from backend.core.error_middleware import InternalErrorResponseMiddleware
 from backend.core.redis import close_redis, init_redis
 from backend.core.settings import settings

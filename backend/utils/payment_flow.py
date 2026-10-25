@@ -307,6 +307,16 @@ async def apply_payment_status_transition(
         return False
 
     resolved_now = now or datetime.now(timezone.utc)
+    logger.info(
+        "Payment %s (%s) %s -> %s: amount=%s reservation=%s rental=%s",
+        payment.id,
+        payment.provider_payment_id,
+        payment.status.value,
+        new_status.value,
+        payment.amount,
+        payment.reservation_id,
+        payment.rental_id,
+    )
     payment.status = new_status
     payment.processed_at = resolved_now
     if new_status == PaymentStatus.FAILED and failure_code:

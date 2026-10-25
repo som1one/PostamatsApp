@@ -140,4 +140,5 @@ async def reset_pin_after_pickup_cancel(db: AsyncSession, rental: Rental) -> str
     except Exception:
         await db.rollback()
         logger.exception("Failed to record pickup PIN reset for rental %s", rental_id)
+    logger.info("Rental %s cancelled before pickup; cell PIN reset: %s", rental_id, outcome)
     return outcome
