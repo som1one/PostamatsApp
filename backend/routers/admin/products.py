@@ -3,17 +3,23 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
 from backend.utils.admin_scope import require_full_access_admin
+from backend.models.condition_report import ConditionReport
+from backend.models.featured_product_state import FeaturedProductState
+from backend.models.inventory_movement import InventoryMovement
 from backend.models.inventory_unit import InventoryUnit
 from backend.models.media_file import MediaFile
 from backend.models.price_plan import PricePlan
 from backend.models.product import Product
 from backend.models.product_category import ProductCategory
+from backend.models.product_filter import ProductFilter
 from backend.models.product_image import ProductImage
+from backend.models.rental import Rental
+from backend.models.reservation import Reservation
 from backend.routers.admin.auth import get_current_admin
 from backend.schemas.admin_panel_schemas import AdminCreateProductPayload, AdminUpdateProductPayload
 from backend.utils.admin_audit import record_admin_audit
@@ -475,56 +481,81 @@ async def delete_admin_product(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    admin = await get_current_admin(request, db)
+    """Удаляет товар, у которого ещё не было ни одной аренды.
+
+    Товар с историей (брони, аренды, перемещения, отчёты о состоянии) не
+    удаляем: вместе с ним пропал бы учёт, а платежи потеряли бы бронь.
+    Такой товар выключают галочкой «Активен в каталоге».
+    """
+    admin, _ = await get_current_admin(request, db)
     product = await db.get(Product, product_id)
     if product is None:
         raise HTTPException(status_code=404, detail="PRODUCT_NOT_FOUND")
 
+    unit_ids = list(
+        (await db.scalars(select(InventoryUnit.id).where(InventoryUnit.product_id == product_id))).all()
+    )
+    history_counts = [
+        select(func.count()).select_from(Reservation).where(Reservation.product_id == product_id)
+    ]
+    if unit_ids:
+        history_counts += [
+            select(func.count()).select_from(Rental).where(Rental.inventory_unit_id.in_(unit_ids)),
+            select(func.count())
+            .select_from(InventoryMovement)
+            .where(InventoryMovement.inventory_unit_id.in_(unit_ids)),
+            select(func.count())
+            .select_from(ConditionReport)
+            .where(ConditionReport.inventory_unit_id.in_(unit_ids)),
+        ]
+    for stmt in history_counts:
+        if await db.scalar(stmt):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "У товара есть история аренд и перемещений — удалить его нельзя, "
+                    "иначе пропадёт учёт. Выключите товар галочкой «Активен в каталоге»."
+                ),
+            )
+    in_cell = await db.scalar(
+        select(func.count())
+        .select_from(InventoryUnit)
+        .where(InventoryUnit.product_id == product_id, InventoryUnit.locker_cell_id.is_not(None))
+    )
+    if in_cell:
+        raise HTTPException(
+            status_code=409,
+            detail="Вещь этого товара лежит в постамате — сначала изымите её из ячейки.",
+        )
+    featured = await db.scalar(
+        select(FeaturedProductState.spotlight_key).where(FeaturedProductState.product_id == product_id)
+    )
+    if featured is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Товар сейчас показан на главной как товар дня — удалите его после смены товара дня.",
+        )
+
     product_name = product.name
     product_slug = product.slug
-
-    # Cascading cleanup: delete all related records
-    from sqlalchemy import delete as sql_delete, text
-
     try:
-        # Delete inventory movements referencing units of this product
-        await db.execute(text("""
-            DELETE FROM inventory_movements WHERE inventory_unit_id IN (
-                SELECT id FROM inventory_units WHERE product_id = :pid
-            )
-        """), {"pid": str(product_id)})
-
-        # Delete inventory units
-        await db.execute(text("DELETE FROM inventory_units WHERE product_id = :pid"), {"pid": str(product_id)})
-
-        # Delete product images
-        await db.execute(text("DELETE FROM product_images WHERE product_id = :pid"), {"pid": str(product_id)})
-
-        # Delete price plans
-        await db.execute(text("DELETE FROM price_plans WHERE product_id = :pid"), {"pid": str(product_id)})
-
-        # Delete product filters
-        await db.execute(text("DELETE FROM product_filters WHERE product_id = :pid"), {"pid": str(product_id)})
-
-        # Delete the product itself
-        await db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": str(product_id)})
-
+        await db.execute(delete(ProductImage).where(ProductImage.product_id == product_id))
+        await db.execute(delete(PricePlan).where(PricePlan.product_id == product_id))
+        await db.execute(delete(ProductFilter).where(ProductFilter.product_id == product_id))
+        await db.execute(delete(InventoryUnit).where(InventoryUnit.product_id == product_id))
+        await db.execute(delete(Product).where(Product.id == product_id))
+        record_admin_audit(
+            db,
+            admin_account_id=admin.id,
+            action="product.delete",
+            request=request,
+            resource_type="product",
+            resource_id=product_id,
+            payload={"name": product_name, "slug": product_slug},
+        )
         await db.commit()
     except Exception as exc:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"PRODUCT_DELETE_FAILED: {exc}") from exc
-
-    record_admin_audit(
-        db,
-        admin_id=admin.id,
-        action="product_deleted",
-        target_type="product",
-        target_id=product_id,
-        details={"name": product_name, "slug": product_slug},
-    )
-    try:
-        await db.commit()
-    except Exception:
-        pass
+        raise HTTPException(status_code=500, detail="Не удалось удалить товар") from exc
 
     return {"data": {"deleted": True, "productId": str(product_id)}}
