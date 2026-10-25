@@ -275,12 +275,12 @@ def _upsert_city(session: Session, payload: dict[str, Any], stats: SyncStats) ->
 
 
 def _locker_status(payload: dict[str, Any]) -> LockerStatus:
-    # Сидовый постамат физически не существует: команды в него уходят в
+    # Постамат не на ESI физически не существует: команды в него уходят в
     # stub (backend/utils/esi_client.py), PIN ничего не откроет. ONLINE в
     # бандле значит, что сайт продаёт аренду в ячейку, которой нет. Так
     # «СПб Невский» с июня по октябрь 2026 принимал оплаты: бандл
     # пересобрали из базы, где он был ONLINE, и статус тихо вернулся.
-    if str(payload["externalProvider"] or "").strip().lower() == "seed":
+    if str(payload["externalProvider"] or "").strip().lower() != "esi":
         return LockerStatus.OFFLINE
     return _enum_value(LockerStatus, payload["status"])
 

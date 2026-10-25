@@ -41,7 +41,11 @@ from backend.utils.product_filters import (
     resolve_effective_cover_url,
 )
 from backend.utils.rental_pricing import rental_start_day, resolve_rental_price
-from backend.utils.esi_client import EsiReserveError, reserve_cell_with_pin
+from backend.utils.esi_client import (
+    EsiReserveError,
+    locker_can_take_bookings,
+    reserve_cell_with_pin,
+)
 from backend.utils.reservation_handover import (
     AWAITING_PICKUP_RENTAL_STATUSES,
     calculate_handover_pickup_expires_at,
@@ -86,8 +90,8 @@ async def _get_locker(locker_id: UUID, db: AsyncSession) -> LockerLocation:
         raise HTTPException(status_code=404, detail="LOCKER_NOT_FOUND")
     if locker.status == LockerStatus.OFFLINE:
         raise HTTPException(status_code=409, detail="LOCKER_OFFLINE")
-    if locker.status != LockerStatus.ONLINE:
-        # MAINTENANCE / DEGRADED — постамат отображается на витрине, но
+    if not locker_can_take_bookings(locker):
+        # Не ESI-постамат на проде или MAINTENANCE / DEGRADED — постамат отображается на витрине, но
         # бронирование сейчас невозможно. Фронт показывает «Аренда
         # недоступна в этом постамате» вместо общей ошибки.
         raise HTTPException(status_code=409, detail="LOCKER_NOT_BOOKABLE")
@@ -653,7 +657,7 @@ async def confirm_reservation(
         raise HTTPException(status_code=404, detail="LOCKER_NOT_FOUND")
     if locker.status == LockerStatus.OFFLINE:
         raise HTTPException(status_code=409, detail="LOCKER_OFFLINE")
-    if locker.status != LockerStatus.ONLINE:
+    if not locker_can_take_bookings(locker):
         raise HTTPException(status_code=409, detail="LOCKER_NOT_BOOKABLE")
 
     pickup_pin = generate_pickup_pin()

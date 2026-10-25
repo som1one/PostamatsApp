@@ -46,7 +46,11 @@ from backend.models.locker_location import LockerLocation
 from backend.models.rental import Rental
 from backend.models.rental_event import RentalEvent
 from backend.models.reservation import Reservation
-from backend.utils.esi_client import EsiReserveError, reserve_cell_with_pin
+from backend.utils.esi_client import (
+    EsiReserveError,
+    locker_can_take_bookings,
+    reserve_cell_with_pin,
+)
 from backend.utils.reservation_handover import (
     calculate_handover_pickup_expires_at,
     get_handover_blocker,
@@ -133,7 +137,7 @@ async def _confirm_reservation(db, reservation: Reservation, now: datetime) -> N
         return
 
     locker = await db.get(LockerLocation, reservation.locker_id)
-    if locker is None or locker.status != LockerStatus.ONLINE:
+    if locker is None or not locker_can_take_bookings(locker):
         # Постамат офлайн/не бронируем — подождём следующего тика.
         return
 

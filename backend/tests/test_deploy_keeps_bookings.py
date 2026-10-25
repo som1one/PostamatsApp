@@ -319,6 +319,35 @@ class SeedLockerBundleTests(unittest.TestCase):
             "managedProductSlugs": ["vacuum"],
         }
 
+    def test_any_locker_without_esi_stays_offline(self):
+        bundle = json.loads(json.dumps(self._bundle()).replace('"seed"', '"manual"'))
+        root = _test_root()
+        try:
+            db_path = root / "target.sqlite3"
+            apply_catalog_bundle._load_models()
+            init_engine = create_engine(_sqlite_url(db_path, async_driver=False))
+            Base.metadata.create_all(init_engine)
+            init_engine.dispose()
+
+            db_url = _sqlite_url(db_path, async_driver=False)
+            with (
+                patch.object(apply_catalog_bundle, "ROOT_DIR", root),
+                patch.object(apply_catalog_bundle.settings, "DB_URL", db_url),
+                patch.object(apply_catalog_bundle.settings, "ASYNC_DB_URL", db_url),
+            ):
+                apply_catalog_bundle.apply_bundle(
+                    bundle, perform_apply=True, deactivate_missing=False, force=True
+                )
+
+            verify_engine = create_engine(db_url)
+            with Session(verify_engine) as session:
+                locker = session.scalars(select(LockerLocation)).one()
+                self.assertEqual(locker.external_provider, "manual")
+                self.assertEqual(locker.status, LockerStatus.OFFLINE)
+            verify_engine.dispose()
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
     def test_seed_locker_stays_offline_and_reapply_does_not_duplicate(self):
         root = _test_root()
         try:

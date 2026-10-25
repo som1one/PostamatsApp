@@ -138,6 +138,18 @@ def _locker_uses_real_esi(locker: LockerLocation) -> bool:
     return provider == "esi"
 
 
+def locker_can_take_bookings(locker: LockerLocation) -> bool:
+    """Включён и за ним настоящий постамат ESI.
+
+    Постамат без ESI физически не существует: PIN в нём ничего не откроет.
+    «СПб Невский» с июня по октябрь 2026 был таким и принимал оплаты. В
+    dev и тестах (ESI_DEV_STUB) годится любой включённый — там всё стаб.
+    """
+    if locker.status != LockerStatus.ONLINE:
+        return False
+    return settings.ESI_DEV_STUB or _locker_uses_real_esi(locker)
+
+
 def _should_use_stub(locker: LockerLocation) -> bool:
     """Stub-режим включён глобально или конкретный постамат не на ESI."""
     if settings.ESI_DEV_STUB:

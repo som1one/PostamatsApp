@@ -6,8 +6,9 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
+from backend.core.settings import settings
 from backend.models.city import City
-from backend.models.enums import InventoryStatus, LockerCellStatus, ReturnRequestStatus
+from backend.models.enums import InventoryStatus, LockerCellStatus, LockerStatus, ReturnRequestStatus
 from backend.models.esi_event_log import EsiEventLog
 from backend.models.inventory_movement import InventoryMovement
 from backend.models.inventory_unit import InventoryUnit
@@ -241,6 +242,13 @@ async def list_external_locker_candidates(
     return {"data": {"items": items}, "meta": {"total": len(items)}}
 
 
+def _ensure_online_only_with_esi(status, external_provider: str | None) -> None:
+    if status != LockerStatus.ONLINE or settings.ESI_DEV_STUB:
+        return
+    if (external_provider or "").strip().lower() != "esi":
+        raise HTTPException(status_code=422, detail="Постамат без ESI нельзя включить: в нём нечего открыть, и клиенты заплатят за пустое место. Укажите провайдера esi и номер постамата или оставьте его выключенным.")
+
+
 @router.post("")
 async def create_admin_locker(
     request: Request,
@@ -269,6 +277,7 @@ async def create_admin_locker(
         raise HTTPException(status_code=422, detail="Название постамата обязательно")
     if not normalized_address:
         raise HTTPException(status_code=422, detail="Адрес постамата обязателен")
+    _ensure_online_only_with_esi(payload.status, external_provider)
 
     await _ensure_no_external_duplicate(
         db,
@@ -849,6 +858,8 @@ async def update_admin_locker(
     if "externalProvider" in data:
         ep = data["externalProvider"]
         locker.external_provider = ep.strip() if isinstance(ep, str) and ep.strip() else None
+
+    _ensure_online_only_with_esi(locker.status, locker.external_provider)
 
     await _ensure_no_external_duplicate(
         db,

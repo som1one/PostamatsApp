@@ -14,6 +14,7 @@ from backend.models.product import Product
 from backend.models.product_category import ProductCategory
 from backend.models.reservation import Reservation
 from backend.utils.auth_utils import get_current_client_user
+from backend.utils.esi_client import locker_can_take_bookings
 from backend.utils.featured_product import get_featured_product_state
 from backend.utils.lockers_utils import (
     aggregate_available_inventory_by_product,
@@ -405,7 +406,7 @@ async def get_product_pricing(
         raise HTTPException(status_code=404, detail="LOCKER_NOT_FOUND")
     if locker.status == LockerStatus.OFFLINE:
         raise HTTPException(status_code=409, detail="LOCKER_OFFLINE")
-    if locker.status != LockerStatus.ONLINE:
+    if not locker_can_take_bookings(locker):
         raise HTTPException(status_code=409, detail="LOCKER_NOT_BOOKABLE")
 
     price = await resolve_rental_price(
