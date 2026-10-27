@@ -202,7 +202,11 @@ function VerificationContent() {
         if (err.message === "DOCUMENT_NAME_REQUIRED") {
           showError("Укажите название документа.");
         } else if (err.message === "DOCUMENT_NUMBER_ALREADY_EXISTS") {
-          showError("Документ с таким номером уже существует в системе.");
+          // Свою отклонённую заявку сервер заменяет сам — 409 значит, что номер
+          // занят другим аккаунтом.
+          showError(
+            "Документ с таким номером уже привязан к другому аккаунту. Если это ваш документ, напишите в поддержку.",
+          );
         } else if (err.message === "FILE_TOO_LARGE") {
           showError(FILE_TOO_LARGE_MESSAGE);
         } else if (err.message === "INVALID_MIME_TYPE") {

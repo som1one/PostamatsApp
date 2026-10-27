@@ -306,6 +306,75 @@ class VerificationFlowTests(unittest.IsolatedAsyncioTestCase):
             resubmit.json()["data"]["verification"]["status"], "pending_review"
         )
 
+        # The rejected request is replaced, not kept next to the new one: the
+        # user sees a clean pending request and the queue has it exactly once.
+        kyc_after = await self.client.get(
+            "/me/verification", headers={"Authorization": f"Bearer {token}"}
+        )
+        verification = kyc_after.json()["data"]["verification"]
+        self.assertEqual(verification["status"], "pending_review")
+        self.assertNotIn("rejectReason", verification)
+        queue_after = await self.client.get(
+            "/api/admin/verification-queue",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        items = queue_after.json()["data"]["items"]
+        self.assertEqual([item["userId"] for item in items], [target_user_id])
+
+    async def test_other_user_cannot_take_number_from_rejected_request(self):
+        token_a = await self._login_user("+79991110005")
+        token_b = await self._login_user("+79991110006")
+
+        async def submit(token: str, suffix: str):
+            front = await self._presign_and_upload(
+                token, "verification_front", f"front_{suffix}.png", PNG_1x1
+            )
+            selfie = await self._presign_and_upload(
+                token, "verification_selfie", f"selfie_{suffix}.png", PNG_1x1
+            )
+            return await self.client.post(
+                "/me/verification",
+                headers={"Authorization": f"Bearer {token}"},
+                json={
+                    "firstName": suffix,
+                    "lastName": suffix,
+                    "birthDate": "1990-01-01",
+                    "documentType": "passport_rf",
+                    "documentNumber": "7777 666555",
+                    "files": [
+                        {"fileKey": front["fileKey"], "kind": "document_front"},
+                        {"fileKey": selfie["fileKey"], "kind": "selfie"},
+                    ],
+                },
+            )
+
+        first = await submit(token_a, "a")
+        self.assertEqual(first.status_code, 200, first.text)
+
+        admin_token = await self._login_admin()
+        queue = await self.client.get(
+            "/api/admin/verification-queue",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        user_a_id = queue.json()["data"]["items"][0]["userId"]
+        reject = await self.client.post(
+            f"/api/admin/users/{user_a_id}/reject-verification",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json={"reason": "Не совпадает фото"},
+        )
+        self.assertEqual(reject.status_code, 200, reject.text)
+
+        # Only the owner may replace a rejected request; for anyone else the
+        # number stays taken.
+        resp = await submit(token_b, "b")
+        self.assertEqual(resp.status_code, 409, resp.text)
+        self.assertEqual(resp.json()["detail"], "DOCUMENT_NUMBER_ALREADY_EXISTS")
+
+        kyc_a = await self.client.get(
+            "/me/verification", headers={"Authorization": f"Bearer {token_a}"}
+        )
+        self.assertEqual(kyc_a.json()["data"]["verification"]["status"], "rejected")
+
     async def test_other_user_cannot_reuse_document_number(self):
         token_a = await self._login_user("+79991110003")
         token_b = await self._login_user("+79991110004")

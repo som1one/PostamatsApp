@@ -301,8 +301,18 @@ async def create_verification_request(
             )
         )
     ).scalar_one_or_none()
+    # Номер документа уникален во всей базе, а отклонённая заявка остаётся в ней.
+    # Свою отклонённую заявку человек подаёт заново с тем же паспортом — её
+    # заменяем новой (как кнопка «Удалить отклонённую заявку»; отказ остаётся в
+    # журнале админов). Чужой номер или живая заявка — по-прежнему 409.
+    replaced_request = None
     if existing_request is not None:
-        raise HTTPException(status_code=409, detail="DOCUMENT_NUMBER_ALREADY_EXISTS")
+        if (
+            existing_request.user_id != user.id
+            or existing_request.status != VerificationStatus.REJECTED
+        ):
+            raise HTTPException(status_code=409, detail="DOCUMENT_NUMBER_ALREADY_EXISTS")
+        replaced_request = existing_request
 
     try:
         front_id, back_id, selfie_id = await resolve_verification_file_ids(
@@ -310,6 +320,12 @@ async def create_verification_request(
         )
     except VerificationFileResolveError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if replaced_request is not None:
+        await db.delete(replaced_request)
+        # DELETE должен уйти до INSERT новой заявки: unit of work ставит удаления
+        # в конец flush, и вставка упала бы на уникальном номере документа.
+        await db.flush()
 
     user.first_name = payload.firstName
     user.last_name = payload.lastName
@@ -337,6 +353,14 @@ async def create_verification_request(
     except Exception as exc:
         await db.rollback()
         raise HTTPException(status_code=500, detail="Failed to save verification request") from exc
+
+    if replaced_request is not None:
+        logger.info(
+            "Verification request %s replaced rejected request %s for user %s",
+            verification_request.id,
+            replaced_request.id,
+            user.id,
+        )
 
     notification_text, notification_buttons = _build_verification_notification(
         user, verification_request
