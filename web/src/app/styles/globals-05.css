@@ -176,6 +176,11 @@
   font-weight: 950;
   line-height: 1;
   letter-spacing: 0.04em;
+}/* В одну колонку `.layout-split .sticky-panel` поднимается наверх (так нужно
+   странице заказа). Здесь это ставило «Отправить» над пустыми полями паспорта:
+   человек грузил фото, жал кнопку — и отправка молча не шла. */
+.layout-split.verification-layout .sticky-panel {
+  order: 0;
 }.verification-form-grid {
   align-items: start;
 }.verification-field-span-2 {

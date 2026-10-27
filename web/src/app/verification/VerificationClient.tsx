@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useId, useState } from "react";
+import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, FileImage, ShieldCheck, Trash2, Upload } from "lucide-react";
 import { PageChrome } from "@/components/PageChrome";
@@ -18,7 +18,7 @@ import {
 import {
   FILE_TOO_LARGE_MESSAGE,
   MAX_UPLOAD_BYTES,
-  compressImageForUpload,
+  preparePhotoForUpload,
   putPresignedFile,
 } from "@/shared/imageUpload";
 import type { AppUser, VerificationState } from "@/shared/api/types";
@@ -68,6 +68,22 @@ function VerificationContent() {
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<Notice | null>(null);
   const [error, setError] = useState("");
+  const [errorShownCount, setErrorShownCount] = useState(0);
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  // Ошибка стоит рядом с кнопкой отправки, но на телефоне блок с фото длинный:
+  // докручиваем к ней на каждой неудачной попытке (и с тем же текстом), иначе
+  // нажатие выглядит так, будто ничего не произошло.
+  useEffect(() => {
+    if (errorShownCount > 0) {
+      errorRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [errorShownCount]);
+
+  function showError(text: string) {
+    setError(text);
+    setErrorShownCount((count) => count + 1);
+  }
 
   useEffect(() => {
     let active = true;
@@ -107,8 +123,9 @@ function VerificationContent() {
 
   async function uploadFile(original: File, kind: UploadKind) {
     // Ужимаем до presign: бэкенд сверяет заявленный fileSize с лимитом, а тело
-    // PUT должно совпадать с тем, что мы объявили.
-    const file = await compressImageForUpload(original);
+    // PUT должно совпадать с тем, что мы объявили. HEIC и снимки без MIME
+    // (бывает на Android) заодно перегоняем в JPEG — иначе сервер их отклонит.
+    const { file } = await preparePhotoForUpload(original);
     if (file.size > MAX_UPLOAD_BYTES) {
       throw new Error(FILE_TOO_LARGE_MESSAGE);
     }
@@ -128,13 +145,20 @@ function VerificationContent() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!front || !selfie) {
-      setError("Нужны фото документа и селфи.");
-      return;
-    }
-
-    if (form.documentType === "other" && !form.documentName.trim()) {
-      setError("Укажите название документа.");
+    // Проверяем сами, а не через required: встроенные браузеры Telegram и VK
+    // на Android блокируют отправку без подсказки, и кнопка просто «молчит».
+    const missing = [
+      !form.firstName.trim() && "имя",
+      !form.lastName.trim() && "фамилия",
+      !form.birthDate && "дата рождения",
+      form.documentType === "other" && !form.documentName.trim() && "название документа",
+      !form.documentNumber.trim() && "номер документа",
+      !front && "фото лицевой стороны",
+      !selfie && "селфи",
+    ].filter(Boolean);
+    if (missing.length > 0 || !front || !selfie) {
+      setMessage(null);
+      showError(`Не хватает: ${missing.join(", ")}.`);
       return;
     }
 
@@ -176,18 +200,18 @@ function VerificationContent() {
     } catch (err) {
       if (err instanceof Error) {
         if (err.message === "DOCUMENT_NAME_REQUIRED") {
-          setError("Укажите название документа.");
+          showError("Укажите название документа.");
         } else if (err.message === "DOCUMENT_NUMBER_ALREADY_EXISTS") {
-          setError("Документ с таким номером уже существует в системе.");
+          showError("Документ с таким номером уже существует в системе.");
         } else if (err.message === "FILE_TOO_LARGE") {
-          setError(FILE_TOO_LARGE_MESSAGE);
+          showError(FILE_TOO_LARGE_MESSAGE);
         } else if (err.message === "INVALID_MIME_TYPE") {
-          setError("Такой формат не подходит. Загрузите фото в JPG, PNG или WEBP.");
+          showError("Такой формат не подходит. Загрузите фото в JPG, PNG или WEBP.");
         } else {
-          setError(err.message);
+          showError(err.message);
         }
       } else {
-        setError("Не удалось отправить документы на проверку");
+        showError("Не удалось отправить документы на проверку");
       }
     } finally {
       setSubmitting(false);
@@ -216,12 +240,12 @@ function VerificationContent() {
     } catch (err) {
       if (err instanceof Error) {
         if (err.message === "VERIFICATION_REQUEST_NOT_FOUND") {
-          setError("Заявка по этому номеру документа не найдена.");
+          showError("Заявка по этому номеру документа не найдена.");
         } else {
-          setError(err.message);
+          showError(err.message);
         }
       } else {
-        setError("Не удалось удалить заявку");
+        showError("Не удалось удалить заявку");
       }
     } finally {
       setDeleting(false);
@@ -293,8 +317,6 @@ function VerificationContent() {
           </div>
         </div>
       ) : null}
-      {error ? <div className="alert alert-danger">{error}</div> : null}
-
       {isApproved ? (
         <div className="alert alert-success">
           <ShieldCheck size={22} />
@@ -305,7 +327,7 @@ function VerificationContent() {
         </div>
       ) : null}
 
-      <form className="layout-split" onSubmit={handleSubmit}>
+      <form className="layout-split verification-layout" onSubmit={handleSubmit} noValidate>
         <Surface className="detail-panel">
           <div>
             <p className="eyebrow">Документ</p>
@@ -462,6 +484,11 @@ function VerificationContent() {
               ) : null}
             </>
           )}
+          {error ? (
+            <div ref={errorRef} className="alert alert-danger" role="alert">
+              {error}
+            </div>
+          ) : null}
         </Surface>
       </form>
     </>
@@ -494,7 +521,9 @@ function FileInput({
           id={inputId}
           className="file-picker-input"
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          // Не только jpeg/png/webp: иначе Android прячет из галереи снимки в
+          // HEIC. Перед отправкой preparePhotoForUpload перегонит их в JPEG.
+          accept="image/*"
           onChange={(event) => onChange(event.target.files?.[0] ?? null)}
         />
         <span className="file-picker-button">
@@ -502,7 +531,7 @@ function FileInput({
           {file ? "Заменить файл" : "Выбрать файл"}
         </span>
         <span className="file-picker-description">
-          {file ? "Можно выбрать другой снимок" : "JPG, PNG или WEBP"}
+          {file ? "Можно выбрать другой снимок" : "Фото с камеры или из галереи"}
         </span>
       </label>
       <span className={`file-hint${file ? " is-selected" : ""}`}>
