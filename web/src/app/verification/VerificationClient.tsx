@@ -470,7 +470,7 @@ function VerificationContent() {
           ) : (
             <>
               <FileInput label="Лицевая сторона" file={front} onChange={setFront} required />
-              <FileInput label="Оборотная сторона" file={back} onChange={setBack} />
+              <FileInput label="Страница с пропиской" file={back} onChange={setBack} />
               <FileInput label="Селфи" file={selfie} onChange={setSelfie} required />
               <button className="button button-primary" type="submit" disabled={submitting}>
                 {submitting ? stage || "Отправляем" : "Отправить на проверку"}

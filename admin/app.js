@@ -1856,7 +1856,7 @@ function renderUserDetailModal() {
       <p class="doc-meta">${escapeHtml(v.documentType)} · ${escapeHtml(v.documentNumber)}</p>
       <div class="doc-links">
         ${docLinkRow("Лицевая сторона", v.frontUrl)}
-        ${docLinkRow("Оборот", v.backUrl)}
+        ${docLinkRow("Страница с пропиской", v.backUrl)}
         ${docLinkRow("Селфи", v.selfieUrl)}
       </div>
     </div>
