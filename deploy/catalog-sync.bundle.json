@@ -95,14 +95,6 @@
       "repoAssetPath": "assets/uploads/items/beri-bery-paroochistitel-karcher.png"
     },
     {
-      "fileKey": "uploads/items/beri-bery-perforator-elitech.png",
-      "mimeType": "image/png",
-      "fileSize": 561185,
-      "originalName": "beri-bery-perforator-elitech.png",
-      "kind": "PRODUCT_COVER",
-      "repoAssetPath": "assets/uploads/items/beri-bery-perforator-elitech.png"
-    },
-    {
       "fileKey": "uploads/items/beri-bery-perforator.png",
       "mimeType": "image/png",
       "fileSize": 453248,
@@ -173,14 +165,6 @@
       "originalName": "karaoke-v4.webp",
       "kind": "PRODUCT_COVER",
       "repoAssetPath": "assets/uploads/items/karaoke-v4.webp"
-    },
-    {
-      "fileKey": "uploads/items/karcher-wd5-v4.webp",
-      "mimeType": "image/webp",
-      "fileSize": 76898,
-      "originalName": "karcher-wd5-v4.webp",
-      "kind": "PRODUCT_COVER",
-      "repoAssetPath": "assets/uploads/items/karcher-wd5-v4.webp"
     },
     {
       "fileKey": "uploads/items/puzzi-101-v4.webp",
@@ -408,61 +392,6 @@
       "isActive": true
     },
     {
-      "slug": "bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0",
-      "name": "Бытовой пылесос Karcher WD 5 S V-25522, 1.628-350.0",
-      "brand": null,
-      "shortDescription": null,
-      "fullDescription": null,
-      "rulesText": null,
-      "kitDescription": null,
-      "specsJson": null,
-      "categorySlug": "home",
-      "coverFileKey": "uploads/items/karcher-wd5-v4.webp",
-      "galleryFileKeys": [
-        "uploads/items/karcher-wd5-v4.webp"
-      ],
-      "pricePlans": [
-        {
-          "name": "1 день",
-          "durationType": "day",
-          "durationValue": 1,
-          "baseAmount": "650.00",
-          "currency": "RUB",
-          "isActive": true,
-          "sortOrder": 1
-        },
-        {
-          "name": "2 дня",
-          "durationType": "day",
-          "durationValue": 2,
-          "baseAmount": "1240.00",
-          "currency": "RUB",
-          "isActive": true,
-          "sortOrder": 2
-        },
-        {
-          "name": "3 дня",
-          "durationType": "day",
-          "durationValue": 3,
-          "baseAmount": "1760.00",
-          "currency": "RUB",
-          "isActive": true,
-          "sortOrder": 3
-        },
-        {
-          "name": "7 дней",
-          "durationType": "day",
-          "durationValue": 7,
-          "baseAmount": "3910.00",
-          "currency": "RUB",
-          "isActive": true,
-          "sortOrder": 4
-        }
-      ],
-      "filter": null,
-      "isActive": false
-    },
-    {
       "slug": "drel",
       "name": "Дрель",
       "brand": "Bosch",
@@ -576,12 +505,12 @@
     },
     {
       "slug": "hozyajstvennyj-pylesos-wd-6-p-s-v-30-6-22-t",
-      "name": "Хозяйственный пылесос WD 6 P S V-30/6/22/T",
+      "name": "Аренда строительного пылесоса Karcher WD 6",
       "brand": "Karcher",
       "shortDescription": "Прокат обладающего высочайшей силой всасывания пылесоса Karcher WD 6 P S V-30/8/35/T потребляет 1300 Вт и обеспечивает превосходные результаты сбора любого мусора – сухого или влажного, крупного или мелкого.",
       "fullDescription": "Прокат обладающего высочайшей силой всасывания пылесоса Karcher WD 6 P S V-30/8/35/T потребляет 1300 Вт и обеспечивает превосходные результаты сбора любого мусора – сухого или влажного, крупного или мелкого. Он оснащен прочным 30-литровым мусоросборником из нержавеющей стали с отверстием для слива жидкостей, закрываемым резьбовой пробкой, 8-метровым кабелем, снабженным рукояткой всасывающим шлангом длиной 3,5 м, удлинительными трубками из нержавеющей стали, переключаемой насадкой для пола, плоским складчатым фильтром и фильтр-мешком из нетканого материала. Встроенная штепсельная розетка с автоматикой включения / отключения позволяет подключать к нему электроинструменты (лобзики, шлифовальные машины и т. д.) для непосредственного сбора пыли, образующейся при работе с ними. Операции влажной и сухой уборки может производиться без замены фильтра. Кроме того, при необходимости фильтр извлекается в считаные секунды и без контакта с грязью, а его очистка производится простым нажатием кнопки.",
       "rulesText": null,
-      "kitDescription": null,
+      "kitDescription": "Щелевая насадка; Адаптер для соединения с электроинструментами; Фильтр-мешок; Плоский складчатый фильтр; Удлинитель-трубка для электроинструмента",
       "specsJson": null,
       "categorySlug": "home",
       "coverFileKey": "uploads/items/karcher-wd6-1.webp",
@@ -1016,61 +945,6 @@
       ],
       "filter": null,
       "isActive": true
-    },
-    {
-      "slug": "perforator-elitech",
-      "name": "Перфоратор Elitech",
-      "brand": "Elitech",
-      "shortDescription": "Подходит для бетона, кирпича и камня.",
-      "fullDescription": "Подходит для бетона, кирпича и камня. Три режима работы: сверление, ударное сверление, долбление. В комплекте 3 бура (6, 8, 10 мм), пика и лопатка для снятия старых покрытий и ограничитель глубини сверления. Совместим с бурами SDS plus",
-      "rulesText": "Проверьте комплект и внешний вид при получении. Используйте товар по назначению и верните его в той же комплектации.",
-      "kitDescription": "Перфоратор; 3 бура (6, 8, 10 мм); пика; лопатка; ограничитель глубины",
-      "specsJson": null,
-      "categorySlug": "tools",
-      "coverFileKey": "uploads/items/beri-bery-perforator-elitech.png",
-      "galleryFileKeys": [
-        "uploads/items/beri-bery-perforator-elitech.png"
-      ],
-      "pricePlans": [
-        {
-          "name": "1 день",
-          "durationType": "day",
-          "durationValue": 1,
-          "baseAmount": "490.00",
-          "currency": "RUB",
-          "isActive": true,
-          "sortOrder": 0
-        },
-        {
-          "name": "2 дня",
-          "durationType": "day",
-          "durationValue": 2,
-          "baseAmount": "930.00",
-          "currency": "RUB",
-          "isActive": true,
-          "sortOrder": 1
-        },
-        {
-          "name": "3 дня",
-          "durationType": "day",
-          "durationValue": 3,
-          "baseAmount": "1320.00",
-          "currency": "RUB",
-          "isActive": true,
-          "sortOrder": 2
-        },
-        {
-          "name": "7 дней",
-          "durationType": "day",
-          "durationValue": 7,
-          "baseAmount": "2950.00",
-          "currency": "RUB",
-          "isActive": true,
-          "sortOrder": 3
-        }
-      ],
-      "filter": null,
-      "isActive": false
     },
     {
       "slug": "playstation-5",
@@ -1698,7 +1572,6 @@
   ],
   "managedProductSlugs": [
     "avtonomnyj-projektor",
-    "bytovoj-pylesos-karcher-wd-5-s-v-25522-1-628-350-0",
     "drel",
     "elektrolobzik-makita",
     "hozyajstvennyj-pylesos-wd-6-p-s-v-30-6-22-t",
@@ -1709,7 +1582,6 @@
     "otparivatel",
     "paroochistitel-karcher",
     "perforator",
-    "perforator-elitech",
     "playstation-5",
     "polaroid",
     "projektor",
