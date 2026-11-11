@@ -202,6 +202,8 @@ class Settings:
         self.TELEGRAM_ADMIN_BOT_TOKEN = (
             (ENV_VALUES.get("TELEGRAM_ADMIN_BOT_TOKEN") or "").strip() or None
         )
+        self.TELEGRAM_RELAY_URL = (ENV_VALUES.get("TELEGRAM_RELAY_URL") or "").strip().rstrip("/")
+        self.TELEGRAM_RELAY_SECRET = (ENV_VALUES.get("TELEGRAM_RELAY_SECRET") or "").strip()
         self.TELEGRAM_ADMIN_CHAT_IDS = _split_csv(
             ENV_VALUES.get("TELEGRAM_ADMIN_CHAT_IDS")
         )

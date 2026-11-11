@@ -51,6 +51,7 @@ import httpx
 
 from backend.core.database import SessionLocal
 from backend.core.settings import settings
+from backend.utils.telegram_transport import telegram_api_headers, telegram_api_url
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,7 @@ def _telegram_api_url(method: str) -> str:
     token = settings.TELEGRAM_ADMIN_BOT_TOKEN
     if not token:
         raise RuntimeError("TELEGRAM_ADMIN_BOT_TOKEN is not configured")
-    return f"https://api.telegram.org/bot{token}/{method}"
+    return telegram_api_url(method)
 
 
 def _build_reply_markup(buttons: Sequence[InlineButton]) -> dict | None:
@@ -123,7 +124,9 @@ async def _send_one(
         payload["reply_markup"] = reply_markup
 
     try:
-        response = await client.post(_telegram_api_url("sendMessage"), json=payload)
+        response = await client.post(
+            _telegram_api_url("sendMessage"), json=payload, headers=telegram_api_headers()
+        )
     except httpx.RequestError:
         logger.exception("Telegram sendMessage failed for chat %s", chat_id)
         return False
@@ -220,6 +223,7 @@ async def _post_file_method(
     try:
         response = await client.post(
             _telegram_api_url(method),
+            headers=telegram_api_headers(),
             data=data,
             files=files or None,
         )

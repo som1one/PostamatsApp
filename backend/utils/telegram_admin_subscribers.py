@@ -25,6 +25,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.settings import settings
+from backend.utils.telegram_transport import telegram_api_headers, telegram_api_url
 from backend.models.telegram_admin_subscriber import TelegramAdminSubscriber
 
 logger = logging.getLogger(__name__)
@@ -246,10 +247,15 @@ async def _fetch_updates_chats() -> dict[str, int]:
         raise SubscriberError("TELEGRAM_BOT_TOKEN_NOT_CONFIGURED", 503)
 
     timeout = max(1.0, settings.TELEGRAM_API_TIMEOUT_SECONDS)
-    url = f"https://api.telegram.org/bot{token}/getUpdates"
+    url = telegram_api_url("getUpdates")
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.get(url, params={"allowed_updates": ["message"]})
+            if settings.TELEGRAM_RELAY_URL:
+                response = await client.post(
+                    url, json={"allowed_updates": ["message"]}, headers=telegram_api_headers()
+                )
+            else:
+                response = await client.get(url, params={"allowed_updates": ["message"]})
     except httpx.RequestError as exc:
         logger.warning("Telegram getUpdates network error: %s", exc)
         raise SubscriberError("TELEGRAM_API_NETWORK_ERROR", 502) from exc
@@ -341,7 +347,7 @@ async def _send_message(chat_id: int, text: str) -> None:
     token = settings.TELEGRAM_ADMIN_BOT_TOKEN
     if not token:
         return
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    url = telegram_api_url("sendMessage")
     timeout = max(1.0, settings.TELEGRAM_API_TIMEOUT_SECONDS)
     payload = {
         "chat_id": chat_id,
@@ -350,7 +356,7 @@ async def _send_message(chat_id: int, text: str) -> None:
     }
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(url, json=payload)
+            response = await client.post(url, json=payload, headers=telegram_api_headers())
         if response.status_code >= 400:
             logger.warning(
                 "Telegram sendMessage non-2xx for chat %s: %s %s",
@@ -425,11 +431,11 @@ async def _telegram_post(method: str, payload: dict) -> dict:
     token = settings.TELEGRAM_ADMIN_BOT_TOKEN
     if not token:
         raise SubscriberError("TELEGRAM_BOT_TOKEN_NOT_CONFIGURED", 503)
-    url = f"https://api.telegram.org/bot{token}/{method}"
+    url = telegram_api_url(method)
     timeout = max(1.0, settings.TELEGRAM_API_TIMEOUT_SECONDS)
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(url, json=payload)
+            response = await client.post(url, json=payload, headers=telegram_api_headers())
     except httpx.RequestError as exc:
         logger.warning("Telegram %s network error: %s", method, exc)
         raise SubscriberError("TELEGRAM_API_NETWORK_ERROR", 502) from exc
@@ -453,6 +459,9 @@ def _webhook_url(public_origin: str | None) -> str:
     secret = settings.TELEGRAM_WEBHOOK_SECRET
     if not secret:
         raise SubscriberError("TELEGRAM_WEBHOOK_SECRET_NOT_CONFIGURED", 503)
+
+    if settings.TELEGRAM_RELAY_URL:
+        return f"{settings.TELEGRAM_RELAY_URL}/webhook"
 
     # Приоритет: явный ADMIN_PANEL_URL (чистый домен без портов) →
     # затем origin текущего запроса (фолбэк, если переменная не задана).

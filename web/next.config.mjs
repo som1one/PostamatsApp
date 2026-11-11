@@ -21,6 +21,16 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // До переезда на postarent.ru на этом домене жил старый WordPress-сайт, и его
+  // каталог был на /shop. На эти адреса до сих пор ведут внешние ссылки (в том
+  // числе баннеры главной postarent.ru) — без редиректа они упираются в 404.
+  // statusCode вместо permanent: тот отдаёт 308, а поисковикам привычнее 301.
+  async redirects() {
+    return [
+      { source: "/shop", destination: "/catalog", statusCode: 301 },
+      { source: "/shop/:path*", destination: "/catalog", statusCode: 301 },
+    ];
+  },
 };
 
 export default nextConfig;
