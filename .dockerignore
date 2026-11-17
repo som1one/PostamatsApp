@@ -18,8 +18,7 @@ backend/.env
 backend/.env.production
 deploy/.env
 deploy/.env.ip
-.env.local
-**/.env.local
+**/.env*.local
 mobile/node_modules/
 web/node_modules/
 web/.next/
