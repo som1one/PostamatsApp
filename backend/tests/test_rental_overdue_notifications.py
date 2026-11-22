@@ -146,7 +146,7 @@ class RentalOverdueNotificationTests(unittest.IsolatedAsyncioTestCase):
             overdue_for=timedelta(hours=3, minutes=10)
         )
 
-        notify_mock = AsyncMock()
+        notify_mock = AsyncMock(return_value=1)
         with patch("backend.utils.rental_overdue.notify_admins", notify_mock):
             await notify_support_about_long_overdue_rentals()
             await notify_support_about_long_overdue_rentals()
@@ -168,6 +168,31 @@ class RentalOverdueNotificationTests(unittest.IsolatedAsyncioTestCase):
                 ).all()
             )
         self.assertEqual(len(events), 1)
+
+    async def test_retries_when_no_channel_delivered(self) -> None:
+        rental_id = await self._seed_overdue_rental(
+            overdue_for=timedelta(hours=3, minutes=10)
+        )
+
+        notify_mock = AsyncMock(side_effect=[0, 1, 1])
+        with patch("backend.utils.rental_overdue.notify_admins", notify_mock):
+            await notify_support_about_long_overdue_rentals()
+            async with self.SessionLocal() as db:
+                after_failure = list(
+                    (
+                        await db.scalars(
+                            select(RentalEvent).where(
+                                RentalEvent.rental_id == rental_id,
+                                RentalEvent.event_type == SUPPORT_OVERDUE_NOTIFICATION_EVENT,
+                            )
+                        )
+                    ).all()
+                )
+            await notify_support_about_long_overdue_rentals()
+            await notify_support_about_long_overdue_rentals()
+
+        self.assertEqual(after_failure, [])
+        self.assertEqual(notify_mock.await_count, 2)
 
 
 if __name__ == "__main__":

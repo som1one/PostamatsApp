@@ -33,3 +33,6 @@ chrome-home-*.log
 chrome-home-*.err.log
 chrome-home-*.html
 assets/runtime-uploads/
+
+# Local Netlify folder
+.netlify

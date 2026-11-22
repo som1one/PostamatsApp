@@ -109,6 +109,7 @@ async def notify_support_about_long_overdue_rentals() -> None:
         if not rows:
             return
 
+        notified = 0
         for rental, locker, product, user in rows:
             text = _build_overdue_notification_text(
                 rental=rental,
@@ -122,10 +123,23 @@ async def notify_support_about_long_overdue_rentals() -> None:
             if link:
                 buttons.append(("Открыть аренду", link))
             try:
-                await notify_admins(text, buttons=buttons, city_id=locker.city_id)
+                delivered = await notify_admins(text, buttons=buttons, city_id=locker.city_id)
             except Exception:
                 logger.exception("Failed to notify support about overdue rental %s", rental.id)
                 continue
+            if not delivered:
+                # Каналы глотают свои ошибки и возвращают 0. Если отметить
+                # аренду как «уведомлённую» после нулевой доставки, повтора
+                # не будет никогда — так 22.11 молча потерялась просрочка,
+                # пока Telegram-ретранслятор был недоступен. Без отметки
+                # следующий тик попробует снова.
+                logger.warning(
+                    "Overdue notification for rental %s was not delivered to any channel, "
+                    "will retry",
+                    rental.id,
+                )
+                continue
+            notified += 1
             db.add(
                 RentalEvent(
                     rental_id=rental.id,
@@ -141,9 +155,11 @@ async def notify_support_about_long_overdue_rentals() -> None:
                 )
             )
 
+        if not notified:
+            return
         try:
             await db.commit()
-            logger.info("Sent overdue support notification(s): %d", len(rows))
+            logger.info("Sent overdue support notification(s): %d", notified)
         except Exception:
             await db.rollback()
             logger.exception("Failed to commit overdue support notification events")
