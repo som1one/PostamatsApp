@@ -29,13 +29,14 @@ from backend.utils.admin_notifications import (
     fire_and_forget_notify,
 )
 from backend.utils.local_storage import local_upload_path
-from backend.utils.telegram_bot import TELEGRAM_CAPTION_LIMIT, telegram_text_length
+from backend.utils.telegram_bot import telegram_text_length
 
-# Лимит текста сообщения без фото: у MAX он 4000, у Telegram — 4096.
+# Лимит текста сообщения: у MAX он 4000, у Telegram — 4096. В Telegram текст
+# уходит отдельным сообщением до фото, так что лимит подписи (1024) не нужен.
 _MESSAGE_TEXT_LIMIT = 4000
 
-# Меньше этого комментарий не режем: лучше длинный текст уйдёт отдельным
-# сообщением после фото, чем от комментария останется пара слов.
+# Меньше этого комментарий не режем, даже если остальные строки съели лимит:
+# от комментария не должна остаться пара слов.
 _NOTE_MIN_LENGTH = 80
 
 _NOTE_PREFIX = "💬 "
@@ -144,10 +145,8 @@ def _send(
     rental: Rental,
 ) -> None:
     photos = notification_photos_from_media(return_photos or ())
-    # С фото текст уходит подписью, а у неё в Telegram лимит 1024 символа.
-    limit = TELEGRAM_CAPTION_LIMIT if photos else _MESSAGE_TEXT_LIMIT
     base_length = telegram_text_length("\n".join(lines))
-    budget = max(limit - base_length - 1, _NOTE_MIN_LENGTH)
+    budget = max(_MESSAGE_TEXT_LIMIT - base_length - 1, _NOTE_MIN_LENGTH)
     note_line = _note_line(note, budget=budget)
     if note_line:
         lines.append(note_line)

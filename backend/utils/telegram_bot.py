@@ -20,20 +20,20 @@
 - Сообщение форматируется как HTML, поэтому пользовательский текст,
   который мы хотим показать (имя, телефон, документ), нужно прогонять
   через :func:`escape_html` (re-export ``html.escape``).
-- К уведомлению можно приложить фото (``photos``). Одно фото уходит
-  ``sendPhoto`` с текстом в подписи и кнопками, несколько — альбомом
-  ``sendMediaGroup`` и следом обычным сообщением с кнопками (у альбома
-  клавиатуры не бывает). Байты грузятся по чатам по очереди, пока
-  какой-нибудь чат их не примет; остальным чатам — и тем, у кого раньше
-  не вышло, — отправляем уже полученные ``file_id``. Недоступный чат
-  (бот заблокирован, чат не найден) попытку не тратит, а после двух
-  сбоев не по вине чата (таймаут, 429, 5xx, фото не принято) байты больше
-  не грузим: остальные чаты сразу получают текст. Фото, которое
-  Telegram не принял как фото (стороны слишком большие, не смог
-  обработать), повторяем документом. Если фото так и не ушло, чат всё
-  равно получает текст — уведомление важнее картинки. Исключение —
-  таймаут, когда запрос уже ушёл: сообщение могло дойти, и повтор
-  текстом стал бы дублем, поэтому такой чат больше не трогаем.
+- К уведомлению можно приложить фото (``photos``). Сначала всем чатам
+  уходит обычное сообщение с текстом и кнопками, и только потом, следом,
+  фото без подписи: одно — ``sendPhoto``, несколько — альбомом
+  ``sendMediaGroup``. Так уведомление доходит, даже если фото не
+  пролезло: 2026-11-23 загрузка байтов через ретранслятор сорвалась по
+  таймауту, и текст, ехавший подписью к фото, пропал вместе с ним.
+  Фото получают только чаты, принявшие текст. Байты грузятся по чатам по
+  очереди, пока какой-нибудь чат их не примет; остальным чатам — и тем, у
+  кого раньше не вышло, — отправляем уже полученные ``file_id``. После
+  двух сбоев не по вине чата (таймаут, 429, 5xx, фото не принято) байты
+  больше не грузим: текст у всех уже есть. Фото, которое Telegram не
+  принял как фото (стороны слишком большие, не смог обработать),
+  повторяем документом. Чат, где загрузка оборвалась таймаутом после
+  отправки, повторно не трогаем — фото могло дойти.
 """
 
 from __future__ import annotations
@@ -61,9 +61,6 @@ InlineButton = tuple[str, str]
 # Фото для отправки: (имя файла, байты, MIME) — ровно формат ``files`` у httpx.
 PhotoFile = tuple[str, bytes, str]
 
-# Лимит подписи к фото в Telegram. Сообщение длиннее уходит отдельно от фото.
-TELEGRAM_CAPTION_LIMIT = 1024
-
 # Больше фото в один альбом Telegram не принимает.
 _MEDIA_GROUP_LIMIT = 10
 
@@ -71,13 +68,13 @@ _MEDIA_GROUP_LIMIT = 10
 _PHOTO_TIMEOUT_SECONDS = 30.0
 
 # Таймауты, после которых запрос мог дойти до Telegram: тело уже ушло
-# (или уходило), просто ответа не дождались. Повторять такое сообщение
-# текстом нельзя — оператор получит дубль.
+# (или уходило), просто ответа не дождались. Повторять такое фото
+# нельзя — оператор получит дубль.
 _MAYBE_DELIVERED_ERRORS = (httpx.ReadTimeout, httpx.WriteTimeout)
 
 # Сколько раз загрузка байтов может сорваться не по вине чата (таймаут,
 # 429, 5xx, фото не принято и документом), прежде чем мы перестанем
-# грузить их в следующие чаты: каждая попытка — до 30 с, и текст ждёт.
+# грузить их в следующие чаты: каждая попытка — до 30 с.
 _UPLOAD_FAILURE_LIMIT = 2
 
 
@@ -256,15 +253,11 @@ async def _send_files(
     chat_id: str,
     kind: str,
     items: Sequence[PhotoFile | str],
-    *,
-    caption: str | None,
-    reply_markup: dict | None,
 ) -> _ApiCall:
     """Один файл (``sendPhoto``/``sendDocument``) или альбом (``sendMediaGroup``).
 
-    ``items`` — байты для загрузки или уже известные ``file_id``. Подпись и
-    кнопки бывают только у одиночного файла: текст к альбому уходит следом
-    отдельным сообщением.
+    ``items`` — байты для загрузки или уже известные ``file_id``. Текст и
+    кнопки уходят отдельным сообщением до фото, поэтому подписи здесь нет.
     """
 
     data: dict[str, str] = {"chat_id": chat_id}
@@ -276,11 +269,6 @@ async def _send_files(
             data[kind] = item
         else:
             files[kind] = item
-        if caption:
-            data["caption"] = caption
-            data["parse_mode"] = "HTML"
-        if reply_markup is not None:
-            data["reply_markup"] = json.dumps(reply_markup, ensure_ascii=False)
         method = "sendPhoto" if kind == "photo" else "sendDocument"
         return await _post_file_method(client, method, chat_id, data, files)
 
@@ -331,92 +319,31 @@ async def _send_media(
     client: httpx.AsyncClient,
     chat_id: str,
     media: Sequence[PhotoFile] | _Uploaded,
-    *,
-    caption: str | None,
-    reply_markup: dict | None,
 ) -> _MediaResult:
-    """Фото в один чат — байтами или по ``file_id``. Текст — только в подписи."""
+    """Фото в один чат — байтами или по ``file_id``, без подписи."""
 
     try:
         if isinstance(media, _Uploaded):
-            call = await _send_files(
-                client,
-                chat_id,
-                media.kind,
-                media.file_ids,
-                caption=caption,
-                reply_markup=reply_markup,
-            )
+            call = await _send_files(client, chat_id, media.kind, media.file_ids)
             uploaded = media if call.outcome is _Outcome.SENT else None
             return _MediaResult(call.outcome, uploaded)
 
         kind = "photo"
-        call = await _send_files(
-            client, chat_id, kind, media, caption=caption, reply_markup=reply_markup
-        )
+        call = await _send_files(client, chat_id, kind, media)
         if call.outcome is _Outcome.FAILED and _is_photo_rejected(call.response):
             logger.warning(
                 "Telegram rejected photos for chat %s, retrying as documents", chat_id
             )
             kind = "document"
-            call = await _send_files(
-                client, chat_id, kind, media, caption=caption, reply_markup=reply_markup
-            )
+            call = await _send_files(client, chat_id, kind, media)
         if call.outcome is not _Outcome.SENT:
             return _MediaResult(
                 call.outcome, chat_unreachable=_is_chat_unreachable(call.response)
             )
         return _MediaResult(call.outcome, _extract_uploaded(call.response, kind, len(media)))
     except Exception:
-        # Что бы ни сломалось на фото, текст до чата доехать должен.
         logger.exception("Telegram photo notification failed for chat %s", chat_id)
         return _MediaResult(_Outcome.FAILED)
-
-
-async def _send_text_after_media(
-    client: httpx.AsyncClient,
-    chat_id: str,
-    text: str,
-    reply_markup: dict | None,
-    outcome: _Outcome,
-    *,
-    in_caption: bool,
-) -> bool:
-    """Текст с кнопками после фото.
-
-    :return: получил ли чат текст (подписью или отдельным сообщением).
-    """
-
-    if in_caption:
-        if outcome is _Outcome.SENT:
-            return True
-        if outcome is _Outcome.UNKNOWN:
-            # Подпись могла дойти вместе с фото — текст стал бы дублем.
-            return False
-    # У альбома и у фото с длинным текстом сообщение с кнопками отдельное:
-    # оно уходит при любом исходе фото и заодно служит фолбэком.
-    return await _send_one(client, chat_id, text, reply_markup)
-
-
-async def _deliver_uploaded(
-    client: httpx.AsyncClient,
-    chat_id: str,
-    text: str,
-    reply_markup: dict | None,
-    uploaded: _Uploaded,
-    *,
-    in_caption: bool,
-) -> bool:
-    result = await _send_media(
-        client,
-        chat_id,
-        uploaded,
-        caption=text if in_caption else None,
-        reply_markup=reply_markup if in_caption else None,
-    )
-    return await _send_text_after_media(
-        client, chat_id, text, reply_markup, result.outcome, in_caption=in_caption
-    )
 
 
 async def _resolve_chat_ids(city_id: "UUID | None" = None) -> list[str]:
@@ -447,75 +374,53 @@ async def _resolve_chat_ids(city_id: "UUID | None" = None) -> list[str]:
     return [str(item) for item in settings.TELEGRAM_ADMIN_CHAT_IDS if item]
 
 
-async def _notify_with_photos(
+async def _send_photos(
     client: httpx.AsyncClient,
-    targets: Sequence[str],
-    text: str,
-    reply_markup: dict | None,
+    chats: Sequence[str],
     photos: Sequence[PhotoFile],
-) -> int:
-    in_caption = len(photos) == 1 and telegram_text_length(text) <= TELEGRAM_CAPTION_LIMIT
-    caption = text if in_caption else None
-    photo_markup = reply_markup if in_caption else None
+) -> None:
+    """Фото следом за текстом — тем чатам, которые текст уже получили.
 
-    delivered = 0
-    remaining = [str(chat) for chat in targets]
+    Как получится: текст с кнопками у операторов уже есть, фото — дополнение.
+    """
+
+    remaining = list(chats)
     failed: list[str] = []
     uploaded: _Uploaded | None = None
     upload_failures = 0
 
     # Байты грузим по чатам по очереди, пока какой-нибудь чат их не примет:
     # заблокировавший бота подписчик в начале списка не должен лишать фото
-    # всех остальных. Чату, у которого фото не ушло, текст пока не шлём —
-    # как только появится file_id, он получит фото ещё раз. Сбои не по вине
-    # чата (таймаут, 429, 5xx, фото не принято) скорее всего повторятся и в
-    # следующем чате, поэтому после _UPLOAD_FAILURE_LIMIT таких сбоев
-    # перестаём грузить байты и шлём текст.
+    # всех остальных. Сбои не по вине чата (таймаут, 429, 5xx, фото не
+    # принято) скорее всего повторятся и в следующем чате, поэтому после
+    # _UPLOAD_FAILURE_LIMIT таких сбоев байты больше не грузим.
     while remaining and uploaded is None and upload_failures < _UPLOAD_FAILURE_LIMIT:
         chat = remaining.pop(0)
-        result = await _send_media(
-            client, chat, photos, caption=caption, reply_markup=photo_markup
-        )
+        result = await _send_media(client, chat, photos)
         if result.outcome is not _Outcome.SENT and not result.chat_unreachable:
             upload_failures += 1
         if result.outcome is _Outcome.FAILED:
             failed.append(chat)
-            continue
-        uploaded = result.uploaded
-        sent = await _send_text_after_media(
-            client, chat, text, reply_markup, result.outcome, in_caption=in_caption
-        )
-        delivered += int(sent)
+        elif result.outcome is _Outcome.SENT:
+            uploaded = result.uploaded
 
-    if uploaded is not None:
-        # Остальным чатам — те же файлы по file_id, без повторной загрузки.
-        jobs = [
-            _deliver_uploaded(
-                client, chat, text, reply_markup, uploaded, in_caption=in_caption
-            )
-            for chat in (*failed, *remaining)
-        ]
-    else:
-        if remaining:
+    if uploaded is None:
+        left = len(failed) + len(remaining)
+        if left:
             logger.warning(
-                "Telegram photo upload failed %s times, sending text only to %s "
-                "more chats without trying photos",
+                "Telegram photo upload failed %s times, %s chats got the text "
+                "without photos",
                 upload_failures,
-                len(remaining),
+                left,
             )
-        if failed:
-            logger.warning(
-                "Telegram photo upload failed for %s chats, sending text only",
-                len(failed),
-            )
-        # Чаты с таймаутом после отправки сюда не попадают: у них текст
-        # (или подпись) мог уже дойти, повтор был бы дублем.
-        jobs = [
-            _send_one(client, chat, text, reply_markup) for chat in (*failed, *remaining)
-        ]
+        return
 
-    results = await asyncio.gather(*jobs, return_exceptions=True)
-    return delivered + sum(1 for result in results if result is True)
+    # Остальным чатам — те же файлы по file_id, без повторной загрузки.
+    # Чаты с таймаутом после отправки сюда не попадают: фото могло дойти.
+    await asyncio.gather(
+        *(_send_media(client, chat, uploaded) for chat in (*failed, *remaining)),
+        return_exceptions=True,
+    )
 
 
 async def notify_admins(
@@ -536,11 +441,10 @@ async def notify_admins(
         подписчики этого города; без него — только подписчики сети.
     :param photos: фото ``(имя, байты, MIME)`` к уведомлению. Без них
         уходит обычное текстовое сообщение.
-    :return: сколько чатов реально приняли сообщение. ``0`` означает, что
-        уведомление никуда не ушло (нет токена, нет подписчиков или
-        Telegram ответил ошибкой) — вызывающий код может это залогировать.
-        Чаты, где запрос с фото упал по таймауту, не считаются: дошло ли
-        сообщение, неизвестно.
+    :return: сколько чатов приняли текст. ``0`` означает, что уведомление
+        никуда не ушло (нет токена, нет подписчиков или Telegram ответил
+        ошибкой) — вызывающий код может это залогировать. Дошли ли фото,
+        на число не влияет.
     """
 
     if not settings.TELEGRAM_ADMIN_BOT_TOKEN:
@@ -559,22 +463,26 @@ async def notify_admins(
     reply_markup = _build_reply_markup(tuple(buttons))
     prepared_photos = list(photos)[:_MEDIA_GROUP_LIMIT]
     timeout = max(1.0, settings.TELEGRAM_API_TIMEOUT_SECONDS)
+    chats = [str(chat) for chat in targets]
 
-    if prepared_photos:
-        async with httpx.AsyncClient(
-            timeout=max(timeout, _PHOTO_TIMEOUT_SECONDS)
-        ) as client:
-            return await _notify_with_photos(
-                client, targets, text, reply_markup, prepared_photos
-            )
-
+    # Сначала текст с кнопками — он и есть уведомление.
     async with httpx.AsyncClient(timeout=timeout) as client:
         results = await asyncio.gather(
-            *(_send_one(client, str(chat), text, reply_markup) for chat in targets),
+            *(_send_one(client, chat, text, reply_markup) for chat in chats),
             return_exceptions=True,
         )
+    delivered = [chat for chat, result in zip(chats, results) if result is True]
 
-    return sum(1 for result in results if result is True)
+    if prepared_photos and delivered:
+        try:
+            async with httpx.AsyncClient(
+                timeout=max(timeout, _PHOTO_TIMEOUT_SECONDS)
+            ) as client:
+                await _send_photos(client, delivered, prepared_photos)
+        except Exception:
+            logger.exception("Telegram photos after notification failed")
+
+    return len(delivered)
 
 
 def fire_and_forget_notify(
@@ -603,7 +511,6 @@ def fire_and_forget_notify(
 __all__ = [
     "InlineButton",
     "PhotoFile",
-    "TELEGRAM_CAPTION_LIMIT",
     "escape_html",
     "fire_and_forget_notify",
     "notify_admins",

@@ -28,7 +28,7 @@ from urllib.parse import parse_qs
 import httpx
 
 from backend.core.settings import settings
-from backend.utils.telegram_bot import TELEGRAM_CAPTION_LIMIT, notify_admins
+from backend.utils.telegram_bot import notify_admins
 
 _RealAsyncClient = httpx.AsyncClient
 
@@ -340,6 +340,8 @@ def _forbidden() -> httpx.Response:
 
 
 class TelegramPhotoNotifyTests(unittest.IsolatedAsyncioTestCase):
+    """С фото: сначала всем текст с кнопками, потом фото без подписи."""
+
     def setUp(self) -> None:
         self._old_token = settings.TELEGRAM_ADMIN_BOT_TOKEN
         self._old_timeout = settings.TELEGRAM_API_TIMEOUT_SECONDS
@@ -365,7 +367,14 @@ class TelegramPhotoNotifyTests(unittest.IsolatedAsyncioTestCase):
         api_ref.append(api)
         return api
 
-    async def test_single_photo_goes_as_send_photo_with_caption_and_buttons(self) -> None:
+    def _assert_text_message(self, form: dict, chat: str, text: str = "<b>Возврат</b>") -> None:
+        message = form["json"]
+        self.assertEqual(message["chat_id"], chat)
+        self.assertEqual(message["text"], text)
+        self.assertEqual(message["parse_mode"], "HTML")
+        self.assertEqual(message["reply_markup"], _MARKUP)
+
+    async def test_single_photo_goes_after_text_without_caption(self) -> None:
         api = _TelegramApi()
 
         delivered = await self._notify(
@@ -373,20 +382,19 @@ class TelegramPhotoNotifyTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(delivered, 1)
-        self.assertEqual([name for name, _ in api.requests], ["sendPhoto"])
-        form = api.requests[0][1]
+        self.assertEqual(api.calls(), [("sendMessage", "100"), ("sendPhoto", "100")])
+        self._assert_text_message(api.requests[0][1], "100")
+        form = api.requests[1][1]
         self.assertTrue(form["content_type"].startswith("multipart/form-data"))
-        self.assertEqual(form["fields"]["chat_id"], "100")
-        self.assertEqual(form["fields"]["caption"], "<b>Возврат</b>")
-        self.assertEqual(form["fields"]["parse_mode"], "HTML")
-        self.assertEqual(json.loads(form["fields"]["reply_markup"]), _MARKUP)
+        self.assertEqual(form["fields"], {"chat_id": "100"})
         self.assertEqual(
             form["files"]["photo"], ("return-1.jpg", b"jpeg-bytes-1", "image/jpeg")
         )
-        # Загрузка фото дольше обычного сообщения — таймаут не меньше 30 с.
-        self.assertGreaterEqual(api.timeouts[0], 30)
+        # Текст — с обычным таймаутом, загрузка фото — не меньше 30 с.
+        self.assertEqual(api.timeouts[0], 10)
+        self.assertGreaterEqual(api.timeouts[1], 30)
 
-    async def test_several_photos_go_as_media_group_then_message_with_buttons(self) -> None:
+    async def test_several_photos_go_as_media_group_after_text(self) -> None:
         api = _TelegramApi()
 
         delivered = await self._notify(
@@ -398,10 +406,10 @@ class TelegramPhotoNotifyTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(delivered, 1)
         self.assertEqual(
-            [name for name, _ in api.requests], ["sendMediaGroup", "sendMessage"]
+            api.calls(), [("sendMessage", "100"), ("sendMediaGroup", "100")]
         )
-        group = api.requests[0][1]
-        self.assertEqual(group["fields"]["chat_id"], "100")
+        self._assert_text_message(api.requests[0][1], "100")
+        group = api.requests[1][1]
         self.assertEqual(
             json.loads(group["fields"]["media"]),
             [
@@ -416,11 +424,15 @@ class TelegramPhotoNotifyTests(unittest.IsolatedAsyncioTestCase):
             {"p0": b"jpeg-bytes-1", "p1": b"jpeg-bytes-2", "p2": b"jpeg-bytes-3"},
         )
 
-        message = api.requests[1][1]["json"]
-        self.assertEqual(message["chat_id"], "100")
-        self.assertEqual(message["text"], "<b>Возврат</b>")
-        self.assertEqual(message["parse_mode"], "HTML")
-        self.assertEqual(message["reply_markup"], _MARKUP)
+    async def test_long_text_is_sent_whole_before_photo(self) -> None:
+        api = _TelegramApi()
+        text = "<b>Возврат</b>\n" + "а" * 2000
+
+        delivered = await self._notify(api, text, chat_ids=["100"], photos=[_photo(1)])
+
+        self.assertEqual(delivered, 1)
+        self.assertEqual(api.calls(), [("sendMessage", "100"), ("sendPhoto", "100")])
+        self._assert_text_message(api.requests[0][1], "100", text)
 
     async def test_second_chat_reuses_file_id_without_uploading_bytes(self) -> None:
         api = _TelegramApi()
@@ -430,17 +442,17 @@ class TelegramPhotoNotifyTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(delivered, 2)
+        self.assertEqual(
+            sorted(form["json"]["chat_id"] for form in api.of("sendMessage")),
+            ["100", "200"],
+        )
         first, second = api.of("sendPhoto")
         self.assertEqual(first["fields"]["chat_id"], "100")
         self.assertIn("photo", first["files"])
-
         self.assertEqual(second["fields"]["chat_id"], "200")
         self.assertEqual(second["files"], {})
-        self.assertNotIn(b"jpeg-bytes-1", json.dumps(second["fields"]).encode())
         # Берём самый крупный размер из ответа первого чата.
-        self.assertEqual(second["fields"]["photo"], "file-1")
-        self.assertEqual(second["fields"]["caption"], "<b>Возврат</b>")
-        self.assertEqual(json.loads(second["fields"]["reply_markup"]), _MARKUP)
+        self.assertEqual(second["fields"], {"chat_id": "200", "photo": "file-1"})
 
     async def test_second_chat_reuses_media_group_file_ids(self) -> None:
         api = _TelegramApi()
@@ -461,67 +473,50 @@ class TelegramPhotoNotifyTests(unittest.IsolatedAsyncioTestCase):
                 {"type": "photo", "media": "group-1"},
             ],
         )
-        self.assertEqual(
-            [form["json"]["chat_id"] for form in api.of("sendMessage")], ["100", "200"]
-        )
 
-    async def test_photo_failure_falls_back_to_send_message(self) -> None:
-        api = _TelegramApi(sendPhoto=_error(500, "Internal Server Error"))
+    async def test_photo_timeouts_through_relay_still_leave_everyone_the_text(self) -> None:
+        # Как 2026-11-23: через ретранслятор загрузка фото отваливалась —
+        # у первого чата обрыв, у второго таймаут. Раньше второй чат не
+        # получал вообще ничего.
+        chats = ["1", "2", "3"]
+        api = self._api_with_chat_errors(
+            sendPhoto={"1": httpx.RemoteProtocolError, "2": httpx.ReadTimeout}
+        )
 
         delivered = await self._notify(
-            api, "<b>Возврат</b>", chat_ids=["100"], photos=[_photo(1)]
-        )
-
-        self.assertEqual(delivered, 1)
-        # 500 — не про сами фото: документом не повторяем, сразу текст.
-        self.assertEqual([name for name, _ in api.requests], ["sendPhoto", "sendMessage"])
-        message = api.requests[1][1]["json"]
-        self.assertEqual(message["text"], "<b>Возврат</b>")
-        self.assertEqual(message["reply_markup"], _MARKUP)
-
-    async def test_photo_network_error_falls_back_to_send_message(self) -> None:
-        def broken(request, form):
-            raise httpx.ConnectError("boom", request=request)
-
-        api = _TelegramApi(sendMediaGroup=broken)
-
-        delivered = await self._notify(
-            api, "<b>Возврат</b>", chat_ids=["100"], photos=[_photo(1), _photo(2)]
-        )
-
-        self.assertEqual(delivered, 1)
-        self.assertEqual(
-            [name for name, _ in api.requests], ["sendMediaGroup", "sendMessage"]
-        )
-
-    async def test_unreachable_first_chats_do_not_cost_others_the_photos(self) -> None:
-        # Два первых подписчика заблокировали бота: раньше после двух
-        # провалов подряд остальные чаты получали только текст.
-        blocked = {"1": _forbidden(), "2": _forbidden()}
-        api = self._api_with_chat_errors(sendPhoto=blocked, sendMessage=blocked)
-
-        delivered = await self._notify(
-            api, "<b>Возврат</b>", chat_ids=["1", "2", "3", "4", "5"], photos=[_photo(1)]
+            api, "<b>Возврат</b>", chat_ids=chats, photos=[_photo(1)]
         )
 
         self.assertEqual(delivered, 3)
-        uploads = [form for form in api.of("sendPhoto") if form["files"]]
-        self.assertEqual([form["fields"]["chat_id"] for form in uploads], ["1", "2", "3"])
-        by_file_id = {
-            form["fields"]["chat_id"]: form["fields"]["photo"]
-            for form in api.of("sendPhoto")
-            if not form["files"]
-        }
-        # Работающие операторы получили фото, недоступные чаты — попытку по file_id.
+        messages = api.of("sendMessage")
+        self.assertEqual(sorted(form["json"]["chat_id"] for form in messages), chats)
+        for form in messages:
+            self._assert_text_message(form, form["json"]["chat_id"])
+        # Все тексты ушли раньше первой загрузки.
+        names = [name for name, _ in api.calls()]
+        self.assertEqual(names[:3], ["sendMessage"] * 3)
+        # Два сбоя — байты третьему чату уже не грузим.
         self.assertEqual(
-            by_file_id, {"1": "file-1", "2": "file-1", "4": "file-1", "5": "file-1"}
+            [form["fields"]["chat_id"] for form in api.of("sendPhoto")], ["1", "2"]
         )
-        # Текст-фолбэк — только тем, у кого фото не ушло и по file_id.
-        self.assertEqual(
-            sorted(form["json"]["chat_id"] for form in api.of("sendMessage")), ["1", "2"]
+        self.assertEqual(len(api.calls()), 5)
+
+    async def test_server_errors_stop_uploads_after_two_chats(self) -> None:
+        api = _TelegramApi(sendPhoto=_error(500, "Internal Server Error"))
+
+        delivered = await self._notify(
+            api, "<b>Возврат</b>", chat_ids=["100", "200", "300"], photos=[_photo(1)]
         )
 
-    async def test_failed_chat_is_retried_with_file_id_instead_of_text(self) -> None:
+        self.assertEqual(delivered, 3)
+        self.assertEqual(
+            [form["fields"]["chat_id"] for form in api.of("sendPhoto")], ["100", "200"]
+        )
+        # 500 — не про сами фото: документом не повторяем.
+        self.assertEqual(api.of("sendDocument"), [])
+        self.assertEqual(len(api.of("sendMessage")), 3)
+
+    async def test_failed_chat_is_retried_with_file_id(self) -> None:
         api_ref: list[_TelegramApi] = []
 
         def flaky_first_upload(request, form):
@@ -537,206 +532,63 @@ class TelegramPhotoNotifyTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(delivered, 2)
-        self.assertEqual(
-            api.calls(),
-            [("sendPhoto", "100"), ("sendPhoto", "200"), ("sendPhoto", "100")],
-        )
-        retry = api.of("sendPhoto")[2]
-        self.assertEqual(retry["files"], {})
-        self.assertEqual(retry["fields"]["photo"], "file-1")
-        self.assertEqual(retry["fields"]["caption"], "<b>Возврат</b>")
-        # Фото с подписью дошло — отдельный текст был бы дублем.
-        self.assertEqual(api.of("sendMessage"), [])
+        photos = [(form["fields"]["chat_id"], bool(form["files"])) for form in api.of("sendPhoto")]
+        self.assertEqual(photos, [("100", True), ("200", True), ("100", False)])
+        self.assertEqual(api.of("sendPhoto")[2]["fields"]["photo"], "file-1")
+        self.assertEqual(len(api.of("sendMessage")), 2)
 
-    async def test_server_errors_stop_uploads_after_two_chats(self) -> None:
-        api = _TelegramApi(sendPhoto=_error(500, "Internal Server Error"))
+    async def test_read_timeout_chat_is_not_sent_the_photo_again(self) -> None:
+        api = self._api_with_chat_errors(sendPhoto={"100": httpx.ReadTimeout})
 
         delivered = await self._notify(
-            api, "<b>Возврат</b>", chat_ids=["100", "200", "300"], photos=[_photo(1)]
+            api, "<b>Возврат</b>", chat_ids=["100", "200"], photos=[_photo(1)]
         )
 
-        self.assertEqual(delivered, 3)
-        # Две загрузки упали не по вине чата — третьему байты уже не грузим.
+        # Фото в первый чат могло дойти — по file_id не повторяем.
+        self.assertEqual(delivered, 2)
         self.assertEqual(
             [form["fields"]["chat_id"] for form in api.of("sendPhoto")], ["100", "200"]
         )
-        self.assertTrue(all(form["files"] for form in api.of("sendPhoto")))
-        self.assertEqual(
-            sorted(form["json"]["chat_id"] for form in api.of("sendMessage")),
-            ["100", "200", "300"],
-        )
+        self.assertIn("photo", api.of("sendPhoto")[1]["files"])
 
-    async def test_write_timeouts_everywhere_stop_uploads_and_text_reaches_the_rest(
-        self,
-    ) -> None:
-        chats = ["1", "2", "3", "4", "5"]
-        api = self._api_with_chat_errors(
-            sendPhoto={chat: httpx.WriteTimeout for chat in chats}
-        )
+    async def test_chats_that_missed_the_text_get_no_photos(self) -> None:
+        blocked = {"1": _forbidden(), "2": _forbidden()}
+        api = self._api_with_chat_errors(sendMessage=blocked)
 
         delivered = await self._notify(
-            api, "<b>Возврат</b>", chat_ids=chats, photos=[_photo(1)]
+            api, "<b>Возврат</b>", chat_ids=["1", "2", "3", "4"], photos=[_photo(1)]
         )
 
-        # Не пять загрузок по 30 с подряд, а две, и потом сразу текст.
-        self.assertEqual(api.calls()[:2], [("sendPhoto", "1"), ("sendPhoto", "2")])
-        self.assertEqual(len(api.of("sendPhoto")), 2)
-        self.assertEqual(api.of("sendDocument"), [])
-        # Чаты 1 и 2 могли получить фото с подписью — им текст не дублируем;
-        # до чатов 3–5 фото не доходило, текст уходит им.
-        messages = api.of("sendMessage")
-        self.assertEqual(
-            sorted(form["json"]["chat_id"] for form in messages), ["3", "4", "5"]
-        )
-        for form in messages:
-            self.assertEqual(form["json"]["text"], "<b>Возврат</b>")
-            self.assertEqual(form["json"]["reply_markup"], _MARKUP)
-        self.assertEqual(delivered, 3)
-
-    async def test_album_read_timeouts_send_each_chat_the_text_once(self) -> None:
-        chats = ["1", "2", "3", "4"]
-        api = self._api_with_chat_errors(
-            sendMediaGroup={chat: httpx.ReadTimeout for chat in chats}
-        )
-
-        delivered = await self._notify(
-            api, "<b>Возврат</b>", chat_ids=chats, photos=[_photo(1), _photo(2)]
-        )
-
-        self.assertEqual(
-            [form["fields"]["chat_id"] for form in api.of("sendMediaGroup")], ["1", "2"]
-        )
-        # У альбома текст отдельный: чаты 1–2 получили его сразу, 3–4 — после
-        # остановки загрузок, и никто — дважды.
-        self.assertEqual(
-            sorted(form["json"]["chat_id"] for form in api.of("sendMessage")), chats
-        )
-        self.assertEqual(delivered, 4)
-
-    async def test_rate_limit_everywhere_stops_uploads_then_sends_text(self) -> None:
-        chats = ["1", "2", "3", "4", "5"]
-        api = _TelegramApi(sendPhoto=_error(429, "Too Many Requests: retry after 5"))
-
-        delivered = await self._notify(
-            api, "<b>Возврат</b>", chat_ids=chats, photos=[_photo(1)]
-        )
-
-        self.assertEqual(delivered, 5)
+        self.assertEqual(delivered, 2)
         uploads = api.of("sendPhoto")
-        self.assertEqual([form["fields"]["chat_id"] for form in uploads], ["1", "2"])
-        self.assertTrue(all(form["files"] for form in uploads))
-        # 429 — не про сами фото: документом не повторяем.
-        self.assertEqual(api.of("sendDocument"), [])
-        self.assertEqual(
-            sorted(form["json"]["chat_id"] for form in api.of("sendMessage")), chats
-        )
-
-    async def test_rejected_photo_and_document_stop_uploads_after_two_chats(self) -> None:
-        chats = ["1", "2", "3", "4", "5"]
-        api = _TelegramApi(
-            sendPhoto=_error(400, "Bad Request: IMAGE_PROCESS_FAILED"),
-            sendDocument=_error(400, "Bad Request: file must be non-empty"),
-        )
-
-        delivered = await self._notify(
-            api, "<b>Возврат</b>", chat_ids=chats, photos=[_photo(1)]
-        )
-
-        self.assertEqual(delivered, 5)
-        # Фото и документ — одна неудачная попытка чата; после двух таких стоп.
-        self.assertEqual(
-            api.calls()[:4],
-            [
-                ("sendPhoto", "1"),
-                ("sendDocument", "1"),
-                ("sendPhoto", "2"),
-                ("sendDocument", "2"),
-            ],
-        )
-        self.assertEqual(len(api.of("sendPhoto")), 2)
-        self.assertEqual(len(api.of("sendDocument")), 2)
-        self.assertEqual(
-            sorted(form["json"]["chat_id"] for form in api.of("sendMessage")), chats
-        )
-
-    async def test_blocked_chats_do_not_count_toward_upload_limit(self) -> None:
-        # 403, 403, «chat not found» и одна 5xx — лимит (две сбойные загрузки
-        # не по вине чата) не исчерпан, пятый чат принимает байты.
-        blocked = {
-            "1": _forbidden(),
-            "2": _forbidden(),
-            "3": httpx.Response(
-                400, json={"ok": False, "description": "Bad Request: chat not found"}
-            ),
-        }
-        api_ref: list[_TelegramApi] = []
-
-        def upload(request, form):
-            chat = form["fields"]["chat_id"]
-            if chat in blocked:
-                return blocked[chat]
-            if chat == "4" and form["files"]:
-                return httpx.Response(500, json={"ok": False, "description": "oops"})
-            return api_ref[0]._default("sendPhoto", form)
-
-        api = _TelegramApi(
-            sendPhoto=upload, sendMessage=_per_chat(api_ref, blocked, "sendMessage")
-        )
-        api_ref.append(api)
-
-        delivered = await self._notify(
-            api,
-            "<b>Возврат</b>",
-            chat_ids=["1", "2", "3", "4", "5", "6"],
-            photos=[_photo(1)],
-        )
-
-        uploads = [form for form in api.of("sendPhoto") if form["files"]]
-        self.assertEqual(
-            [form["fields"]["chat_id"] for form in uploads], ["1", "2", "3", "4", "5"]
-        )
-        self.assertEqual(api.of("sendDocument"), [])
-        by_file_id = {
-            form["fields"]["chat_id"]: form["fields"]["photo"]
-            for form in api.of("sendPhoto")
-            if not form["files"]
-        }
-        self.assertEqual(
-            by_file_id, {chat: "file-1" for chat in ("1", "2", "3", "4", "6")}
-        )
-        # Чат 4 упал на байтах, но фото по file_id дошло; 5 и 6 — тоже.
-        self.assertEqual(delivered, 3)
-        self.assertEqual(
-            sorted(form["json"]["chat_id"] for form in api.of("sendMessage")),
-            ["1", "2", "3"],
-        )
-
-    async def test_blocked_first_chat_passes_upload_to_next_chat(self) -> None:
-        api = self._api_with_chat_errors(sendPhoto={"100": _forbidden()})
-
-        delivered = await self._notify(
-            api, "<b>Возврат</b>", chat_ids=["100", "200", "300"], photos=[_photo(1)]
-        )
-
-        # Второй чат принял байты, третий — тот же file_id; первый попробовал
-        # file_id и получил текстовый фолбэк.
-        self.assertEqual(delivered, 3)
-        uploads = api.of("sendPhoto")
-        self.assertEqual(
-            [form["fields"]["chat_id"] for form in uploads[:2]], ["100", "200"]
-        )
+        self.assertEqual([form["fields"]["chat_id"] for form in uploads], ["3", "4"])
         self.assertIn("photo", uploads[0]["files"])
-        self.assertIn("photo", uploads[1]["files"])
-        # 403 — проблема чата, а не фото: документом не повторяем.
-        self.assertEqual(api.of("sendDocument"), [])
-        reused = {form["fields"]["chat_id"]: form for form in uploads[2:]}
-        self.assertEqual(set(reused), {"100", "300"})
-        for form in reused.values():
-            self.assertEqual(form["files"], {})
-            self.assertEqual(form["fields"]["photo"], "file-1")
-        self.assertEqual(
-            [form["json"]["chat_id"] for form in api.of("sendMessage")], ["100"]
+        self.assertEqual(uploads[1]["fields"]["photo"], "file-1")
+
+    async def test_no_photos_when_text_reached_nobody(self) -> None:
+        api = _TelegramApi(sendMessage=_error(502, "Bad Gateway"))
+
+        delivered = await self._notify(
+            api, "<b>Возврат</b>", chat_ids=["100", "200"], photos=[_photo(1)]
         )
+
+        self.assertEqual(delivered, 0)
+        self.assertEqual(api.of("sendPhoto"), [])
+
+    async def test_blocked_photo_chat_does_not_count_toward_upload_limit(self) -> None:
+        # Текст дошёл, а фото в первые чаты — 403 (бота заблокировали между
+        # запросами): это не повод перестать грузить байты остальным.
+        blocked = {"1": _forbidden(), "2": _forbidden()}
+        api = self._api_with_chat_errors(sendPhoto=blocked)
+
+        delivered = await self._notify(
+            api, "<b>Возврат</b>", chat_ids=["1", "2", "3"], photos=[_photo(1)]
+        )
+
+        self.assertEqual(delivered, 3)
+        uploads = [form for form in api.of("sendPhoto") if form["files"]]
+        self.assertEqual([form["fields"]["chat_id"] for form in uploads], ["1", "2", "3"])
+        self.assertEqual(api.of("sendDocument"), [])
 
     async def test_rejected_photo_is_retried_as_document(self) -> None:
         api = _TelegramApi(
@@ -749,21 +601,16 @@ class TelegramPhotoNotifyTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(delivered, 2)
         self.assertEqual(
-            api.calls(),
+            [call for call in api.calls() if call[0] != "sendMessage"],
             [("sendPhoto", "100"), ("sendDocument", "100"), ("sendDocument", "200")],
         )
         first, second = api.of("sendDocument")
         self.assertEqual(
             first["files"]["document"], ("return-1.jpg", b"jpeg-bytes-1", "image/jpeg")
         )
-        self.assertEqual(first["fields"]["caption"], "<b>Возврат</b>")
-        self.assertEqual(first["fields"]["parse_mode"], "HTML")
-        self.assertEqual(json.loads(first["fields"]["reply_markup"]), _MARKUP)
-        # Второй чат сразу получает документ по file_id, без байтов и без sendPhoto.
+        self.assertNotIn("caption", first["fields"])
         self.assertEqual(second["files"], {})
         self.assertEqual(second["fields"]["document"], "doc-1")
-        self.assertEqual(second["fields"]["caption"], "<b>Возврат</b>")
-        self.assertEqual(api.of("sendMessage"), [])
 
     async def test_rejected_album_is_retried_as_document_album(self) -> None:
         def reject_photo_album(request, form):
@@ -790,7 +637,6 @@ class TelegramPhotoNotifyTests(unittest.IsolatedAsyncioTestCase):
                 {"type": "document", "media": "attach://p1"},
             ],
         )
-        self.assertEqual(len(groups[1]["files"]), 2)
         self.assertEqual(groups[2]["fields"]["chat_id"], "200")
         self.assertEqual(groups[2]["files"], {})
         self.assertEqual(
@@ -800,101 +646,13 @@ class TelegramPhotoNotifyTests(unittest.IsolatedAsyncioTestCase):
                 {"type": "document", "media": "doc-group-1"},
             ],
         )
-        self.assertEqual(
-            [form["json"]["chat_id"] for form in api.of("sendMessage")], ["100", "200"]
-        )
-
-    async def test_rejected_document_falls_back_to_text(self) -> None:
-        api = _TelegramApi(
-            sendPhoto=_error(400, "Bad Request: PHOTO_SAVE_FILE_INVALID"),
-            sendDocument=_error(400, "Bad Request: file must be non-empty"),
-        )
-
-        delivered = await self._notify(
-            api, "<b>Возврат</b>", chat_ids=["100"], photos=[_photo(1)]
-        )
-
-        self.assertEqual(delivered, 1)
-        self.assertEqual(
-            [name for name, _ in api.requests], ["sendPhoto", "sendDocument", "sendMessage"]
-        )
 
     async def test_missing_chat_is_not_retried_as_document(self) -> None:
         api = _TelegramApi(sendPhoto=_error(400, "Bad Request: chat not found"))
 
         await self._notify(api, "<b>Возврат</b>", chat_ids=["100"], photos=[_photo(1)])
 
-        self.assertEqual([name for name, _ in api.requests], ["sendPhoto", "sendMessage"])
-
-    async def test_read_timeout_after_photo_with_caption_sends_no_duplicate_text(self) -> None:
-        api = self._api_with_chat_errors(sendPhoto={"100": httpx.ReadTimeout})
-
-        delivered = await self._notify(
-            api, "<b>Возврат</b>", chat_ids=["100", "200"], photos=[_photo(1)]
-        )
-
-        # Первый чат, возможно, уже получил фото с подписью: ни текста, ни
-        # повтора по file_id. Байты уходят следующему чату.
-        self.assertEqual(delivered, 1)
-        self.assertEqual(api.calls(), [("sendPhoto", "100"), ("sendPhoto", "200")])
-        self.assertIn("photo", api.of("sendPhoto")[1]["files"])
-        self.assertEqual(api.of("sendDocument"), [])
-
-    async def test_write_timeout_is_treated_as_maybe_delivered(self) -> None:
-        api = self._api_with_chat_errors(sendPhoto={"100": httpx.WriteTimeout})
-
-        delivered = await self._notify(
-            api, "<b>Возврат</b>", chat_ids=["100"], photos=[_photo(1)]
-        )
-
-        self.assertEqual(delivered, 0)
-        self.assertEqual(api.calls(), [("sendPhoto", "100")])
-
-    async def test_connect_timeout_still_falls_back_to_text(self) -> None:
-        api = self._api_with_chat_errors(sendPhoto={"100": httpx.ConnectTimeout})
-
-        delivered = await self._notify(
-            api, "<b>Возврат</b>", chat_ids=["100"], photos=[_photo(1)]
-        )
-
-        # Соединение не установилось — запрос точно не дошёл.
-        self.assertEqual(delivered, 1)
-        self.assertEqual(api.calls(), [("sendPhoto", "100"), ("sendMessage", "100")])
-
-    async def test_album_timeout_still_sends_separate_text_once(self) -> None:
-        api = self._api_with_chat_errors(sendMediaGroup={"100": httpx.ReadTimeout})
-
-        delivered = await self._notify(
-            api, "<b>Возврат</b>", chat_ids=["100"], photos=[_photo(1), _photo(2)]
-        )
-
-        # Текст у альбома отдельный — это не дубль, а обычное сообщение с кнопками.
-        self.assertEqual(delivered, 1)
-        self.assertEqual(api.calls(), [("sendMediaGroup", "100"), ("sendMessage", "100")])
-
-    async def test_long_text_goes_as_separate_message_after_photo(self) -> None:
-        api = _TelegramApi()
-        text = "<b>Возврат</b>\n" + "а" * TELEGRAM_CAPTION_LIMIT
-
-        delivered = await self._notify(api, text, chat_ids=["100"], photos=[_photo(1)])
-
-        self.assertEqual(delivered, 1)
-        self.assertEqual([name for name, _ in api.requests], ["sendPhoto", "sendMessage"])
-        photo = api.requests[0][1]
-        self.assertNotIn("caption", photo["fields"])
-        self.assertNotIn("reply_markup", photo["fields"])
-        message = api.requests[1][1]["json"]
-        self.assertEqual(message["text"], text)
-        self.assertEqual(message["reply_markup"], _MARKUP)
-
-    async def test_long_text_is_not_repeated_after_failed_photo(self) -> None:
-        api = _TelegramApi(sendPhoto=_error(500, "Internal Server Error"))
-        text = "<b>Возврат</b>\n" + "а" * TELEGRAM_CAPTION_LIMIT
-
-        delivered = await self._notify(api, text, chat_ids=["100"], photos=[_photo(1)])
-
-        self.assertEqual(delivered, 1)
-        self.assertEqual([name for name, _ in api.requests], ["sendPhoto", "sendMessage"])
+        self.assertEqual(api.calls(), [("sendMessage", "100"), ("sendPhoto", "100")])
 
     async def test_without_photos_uses_plain_send_message(self) -> None:
         api = _TelegramApi()

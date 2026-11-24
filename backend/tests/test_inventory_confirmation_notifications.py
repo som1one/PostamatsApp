@@ -25,7 +25,6 @@ from backend.utils.inventory_confirmation_notifications import (
     notify_inventory_awaiting_confirmation,
     notify_return_photos_attached,
 )
-from backend.utils.telegram_bot import TELEGRAM_CAPTION_LIMIT, telegram_text_length
 
 _MODULE = "backend.utils.inventory_confirmation_notifications"
 
@@ -195,7 +194,9 @@ class AwaitingConfirmationTests(_Base):
 
         self.assertNotIn("💬", notify.call_args.args[0])
 
-    def test_long_note_is_cut_to_fit_photo_caption(self) -> None:
+    def test_long_note_is_not_cut_to_caption_when_there_are_photos(self) -> None:
+        # В Telegram текст уходит отдельным сообщением до фото — лимит
+        # подписи 1024 здесь больше не действует.
         files = [self._media("condition/a.jpg")]
         note = "&" * 500 + "конец"
 
@@ -204,11 +205,7 @@ class AwaitingConfirmationTests(_Base):
         )
 
         text = notify.call_args.args[0]
-        self.assertLessEqual(telegram_text_length(text), TELEGRAM_CAPTION_LIMIT)
-        note_line = text.split("\n")[-1]
-        self.assertTrue(note_line.startswith("💬 &amp;"))
-        self.assertTrue(note_line.endswith("&amp;…"))
-        self.assertNotIn("конец", text)
+        self.assertEqual(text.split("\n")[-1], "💬 " + "&amp;" * 500 + "конец")
         self.assertEqual(len(notify.call_args.kwargs["photos"]), 1)
 
     def test_long_note_is_kept_when_there_is_no_photo_caption(self) -> None:
