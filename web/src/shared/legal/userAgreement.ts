@@ -63,7 +63,7 @@ export const userAgreementDoc: LegalDoc = {
           kind: "clause",
           n: "2.4",
           text:
-            "Пользователь вправе в любой момент прекратить использование Платформы и запросить удаление учётной записи, направив обращение на info@naprokatberu.ru, при условии отсутствия незавершённых аренд и задолженности.",
+            "Пользователь вправе в любой момент прекратить использование Платформы и запросить удаление учётной записи, направив обращение на naprokatberu@yandex.ru, при условии отсутствия незавершённых аренд и задолженности.",
         },
       ],
     },
@@ -158,8 +158,8 @@ export const userAgreementDoc: LegalDoc = {
           items: [
             {
               label: "Электронная почта",
-              value: "info@naprokatberu.ru",
-              href: "mailto:info@naprokatberu.ru",
+              value: "naprokatberu@yandex.ru",
+              href: "mailto:naprokatberu@yandex.ru",
             },
             {
               label: "Адрес",

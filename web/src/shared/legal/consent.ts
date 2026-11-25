@@ -115,7 +115,7 @@ export const consentDoc: LegalDoc = {
           kind: "clause",
           n: "5.2",
           text:
-            "Согласие может быть отозвано в любой момент путём направления Оператору письменного заявления на адрес электронной почты info@naprokatberu.ru или через форму обратной связи на Сайте.",
+            "Согласие может быть отозвано в любой момент путём направления Оператору письменного заявления на адрес электронной почты naprokatberu@yandex.ru или через форму обратной связи на Сайте.",
         },
         {
           kind: "clause",
@@ -141,8 +141,8 @@ export const consentDoc: LegalDoc = {
           items: [
             {
               label: "Электронная почта",
-              value: "info@naprokatberu.ru",
-              href: "mailto:info@naprokatberu.ru",
+              value: "naprokatberu@yandex.ru",
+              href: "mailto:naprokatberu@yandex.ru",
             },
             {
               label: "Адрес Оператора",

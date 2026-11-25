@@ -34,7 +34,7 @@ import { FAQAccordion } from "@/components/FAQAccordion";
 import { ApiError } from "@/shared/api/client";
 import { submitFranchiseLead } from "@/shared/api/endpoints";
 
-const CONTACT_EMAIL = "info@naprokatberu.ru";
+const CONTACT_EMAIL = "naprokatberu@yandex.ru";
 
 // Цифры синхронизированы с моделью калькулятора (FranchiseCalculator.tsx):
 // стартовая конфигурация — 2 постамата (~1,33 млн ₽), паушальный взнос

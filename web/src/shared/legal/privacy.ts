@@ -324,7 +324,7 @@ export const privacyDoc: LegalDoc = {
         {
           kind: "list",
           items: [
-            "по адресу электронной почты: info@naprokatberu.ru",
+            "по адресу электронной почты: naprokatberu@yandex.ru",
             "через форму обратной связи на Сайте: https://naprokatberu.ru/",
           ],
         },
@@ -386,8 +386,8 @@ export const privacyDoc: LegalDoc = {
           items: [
             {
               label: "Электронная почта",
-              value: "info@naprokatberu.ru",
-              href: "mailto:info@naprokatberu.ru",
+              value: "naprokatberu@yandex.ru",
+              href: "mailto:naprokatberu@yandex.ru",
             },
             { label: "Форма обратной связи на Сайте", value: "https://naprokatberu.ru/" },
             {

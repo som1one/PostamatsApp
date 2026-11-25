@@ -2,7 +2,7 @@
 // Меняйте значения здесь — они подхватятся во всех местах.
 
 export const SUPPORT_CONTACTS = {
-  email: "info@naprokatberu.ru",
+  email: "naprokatberu@yandex.ru",
   // Укажите реальные хэндлы/номера. Пустые строки скрывают канал в виджете.
   telegram: "https://t.me/naprokatberu",
   whatsapp: "",

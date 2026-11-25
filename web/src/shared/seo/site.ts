@@ -18,7 +18,7 @@ export const SITE_CONFIG = {
   ogrnip: "318532100005699",
   url: SITE_URL,
   logoPath: "/naprokatberu-logo.png",
-  supportEmail: "info@naprokatberu.ru",
+  supportEmail: "naprokatberu@yandex.ru",
   description:
     "Naprokatberu — сервис аренды техники без залога, быстро и удобно: пылесосы, PS5, пароочистители и инструменты.",
   shortTagline:

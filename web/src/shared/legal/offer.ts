@@ -662,7 +662,7 @@ export const offerDoc: LegalDoc = {
             { label: "Расчётный счёт", value: "40802810900000441908 в АО «ТБанк»" },
             { label: "БИК", value: "044525974" },
             { label: "Корреспондентский счёт", value: "30101810145250000974" },
-            { label: "Электронная почта", value: "info@naprokatberu.ru", href: "mailto:info@naprokatberu.ru" },
+            { label: "Электронная почта", value: "naprokatberu@yandex.ru", href: "mailto:naprokatberu@yandex.ru" },
             { label: "Контактный телефон", value: "+8(911) 692-84-33" },
           ],
         },
