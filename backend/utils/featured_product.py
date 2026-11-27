@@ -16,6 +16,7 @@ from backend.models.featured_product_state import FeaturedProductState
 from backend.models.product import Product
 from backend.utils.product_filters import is_product_visible, load_product_filters_by_product_ids
 from backend.utils.products_utils import aggregate_available_globally
+from backend.utils.scheduler_loop import run_scheduler_loop
 
 logger = logging.getLogger(__name__)
 
@@ -212,12 +213,13 @@ def featured_product_scheduler_worker(
     loop: asyncio.AbstractEventLoop,
     stop_event: threading.Event,
 ) -> None:
-    try:
-        asyncio.run_coroutine_threadsafe(sync_featured_product_state(), loop).result()
-        while not stop_event.wait(seconds_until_next_featured_rotation() + 1):
-            asyncio.run_coroutine_threadsafe(sync_featured_product_state(), loop).result()
-    except Exception:
-        logger.exception("Featured product scheduler worker stopped unexpectedly")
+    run_scheduler_loop(
+        loop,
+        stop_event,
+        sync_featured_product_state,
+        lambda: seconds_until_next_featured_rotation() + 1,
+        name="Featured product",
+    )
 
 
 def start_featured_product_scheduler(

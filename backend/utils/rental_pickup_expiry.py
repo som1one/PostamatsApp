@@ -32,6 +32,7 @@ from backend.utils.rental_cancellation import (
     release_unit_kept_in_cell,
     reset_pin_after_pickup_cancel,
 )
+from backend.utils.scheduler_loop import run_scheduler_loop
 
 logger = logging.getLogger(__name__)
 
@@ -110,12 +111,13 @@ def rental_pickup_expiry_worker(
     loop: asyncio.AbstractEventLoop,
     stop_event: threading.Event,
 ) -> None:
-    try:
-        asyncio.run_coroutine_threadsafe(expire_stale_pickup_rentals(), loop).result()
-        while not stop_event.wait(RENTAL_PICKUP_EXPIRY_INTERVAL_SECONDS):
-            asyncio.run_coroutine_threadsafe(expire_stale_pickup_rentals(), loop).result()
-    except Exception:
-        logger.exception("Rental pickup expiry scheduler stopped unexpectedly")
+    run_scheduler_loop(
+        loop,
+        stop_event,
+        expire_stale_pickup_rentals,
+        RENTAL_PICKUP_EXPIRY_INTERVAL_SECONDS,
+        name="Rental pickup expiry",
+    )
 
 
 def start_rental_pickup_expiry_scheduler(

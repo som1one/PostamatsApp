@@ -31,6 +31,7 @@ from backend.utils.esi_client import (
 )
 from backend.utils.reservation_utils import ensure_utc
 from backend.utils.return_requests import complete_return_request, fail_return_request
+from backend.utils.scheduler_loop import run_scheduler_loop
 
 logger = logging.getLogger(__name__)
 
@@ -417,13 +418,13 @@ def esi_reconcile_worker(
     loop: asyncio.AbstractEventLoop,
     stop_event: threading.Event,
 ) -> None:
-    interval = max(10, int(settings.ESI_RECONCILE_INTERVAL_SECONDS))
-    try:
-        asyncio.run_coroutine_threadsafe(reconcile_esi_and_returns(), loop).result()
-        while not stop_event.wait(interval):
-            asyncio.run_coroutine_threadsafe(reconcile_esi_and_returns(), loop).result()
-    except Exception:
-        logger.exception("ESI reconcile scheduler stopped unexpectedly")
+    run_scheduler_loop(
+        loop,
+        stop_event,
+        reconcile_esi_and_returns,
+        max(10, int(settings.ESI_RECONCILE_INTERVAL_SECONDS)),
+        name="ESI reconcile",
+    )
 
 
 def start_esi_reconcile_scheduler(

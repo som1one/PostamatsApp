@@ -26,6 +26,7 @@ from backend.utils.payment_reconcile import (
 )
 from backend.utils.reservation_auto_confirm import auto_confirm_paid_reservations
 from backend.utils.reservation_handover import release_unit_from_reservation
+from backend.utils.scheduler_loop import run_scheduler_loop
 
 logger = logging.getLogger(__name__)
 
@@ -128,12 +129,13 @@ def reservation_expiry_worker(
     loop: asyncio.AbstractEventLoop,
     stop_event: threading.Event,
 ) -> None:
-    try:
-        asyncio.run_coroutine_threadsafe(_reservation_maintenance_tick(), loop).result()
-        while not stop_event.wait(RESERVATION_EXPIRY_INTERVAL_SECONDS):
-            asyncio.run_coroutine_threadsafe(_reservation_maintenance_tick(), loop).result()
-    except Exception:
-        logger.exception("Reservation expiry scheduler stopped unexpectedly")
+    run_scheduler_loop(
+        loop,
+        stop_event,
+        _reservation_maintenance_tick,
+        RESERVATION_EXPIRY_INTERVAL_SECONDS,
+        name="Reservation expiry",
+    )
 
 
 def start_reservation_expiry_scheduler(

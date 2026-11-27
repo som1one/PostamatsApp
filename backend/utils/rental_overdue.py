@@ -16,6 +16,7 @@ from backend.models.rental_event import RentalEvent
 from backend.models.user import User
 from backend.utils.admin_links import build_admin_rentals_url
 from backend.utils.admin_notifications import escape_html, notify_admins
+from backend.utils.scheduler_loop import run_scheduler_loop
 
 logger = logging.getLogger(__name__)
 
@@ -205,12 +206,13 @@ def rental_overdue_worker(
     loop: asyncio.AbstractEventLoop,
     stop_event: threading.Event,
 ) -> None:
-    try:
-        asyncio.run_coroutine_threadsafe(mark_overdue_rentals(), loop).result()
-        while not stop_event.wait(RENTAL_OVERDUE_INTERVAL_SECONDS):
-            asyncio.run_coroutine_threadsafe(mark_overdue_rentals(), loop).result()
-    except Exception:
-        logger.exception("Rental overdue scheduler stopped unexpectedly")
+    run_scheduler_loop(
+        loop,
+        stop_event,
+        mark_overdue_rentals,
+        RENTAL_OVERDUE_INTERVAL_SECONDS,
+        name="Rental overdue",
+    )
 
 
 def start_rental_overdue_scheduler(

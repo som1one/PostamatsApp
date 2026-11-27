@@ -28,6 +28,7 @@ from backend.models.rental_event import RentalEvent
 from backend.models.reservation import Reservation
 from backend.utils.inventory_tracking import add_inventory_movement
 from backend.utils.reservation_utils import calculate_planned_end_at
+from backend.utils.scheduler_loop import run_scheduler_loop
 
 logger = logging.getLogger(__name__)
 
@@ -157,14 +158,13 @@ def rental_auto_pickup_worker(
     loop: asyncio.AbstractEventLoop,
     stop_event: threading.Event,
 ) -> None:
-    try:
-        asyncio.run_coroutine_threadsafe(auto_confirm_opened_pickups(), loop).result()
-        while not stop_event.wait(RENTAL_AUTO_PICKUP_INTERVAL_SECONDS):
-            asyncio.run_coroutine_threadsafe(
-                auto_confirm_opened_pickups(), loop
-            ).result()
-    except Exception:
-        logger.exception("Rental auto-pickup scheduler stopped unexpectedly")
+    run_scheduler_loop(
+        loop,
+        stop_event,
+        auto_confirm_opened_pickups,
+        RENTAL_AUTO_PICKUP_INTERVAL_SECONDS,
+        name="Rental auto-pickup",
+    )
 
 
 def start_rental_auto_pickup_scheduler(
