@@ -965,7 +965,7 @@
           "name": "1 день",
           "durationType": "day",
           "durationValue": 1,
-          "baseAmount": "995.00",
+          "baseAmount": "1200.00",
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 0
@@ -974,7 +974,7 @@
           "name": "2 дня",
           "durationType": "day",
           "durationValue": 2,
-          "baseAmount": "1890.00",
+          "baseAmount": "2280.00",
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 1
@@ -983,7 +983,7 @@
           "name": "3 дня",
           "durationType": "day",
           "durationValue": 3,
-          "baseAmount": "2690.00",
+          "baseAmount": "3240.00",
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 2
@@ -992,7 +992,7 @@
           "name": "7 дней",
           "durationType": "day",
           "durationValue": 7,
-          "baseAmount": "5990.00",
+          "baseAmount": "7220.00",
           "currency": "RUB",
           "isActive": true,
           "sortOrder": 3
