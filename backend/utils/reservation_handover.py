@@ -85,7 +85,7 @@ def is_unit_on_hands(unit: InventoryUnit) -> bool:
 async def load_bookable_units(
     db: AsyncSession,
     *,
-    locker_id: UUID,
+    locker_id: UUID | None,
     product_id: UUID,
 ) -> list[InventoryUnit]:
     """Единицы товара, закреплённые за постаматом.
@@ -99,20 +99,20 @@ async def load_bookable_units(
         select(InventoryUnit)
         .join(LockerCell, InventoryUnit.locker_cell_id == LockerCell.id)
         .where(
-            LockerCell.locker_id == locker_id,
             InventoryUnit.product_id == product_id,
             InventoryUnit.status.in_(BOOKABLE_IN_CELL_STATUSES),
             LockerCell.status.not_in(LOCKER_CELL_STATUSES_BLOCKING_AVAILABILITY),
         )
         .order_by(InventoryUnit.created_at.asc())
     )
+    if locker_id is not None:
+        in_cell_stmt = in_cell_stmt.where(LockerCell.locker_id == locker_id)
     units = list((await db.scalars(in_cell_stmt)).all())
 
     on_hands_stmt = (
         select(InventoryUnit)
         .join(Rental, Rental.inventory_unit_id == InventoryUnit.id)
         .where(
-            Rental.pickup_locker_id == locker_id,
             Rental.status.in_(UNFINISHED_RENTAL_STATUSES),
             InventoryUnit.product_id == product_id,
             InventoryUnit.locker_cell_id.is_(None),
@@ -120,6 +120,8 @@ async def load_bookable_units(
         )
         .order_by(InventoryUnit.created_at.asc())
     )
+    if locker_id is not None:
+        on_hands_stmt = on_hands_stmt.where(Rental.pickup_locker_id == locker_id)
     seen = {unit.id for unit in units}
     for unit in (await db.scalars(on_hands_stmt)).all():
         if unit.id not in seen:

@@ -133,6 +133,24 @@ class ProductBusyDatesTests(unittest.IsolatedAsyncioTestCase):
             busy = await compute_busy_dates_for_product(db, ids["product_id"])
         self.assertEqual(busy, ["2026-06-01", "2026-06-02", "2026-06-03"])
 
+        async with self.SessionLocal() as db:
+            free_cell = LockerCell(
+                id=uuid4(), locker_id=ids["locker_id"], label="A2", external_cell_id="A2",
+                status=LockerCellStatus.OCCUPIED, supports_return=True,
+            )
+            free_unit = InventoryUnit(
+                id=uuid4(), product_id=ids["product_id"], locker_cell_id=free_cell.id,
+                status=InventoryStatus.AVAILABLE, serial_number="SN-2",
+            )
+            db.add_all([free_cell, free_unit])
+            await db.commit()
+
+            for locker_id in (None, ids["locker_id"]):
+                busy = await compute_busy_dates_for_product(
+                    db, ids["product_id"], locker_id=locker_id
+                )
+                self.assertEqual(busy, [])
+
     async def test_completed_rental_does_not_block(self) -> None:
         ids = await self._seed()
         start = datetime(2026, 6, 1, 10, 0, tzinfo=MSK)
